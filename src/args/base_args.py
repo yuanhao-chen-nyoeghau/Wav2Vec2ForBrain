@@ -9,3 +9,4 @@ class BaseArgsModel(BaseModel):
     loss_function: str = "mse"
     experiment_name: str = "experiment_1"
     experiment_type: str = Field("wav2vec")
+    log_every_n_batches: int = 1000
