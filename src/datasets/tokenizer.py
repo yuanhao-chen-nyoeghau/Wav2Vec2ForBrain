@@ -2,24 +2,39 @@ from tokenizers.trainers import BpeTrainer
 from tokenizers.models import BPE
 import os
 from tokenizers import Tokenizer
-import json
 from tokenizers.pre_tokenizers import Whitespace
 from pathlib import Path
 
 
-def getTokenizer(
-    trainFile: str = "/hpi/fs00/scratch/leon.hermann/b2t/allSentences.txt",
-    outputFolder: str = "/hpi/fs00/scratch/leon.hermann/b2t/tokenizer",
+def get_tokenizer(
+    train_file: str = "/hpi/fs00/scratch/leon.hermann/b2t/allSentences.txt",
+    output_folder: str = "/hpi/fs00/scratch/leon.hermann/b2t/tokenizer",
     retrain: bool = False,
     **train_args,
 ) -> Tokenizer:
+    """Loads tokenizer from file if they are present or trains tokenizer and
+        writes the vocabulary and merges to file.
+
+    Args:
+        train_file (str, optional): Path to all sentences in a txt file.
+            Can be generated with scripts/writeAllSentencesToFile.py.
+            Defaults to "/hpi/fs00/scratch/leon.hermann/b2t/allSentences.txt".
+        output_folder (str, optional): Folder to write vocabulary and merges file to.
+            Defaults to "/hpi/fs00/scratch/leon.hermann/b2t/tokenizer".
+        retrain (bool, optional): Forces retraining. Defaults to False.
+        train_args: Keyword args that set the train options for tokenizer training.
+            See https://huggingface.co/docs/tokenizers/api/trainers#tokenizers.trainers.BpeTrainer
+
+    Returns:
+        Tokenizer: Return trained tokenizer with BPE model
+    """
     tokenizer_prefix = "b2t_tokenizer"
-    if os.path.exists(outputFolder) and not retrain:
-        vocabPath = Path(outputFolder) / f"{tokenizer_prefix}-vocab.json"
-        mergesPath = Path(outputFolder) / f"{tokenizer_prefix}-merges.txt"
+    if os.path.exists(output_folder) and not retrain:
+        vocab_path = Path(output_folder) / f"{tokenizer_prefix}-vocab.json"
+        merges_path = Path(output_folder) / f"{tokenizer_prefix}-merges.txt"
 
         tokenizer = Tokenizer(
-            BPE.from_file(vocab=str(vocabPath), merges=str(mergesPath))
+            BPE.from_file(vocab=str(vocab_path), merges=str(merges_path))
         )
         tokenizer.pre_tokenizer = Whitespace()
 
@@ -31,18 +46,17 @@ def getTokenizer(
         print(f"Started training tokenizer with train args: {train_args}")
         trainer = BpeTrainer(
             special_tokens=["<pad>", "<s>", "</s>", "<unk>"],
-            max_token_length=1,
-            limit_alphabet=256,
+            **train_args,
         )
 
-        tokenizer.train(files=[trainFile], trainer=trainer)
+        tokenizer.train(files=[train_file], trainer=trainer)
 
         print("Finished training tokenizer")
 
-        if not os.path.exists(outputFolder):
-            os.makedirs(outputFolder)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
-        output_files = tokenizer.model.save(outputFolder, f"{tokenizer_prefix}")
+        output_files = tokenizer.model.save(output_folder, f"{tokenizer_prefix}")
 
         print(f"Wrote tokenizer to {output_files}")
 

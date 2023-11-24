@@ -3,14 +3,6 @@ from torch.utils.data import Dataset
 import os
 from scipy.io import loadmat
 from pathlib import Path
-from tqdm import tqdm
-import numpy as np
-import torch
-from transformers import Wav2Vec2CTCTokenizer, AutoTokenizer
-from tokenizers import Tokenizer
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
-from tokenizers.pre_tokenizers import Whitespace
 
 import tokenizer
 
@@ -18,22 +10,22 @@ import tokenizer
 class Brain2TextDataset(Dataset):
     def __init__(
         self,
-        dsFolderPath: str = "/hpi/fs00/scratch/florian.mueller/data/competitionData/train",
+        ds_folder_path: str = "/hpi/fs00/scratch/florian.mueller/data/competitionData/train",
     ) -> None:
         super().__init__()
 
-        if not os.path.exists(dsFolderPath):
-            raise Exception(f"{dsFolderPath} does not exist.")
+        if not os.path.exists(ds_folder_path):
+            raise Exception(f"{ds_folder_path} does not exist.")
 
-        dataFiles = [
-            loadmat(Path(dsFolderPath) / fileName)
-            for fileName in os.listdir(dsFolderPath)
+        data_files = [
+            loadmat(Path(ds_folder_path) / fileName)
+            for fileName in os.listdir(ds_folder_path)
         ]
 
         self.tokenizer = tokenizer.getTokenizer()
 
-        self.encodedSentences = []
-        self.brainDataSamples: list[torch.Tensor] = []
+        self.encoded_sentences = []
+        self.brain_data_samples: list[torch.Tensor] = []
 
         for dataFile in dataFiles:
             n_trials = dataFile['sentenceText'].shape[0]
@@ -76,13 +68,13 @@ class Brain2TextDataset(Dataset):
             for sentence in transcriptions:
                 self.encodedSentences.append(self.tokenizer.encode(sentence))
 
-        assert len(self.encodedSentences) == len(self.brainDataSamples)
+        assert len(self.encoded_sentences) == len(self.brain_data_samples)
 
     def __len__(self):
-        return len(self.encodedSentences)
+        return len(self.encoded_sentences)
 
     def __getitem__(self, index) -> Any:
-        return self.brainDataSamples[index], self.encodedSentences[index]
+        return self.brain_data_samples[index], self.encodedSentences[index]
 
     def getTokenizer(self):
         return self.tokenizer
