@@ -10,7 +10,7 @@ class Wav2VecArgsModel(BaseArgsModel):
 
 class Wav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        super.__init__(config, yamlConfig)
+        super().__init__(config, yamlConfig)
         self.config = Wav2VecArgsModel(**config)
 
     def get_name(self) -> str:

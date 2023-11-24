@@ -4,6 +4,7 @@ import torch
 from typing import Literal
 from src.train.history import SingleEpochHistory, MetricEntry, TrainHistory, EpochLosses
 import os
+import wandb
 
 Optimizers = {
     "sgd": torch.optim.SGD,
@@ -130,10 +131,17 @@ class Trainer:
                     best_model_val_loss = curr_epoch_val_loss
                     torch.save(self.model.state_dict(), best_model_path)
 
-        test_losses = self._evaluate_epoch(self.dataloader_test)
-        print(f"\nTest WER: {test_losses.get_average().word_error_rate}")
+            wandb.log(
+                {
+                    "train_WER": train_losses.get_average().word_error_rate,
+                    "val_WER": val_losses.get_average().word_error_rate,
+                }
+            )
+
         if self.config.return_best_model:
             self.model.load_state_dict(torch.load(best_model_path))
             os.remove(best_model_path)
             print("Loaded model with best validation loss of this experiment from disk")
+        test_losses = self._evaluate_epoch(self.dataloader_test)
+        print(f"\nTest WER: {test_losses.get_average().word_error_rate}")
         return self.model, TrainHistory(history, test_losses)
