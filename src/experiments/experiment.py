@@ -20,6 +20,7 @@ class Experiment(ABC):
         from src.train.train_loop import Trainer
 
         if self.config.use_wandb:
+            print("uses wandb")
             wandb.login(key=self.yaml_config.wandb_api_key, relogin=True)
 
         trainer = Trainer(self)

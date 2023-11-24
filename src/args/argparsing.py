@@ -14,16 +14,26 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
     fields = model.__fields__
 
     for name, field in fields.items():
-        is_literal = getattr(field.annotation, "__origin__", None) is Literal
-        choices = field.annotation.__args__ if is_literal else None
+
+        def get_type_args():
+            is_literal = getattr(field.annotation, "__origin__", None) is Literal
+            is_bool = getattr(field.type_, "__name__", None) == "bool"
+            if is_literal:
+                return {"type": str, "choices": field.annotation.__args__}
+            if is_bool:
+                if field.default == True:
+                    raise Exception(
+                        "Boolean fields must have a default of False, otherwise they can only be True"
+                    )
+                return {"action": "store_true"}
+            return {"type": field.type_}
 
         parser.add_argument(
             f"--{name}",
             dest=name,
-            type=str if is_literal else field.type_,
             default=field.default,
-            choices=choices,
             help=field.field_info.description,
+            **get_type_args(),
         )
     return parser
 
