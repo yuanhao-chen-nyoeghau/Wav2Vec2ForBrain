@@ -10,3 +10,7 @@ class BaseArgsModel(BaseModel):
     loss_function: str = "mse"
     experiment_name: str = "experiment_1"
     experiment_type: str = Field("wav2vec")
+    log_every_n_batches: int = 1000
+    scheduler: Literal["step"] = "step"
+    scheduler_step_size: int = 10
+    scheduler_gamma: float = 0.1
