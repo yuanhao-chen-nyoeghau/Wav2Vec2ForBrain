@@ -1,8 +1,11 @@
-from typing import Any
+from typing import Any, Literal
 from torch.utils.data import Dataset
 import os
 from scipy.io import loadmat
 from pathlib import Path
+import torch
+
+from src.args.yaml_config import YamlConfigModel
 
 from .tokenizer import get_tokenizer
 
@@ -10,19 +13,28 @@ from .tokenizer import get_tokenizer
 class Brain2TextDataset(Dataset):
     def __init__(
         self,
-        ds_folder_path: str = "/hpi/fs00/scratch/florian.mueller/data/competitionData/train",
+        config: YamlConfigModel,
+        split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
 
-        if not os.path.exists(ds_folder_path):
-            raise Exception(f"{ds_folder_path} does not exist.")
+        if not os.path.exists(Path(config.dataset_splits_dir) / str(split)):
+            raise Exception(
+                f"{Path(config.dataset_splits_dir) / str(split)} does not exist."
+            )
 
         data_files = [
-            loadmat(Path(ds_folder_path) / fileName)
-            for fileName in os.listdir(ds_folder_path)
+            loadmat(Path(config.dataset_splits_dir) / split / fileName)
+            for fileName in os.listdir(Path(config.dataset_splits_dir) / str(split))
         ]
 
-        self.tokenizer = get_tokenizer()
+        self.tokenizer = get_tokenizer(
+            train_file=config.dataset_all_sentences_path,
+            dataset_splits_dir=config.dataset_splits_dir,
+            tokenizer_config_dir=config.tokenizer_config_dir,
+            max_token_length=1,
+            vocab_size=256,
+        )
 
         self.encoded_sentences = []
         self.brain_data_samples: list[torch.Tensor] = []

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractclassmethod
 from torch.utils.data import Dataset
-from argparse import ArgumentParser
 from pydantic import BaseModel
+from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel
@@ -28,8 +28,8 @@ class Experiment(ABC):
     def get_collate_fn(self):
         return default_collate
 
-    def get_dataset(self, split=Literal["train", "val", "test"]) -> Dataset:
-        pass
+    def get_dataset(self, split: Literal["train", "val", "test"] = "train") -> Dataset:
+        return Brain2TextDataset(config=self.yaml_config, split=split)
 
     def get_model(self) -> B2TModel:
         pass

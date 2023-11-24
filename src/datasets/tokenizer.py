@@ -4,11 +4,45 @@ import os
 from tokenizers import Tokenizer
 from tokenizers.pre_tokenizers import Whitespace
 from pathlib import Path
+import numpy as np
+from scipy.io import loadmat
+
+
+def write_all_sentences_to_file(
+    data_dir: str,
+    output_file: str,
+    suffixes: list[str] = ["train", "test"],
+):
+    all_sentences = np.array([])
+
+    for suffix in suffixes:
+        subfolder_path = Path(data_dir) / suffix
+
+        data_files = [
+            loadmat(Path(subfolder_path) / file_name)
+            for file_name in os.listdir(subfolder_path)
+        ]
+
+        for data_file in data_files:
+            fileSentences = data_file["sentenceText"]
+
+            all_sentences = np.concatenate([all_sentences, fileSentences])
+
+    parent_folder = os.path.dirname(output_file)
+    if not os.path.exists(parent_folder):
+        os.makedirs(parent_folder)
+
+    with open(output_file, "w") as f:
+        for sentence in all_sentences:
+            f.write(sentence)
+
+    print(f"Wrote {len(all_sentences)} sentences to {output_file}")
 
 
 def get_tokenizer(
-    train_file: str = "/hpi/fs00/scratch/leon.hermann/b2t/allSentences.txt",
-    output_folder: str = "/hpi/fs00/scratch/leon.hermann/b2t/tokenizer",
+    train_file: str,
+    dataset_splits_dir: str,
+    tokenizer_config_dir: str,
     retrain: bool = False,
     **train_args,
 ) -> Tokenizer:
@@ -29,9 +63,9 @@ def get_tokenizer(
         Tokenizer: Return trained tokenizer with BPE model
     """
     tokenizer_prefix = "b2t_tokenizer"
-    if os.path.exists(output_folder) and not retrain:
-        vocab_path = Path(output_folder) / f"{tokenizer_prefix}-vocab.json"
-        merges_path = Path(output_folder) / f"{tokenizer_prefix}-merges.txt"
+    if os.path.exists(tokenizer_config_dir) and not retrain:
+        vocab_path = Path(tokenizer_config_dir) / f"{tokenizer_prefix}-vocab.json"
+        merges_path = Path(tokenizer_config_dir) / f"{tokenizer_prefix}-merges.txt"
 
         tokenizer = Tokenizer(
             BPE.from_file(vocab=str(vocab_path), merges=str(merges_path))
@@ -43,6 +77,12 @@ def get_tokenizer(
         tokenizer = Tokenizer(BPE())
         tokenizer.pre_tokenizer = Whitespace()
 
+        if not os.path.exists(train_file):
+            # Writes all sentences to file if it does not exist
+            write_all_sentences_to_file(
+                data_dir=dataset_splits_dir, output_file=train_file
+            )
+
         print(f"Started training tokenizer with train args: {train_args}")
         trainer = BpeTrainer(
             special_tokens=["<pad>", "<s>", "</s>", "<unk>"],
@@ -53,10 +93,10 @@ def get_tokenizer(
 
         print("Finished training tokenizer")
 
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
+        if not os.path.exists(tokenizer_config_dir):
+            os.makedirs(tokenizer_config_dir)
 
-        output_files = tokenizer.model.save(output_folder, f"{tokenizer_prefix}")
+        output_files = tokenizer.model.save(tokenizer_config_dir, f"{tokenizer_prefix}")
 
         print(f"Wrote tokenizer to {output_files}")
 
