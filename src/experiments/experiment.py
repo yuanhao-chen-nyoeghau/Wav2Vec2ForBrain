@@ -7,15 +7,19 @@ from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel
 from typing import Literal
 from torch.nn.modules.loss import _Loss
+from src.args.yaml_config import YamlConfigModel
 
 
 class Experiment(ABC):
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = BaseArgsModel(**config)
+        self.yaml_config = yamlConfig
 
-    @abstractmethod
     def run(self):
-        pass
+        from src.train.train_loop import Trainer
+
+        trainer = Trainer(self)
+        trained_model, history = trainer.train()
 
     @abstractmethod
     def get_name(self) -> str:

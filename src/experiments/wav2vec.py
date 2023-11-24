@@ -1,6 +1,7 @@
 from src.experiments.experiment import Experiment
 from argparse import ArgumentParser
 from src.args.base_args import BaseArgsModel
+from src.args.yaml_config import YamlConfigModel
 
 
 class Wav2VecArgsModel(BaseArgsModel):
@@ -8,11 +9,9 @@ class Wav2VecArgsModel(BaseArgsModel):
 
 
 class Wav2VecExperiment(Experiment):
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, yamlConfig: YamlConfigModel):
+        super.__init__(config, yamlConfig)
         self.config = Wav2VecArgsModel(**config)
-
-    def run(self):
-        print(self.config)
 
     def get_name(self) -> str:
         return "wav2vec"
