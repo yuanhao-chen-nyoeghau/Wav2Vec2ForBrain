@@ -12,7 +12,6 @@ from torch.nn.modules.loss import _Loss
 class Experiment(ABC):
     def __init__(self, config: dict):
         self.config = BaseArgsModel(**config)
-        pass
 
     @abstractmethod
     def run(self):
