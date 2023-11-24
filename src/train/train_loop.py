@@ -9,6 +9,8 @@ Optimizers = {
     "adam": torch.optim.Adam,
 }
 
+Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
+
 
 class Trainer:
     def __init__(self, experiment: Experiment):
@@ -28,8 +30,15 @@ class Trainer:
         self.optimizer = Optimizers[self.config.optimizer](
             self.model.parameters(), lr=self.config
         )
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=10, gamma=0.1
+        if self.config.scheduler not in Schedulers:
+            raise ValueError(
+                f"Scheduler {self.config.scheduler} not implemented. "
+                f"Choose from {Schedulers.keys()} or implement your own."
+            )
+        self.scheduler = Schedulers[self.config.scheduler](
+            self.optimizer,
+            step_size=self.config.scheduler,
+            gamma=self.config.scheduler_gamma,
         )
         self.loss_fn = experiment.get_loss_function()
 
