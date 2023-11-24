@@ -114,4 +114,4 @@ class Trainer:
 
         test_losses = self._evaluate_epoch(self.dataloader_test)
         print(f"\nTest WER: {test_losses.get_average().word_error_rate}")
-        return TrainHistory(history, test_losses)
+        return self.model, TrainHistory(history, test_losses)
