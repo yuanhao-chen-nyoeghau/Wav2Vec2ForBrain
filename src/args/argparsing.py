@@ -4,6 +4,7 @@ from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseArgsModel
 from typing import Literal
+from src.args.yaml_config import YamlConfig
 
 experiments: dict[str, Experiment] = {"wav2vec": Wav2VecExperiment}
 
@@ -29,11 +30,9 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
 
 def _create_arg_parser():
     base_parser = argparse.ArgumentParser()
-    print("Create base parser")
     base_parser = _parser_from_model(base_parser, BaseArgsModel)
     base_args, _ = base_parser.parse_known_args()
 
-    print("\nCreate experiment parser")
     experiment_model = experiments[base_args.experiment_type].get_args_model()
     parser = argparse.ArgumentParser(
         description="Machine Learning Experiment Configuration"
@@ -45,6 +44,7 @@ def _create_arg_parser():
 def get_experiment_from_args() -> Experiment:
     arg_parser = _create_arg_parser()
     args = arg_parser.parse_args()
+    yaml_config = YamlConfig()
 
-    experiment = experiments[args.experiment_type](vars(args))
+    experiment = experiments[args.experiment_type](vars(args), yaml_config.config)
     return experiment

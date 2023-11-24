@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 import torch
 from typing import Literal
 from src.train.history import SingleEpochHistory, MetricEntry, TrainHistory, EpochLosses
+import os
 
 Optimizers = {
     "sgd": torch.optim.SGD,
@@ -17,6 +18,7 @@ class Trainer:
         self.experiment = experiment
         self.dataset = experiment.get_dataset()
         self.config = experiment.config
+        self.yaml_config = experiment.yaml_config
         self.dataloader_train = self._get_dataloader(split="train")
         self.dataloader_val = self._get_dataloader(split="val")
         self.dataloader_test = self._get_dataloader(split="test")
@@ -106,6 +108,8 @@ class Trainer:
 
     def train(self):
         history: list[SingleEpochHistory] = []
+        best_model_val_loss = float("inf")
+        best_model_path = os.path.join(self.yaml_config.cache_dir, "best_model.pt")
 
         for epoch in range(self.config.epochs):
             print(f"\nEpoch {epoch + 1}/{self.config.epochs}")
@@ -120,7 +124,16 @@ class Trainer:
                 f"val WER: {val_losses.get_average().word_error_rate}"
             )
             history.append(EpochLosses(train_losses, val_losses))
+            if self.config.return_best_model:
+                curr_epoch_val_loss = val_losses.get_average().word_error_rate
+                if curr_epoch_val_loss < best_model_val_loss:
+                    best_model_val_loss = curr_epoch_val_loss
+                    torch.save(self.model.state_dict(), best_model_path)
 
         test_losses = self._evaluate_epoch(self.dataloader_test)
         print(f"\nTest WER: {test_losses.get_average().word_error_rate}")
+        if self.config.return_best_model:
+            self.model.load_state_dict(torch.load(best_model_path))
+            os.remove(best_model_path)
+            print("Loaded model with best validation loss of this experiment from disk")
         return self.model, TrainHistory(history, test_losses)
