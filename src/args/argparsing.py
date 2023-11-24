@@ -3,6 +3,8 @@ from src.experiments.wav2vec import Wav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseArgsModel
+from typing import Literal
+from src.args.yaml_config import YamlConfig
 
 experiments: dict[str, Experiment] = {"wav2vec": Wav2VecExperiment}
 
@@ -10,12 +12,17 @@ experiments: dict[str, Experiment] = {"wav2vec": Wav2VecExperiment}
 def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
     "Add Pydantic model to an ArgumentParser"
     fields = model.__fields__
+
     for name, field in fields.items():
+        is_literal = getattr(field.annotation, "__origin__", None) is Literal
+        choices = field.annotation.__args__ if is_literal else None
+
         parser.add_argument(
             f"--{name}",
             dest=name,
-            type=field.type_,
+            type=str if is_literal else field.type_,
             default=field.default,
+            choices=choices,
             help=field.field_info.description,
         )
     return parser
@@ -37,6 +44,7 @@ def _create_arg_parser():
 def get_experiment_from_args() -> Experiment:
     arg_parser = _create_arg_parser()
     args = arg_parser.parse_args()
+    yaml_config = YamlConfig()
 
-    experiment = experiments[args.experiment_type](vars(args))
+    experiment = experiments[args.experiment_type](vars(args), yaml_config.config)
     return experiment
