@@ -32,6 +32,7 @@ class Experiment(ABC):
             save_code=True,
             mode="online" if self.config.use_wandb else "disabled",
         ):
+            wandb.watch(trainer.model)
             trained_model, history = trainer.train()
 
     @abstractmethod
