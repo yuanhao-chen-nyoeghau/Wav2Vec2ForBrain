@@ -12,7 +12,6 @@ class YamlConfigModel(BaseModel):
     dataset_splits_dir: str = Field(
         description="Directory containing the original train and test split folder"
     )
-    dataset_all_sentences_path: str = Field(description="File containing all sequences")
     wandb_api_key: str = Field(
         description="Your Weights and Biases API key. You can find it in your W&B account settings."
     )

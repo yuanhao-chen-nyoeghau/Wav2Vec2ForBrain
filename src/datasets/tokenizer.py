@@ -40,9 +40,8 @@ def write_all_sentences_to_file(
 
 
 def get_tokenizer(
-    train_file: str,
     dataset_splits_dir: str,
-    tokenizer_config_dir: str,
+    cache_dir: str,
     retrain: bool = False,
     **train_args,
 ) -> Tokenizer:
@@ -62,11 +61,12 @@ def get_tokenizer(
     Returns:
         Tokenizer: Return trained tokenizer with BPE model
     """
+    train_file = Path(cache_dir) / "all_sentences.txt"
     tokenizer_prefix = "b2t_tokenizer"
-    if os.path.exists(tokenizer_config_dir) and not retrain:
-        vocab_path = Path(tokenizer_config_dir) / f"{tokenizer_prefix}-vocab.json"
-        merges_path = Path(tokenizer_config_dir) / f"{tokenizer_prefix}-merges.txt"
+    vocab_path = Path(cache_dir) / f"{tokenizer_prefix}-vocab.json"
+    merges_path = Path(cache_dir) / f"{tokenizer_prefix}-merges.txt"
 
+    if os.path.exists(vocab_path) and os.path.exists(merges_path) and not retrain:
         tokenizer = Tokenizer(
             BPE.from_file(vocab=str(vocab_path), merges=str(merges_path))
         )
@@ -89,14 +89,11 @@ def get_tokenizer(
             **train_args,
         )
 
-        tokenizer.train(files=[train_file], trainer=trainer)
+        tokenizer.train(files=[str(train_file)], trainer=trainer)
 
         print("Finished training tokenizer")
 
-        if not os.path.exists(tokenizer_config_dir):
-            os.makedirs(tokenizer_config_dir)
-
-        output_files = tokenizer.model.save(tokenizer_config_dir, f"{tokenizer_prefix}")
+        output_files = tokenizer.model.save(cache_dir, f"{tokenizer_prefix}")
 
         print(f"Wrote tokenizer to {output_files}")
 
