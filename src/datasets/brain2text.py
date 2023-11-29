@@ -47,7 +47,6 @@ class Brain2TextDataset(Dataset):
             n_trials = dataFile["sentenceText"].shape[0]
             input_features = []
             transcriptions = []
-            frame_lens = []
 
             # collect area 6v tx1 and spikePow features
             for i in range(n_trials):
@@ -60,13 +59,10 @@ class Brain2TextDataset(Dataset):
                     ],
                     axis=1,
                 )
-
-                sentence_len = features.shape[0]
                 sentence = dataFile["sentenceText"][i].strip()
 
                 input_features.append(features)
                 transcriptions.append(sentence)
-                frame_lens.append(sentence_len)
 
             # block-wise feature normalization
             blockNums = np.squeeze(dataFile["blockIdx"])
@@ -94,11 +90,12 @@ class Brain2TextDataset(Dataset):
                         input_features[i] = (input_features[i] - feats_mean) / (
                             feats_std + 1e-8
                         )
-
-            for dataSample in input_features:
-                self.brain_data_samples.append(torch.from_numpy(dataSample))
-            for sentence in transcriptions:
-                self.encoded_sentences.append(self.tokenizer.encode(sentence))
+                        self.brain_data_samples.append(
+                            torch.from_numpy(input_features[i])
+                        )
+                        self.encoded_sentences.append(
+                            self.tokenizer.encode(transcriptions[i])
+                        )
 
         assert len(self.encoded_sentences) == len(
             self.brain_data_samples
