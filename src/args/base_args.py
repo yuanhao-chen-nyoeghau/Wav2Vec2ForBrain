@@ -16,6 +16,12 @@ class BaseArgsModel(BaseModel):
     scheduler_gamma: float = 0.1
     return_best_model: bool = True
     preprocessing: Literal[
-        "per_feature_normal_dist", "none"
-    ] = "per_feature_normal_dist"
+        "competition_recommended",
+        "seperate_zscoring",
+        "only_tx_unnormalized",
+        "only_tx_zscored",
+        "only_spikepow_unnormalized",
+        "only_spikepow_zscored",
+    ] = "seperate_zscoring"
+
     use_wandb: bool = False
