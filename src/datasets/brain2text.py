@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 import numpy as np
 from src.args.yaml_config import YamlConfigModel
-from src.args.base_args import BaseArgsModel
+from src.args.base_args import B2TDatasetArgsModel
 from src.datasets.tokenizer import get_tokenizer
 from src.datasets.preprocessing import (
     preprocess_competition_recommended,
@@ -32,7 +32,7 @@ PreprocessingFunctions: dict[
 class Brain2TextDataset(Dataset):
     def __init__(
         self,
-        config: BaseArgsModel,
+        config: B2TDatasetArgsModel,
         yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:

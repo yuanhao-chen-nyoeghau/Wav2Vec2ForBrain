@@ -2,7 +2,7 @@ import argparse
 from src.experiments.wav2vec import Wav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
-from src.args.base_args import BaseArgsModel
+from src.args.base_args import BaseExperimentArgsModel
 from typing import Literal
 from src.args.yaml_config import YamlConfig
 
@@ -47,7 +47,7 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
 
 def _create_arg_parser():
     base_parser = argparse.ArgumentParser()
-    base_parser = _parser_from_model(base_parser, BaseArgsModel)
+    base_parser = _parser_from_model(base_parser, BaseExperimentArgsModel)
     base_args, _ = base_parser.parse_known_args()
 
     experiment_model = experiments[base_args.experiment_type].get_args_model()
