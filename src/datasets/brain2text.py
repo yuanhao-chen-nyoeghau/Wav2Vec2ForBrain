@@ -6,37 +6,40 @@ from pathlib import Path
 import torch
 import numpy as np
 from src.args.yaml_config import YamlConfigModel
-
+from src.args.base_args import BaseArgsModel
 from src.datasets.tokenizer import get_tokenizer
 
 
 class Brain2TextDataset(Dataset):
     def __init__(
         self,
-        config: YamlConfigModel,
+        config: BaseArgsModel,
+        yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
 
-        if not os.path.exists(Path(config.dataset_splits_dir) / str(split)):
+        if not os.path.exists(Path(yaml_config.dataset_splits_dir) / str(split)):
             raise Exception(
-                f"{Path(config.dataset_splits_dir) / str(split)} does not exist."
+                f"{Path(yaml_config.dataset_splits_dir) / str(split)} does not exist."
             )
 
         data_files = [
-            loadmat(Path(config.dataset_splits_dir) / split / fileName)
-            for fileName in os.listdir(Path(config.dataset_splits_dir) / str(split))
+            loadmat(Path(yaml_config.dataset_splits_dir) / split / fileName)
+            for fileName in os.listdir(
+                Path(yaml_config.dataset_splits_dir) / str(split)
+            )
         ]
 
         self.tokenizer = get_tokenizer(
-            train_file=config.dataset_all_sentences_path,
-            dataset_splits_dir=config.dataset_splits_dir,
-            tokenizer_config_dir=config.tokenizer_config_dir,
+            train_file=yaml_config.dataset_all_sentences_path,
+            dataset_splits_dir=yaml_config.dataset_splits_dir,
+            tokenizer_config_dir=yaml_config.tokenizer_config_dir,
             max_token_length=1,
             vocab_size=256,
         )
 
-        self.encoded_sentences = []
+        self.encoded_sentences: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
 
         for dataFile in data_files:
@@ -73,23 +76,26 @@ class Brain2TextDataset(Dataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            for b in range(len(blocks)):
-                feats = np.concatenate(
-                    input_features[blocks[b][0] : (blocks[b][-1] + 1)], axis=0
-                )
-                feats_mean = np.mean(feats, axis=0, keepdims=True)
-                feats_std = np.std(feats, axis=0, keepdims=True)
-                for i in blocks[b]:
-                    input_features[i] = (input_features[i] - feats_mean) / (
-                        feats_std + 1e-8
+            if config.preprocessing == "per_feature_normal_dist":
+                for b in range(len(blocks)):
+                    feats = np.concatenate(
+                        input_features[blocks[b][0] : (blocks[b][-1] + 1)], axis=0
                     )
+                    feats_mean = np.mean(feats, axis=0, keepdims=True)
+                    feats_std = np.std(feats, axis=0, keepdims=True)
+                    for i in blocks[b]:
+                        input_features[i] = (input_features[i] - feats_mean) / (
+                            feats_std + 1e-8
+                        )
 
             for dataSample in input_features:
                 self.brain_data_samples.append(torch.from_numpy(dataSample))
             for sentence in transcriptions:
                 self.encoded_sentences.append(self.tokenizer.encode(sentence))
 
-        assert len(self.encoded_sentences) == len(self.brain_data_samples)
+        assert len(self.encoded_sentences) == len(
+            self.brain_data_samples
+        ), "Length of labels and data samples must be equal."
 
     def __len__(self):
         return len(self.encoded_sentences)

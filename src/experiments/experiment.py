@@ -29,7 +29,9 @@ class Experiment(ABC):
         return default_collate
 
     def get_dataset(self, split: Literal["train", "val", "test"] = "train") -> Dataset:
-        return Brain2TextDataset(config=self.yaml_config, split=split)
+        return Brain2TextDataset(
+            config=self.config, yaml_config=self.yaml_config, split=split
+        )
 
     def get_model(self) -> B2TModel:
         pass

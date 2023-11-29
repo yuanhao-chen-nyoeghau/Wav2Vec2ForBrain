@@ -15,3 +15,6 @@ class BaseArgsModel(BaseModel):
     scheduler_step_size: int = 10
     scheduler_gamma: float = 0.1
     return_best_model: bool = False
+    preprocessing: Literal[
+        "per_feature_normal_dist", "none"
+    ] = "per_feature_normal_dist"
