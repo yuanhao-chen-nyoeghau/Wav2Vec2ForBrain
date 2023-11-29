@@ -48,7 +48,6 @@ def _fn_preprocess_single_feature(
         n_trials = data_file["sentenceText"].shape[0]
         features = []
         transcriptions = []
-        # collect area 6v tx1 and spikePow features
         for i in range(n_trials):
             trial_features = data_file[feature][0, i][:, 0:128]
             sentence = data_file["sentenceText"][i].strip()
@@ -56,7 +55,7 @@ def _fn_preprocess_single_feature(
             transcriptions.append(sentence)
         if apply_zscore:
             for block_index_range in block_index_ranges:
-                # z-score tx features
+                # z-score features
                 block_features = np.concatenate(
                     features[block_index_range[0] : (block_index_range[-1] + 1)],
                     axis=0,
