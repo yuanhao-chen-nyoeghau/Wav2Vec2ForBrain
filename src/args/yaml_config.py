@@ -20,7 +20,7 @@ class YamlConfigModel(BaseModel):
         default="brain2text", description="Your W&B project name."
     )
     wandb_entity: str = Field(
-        default="tfiedlerdev", description="Your W&B entity name."
+        default="machine-learning-hpi", description="Your W&B entity name."
     )
 
 
