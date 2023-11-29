@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, Callable
 from torch.utils.data import Dataset
 import os
 from scipy.io import loadmat
@@ -8,6 +8,25 @@ import numpy as np
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import BaseArgsModel
 from src.datasets.tokenizer import get_tokenizer
+from src.datasets.preprocessing import (
+    preprocess_competition_recommended,
+    preprocess_seperate_zscoring,
+    preprocess_only_spikepow_unnormalized,
+    preprocess_only_spikepow_zscored,
+    preprocess_only_tx_unnormalized,
+    preprocess_only_tx_zscored,
+)
+
+PreprocessingFunctions: dict[
+    str, Callable[[dict, list[np.ndarray[np.int32]]], tuple[list, list[str]]]
+] = {
+    "competition_recommended": preprocess_competition_recommended,
+    "seperate_zscoring": preprocess_seperate_zscoring,
+    "only_tx_unnormalized": preprocess_only_tx_unnormalized,
+    "only_tx_zscored": preprocess_only_tx_zscored,
+    "only_spikepow_unnormalized": preprocess_only_spikepow_unnormalized,
+    "only_spikepow_zscored": preprocess_only_spikepow_zscored,
+}
 
 
 class Brain2TextDataset(Dataset):
@@ -19,16 +38,12 @@ class Brain2TextDataset(Dataset):
     ) -> None:
         super().__init__()
 
-        if not os.path.exists(Path(yaml_config.dataset_splits_dir) / str(split)):
-            raise Exception(
-                f"{Path(yaml_config.dataset_splits_dir) / str(split)} does not exist."
-            )
+        split_dir = Path(yaml_config.dataset_splits_dir) / str(split)
+        if not os.path.exists(split_dir):
+            raise Exception(f"{split_dir} does not exist.")
 
         data_files = [
-            loadmat(Path(yaml_config.dataset_splits_dir) / split / fileName)
-            for fileName in os.listdir(
-                Path(yaml_config.dataset_splits_dir) / str(split)
-            )
+            loadmat(split_dir / fileName) for fileName in os.listdir(split_dir)
         ]
 
         self.tokenizer = get_tokenizer(
@@ -40,52 +55,17 @@ class Brain2TextDataset(Dataset):
 
         self.encoded_sentences: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
-
-        for dataFile in data_files:
-            n_trials = dataFile["sentenceText"].shape[0]
-            input_features = []
-            transcriptions = []
-            frame_lens = []
-
-            # collect area 6v tx1 and spikePow features
-            for i in range(n_trials):
-                # get time series of TX and spike power for this trial
-                # first 128 columns = area 6v only
-                features = np.concatenate(
-                    [
-                        dataFile["tx1"][0, i][:, 0:128],
-                        dataFile["spikePow"][0, i][:, 0:128],
-                    ],
-                    axis=1,
-                )
-
-                sentence_len = features.shape[0]
-                sentence = dataFile["sentenceText"][i].strip()
-
-                input_features.append(features)
-                transcriptions.append(sentence)
-                frame_lens.append(sentence_len)
-
+        preprocess = PreprocessingFunctions[config.preprocessing]
+        for data_file in data_files:
             # block-wise feature normalization
-            blockNums = np.squeeze(dataFile["blockIdx"])
+            blockNums = np.squeeze(data_file["blockIdx"])
             blockList = np.unique(blockNums)
             blocks = []
             for b in range(len(blockList)):
                 sentIdx = np.argwhere(blockNums == blockList[b])
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
-
-            if config.preprocessing == "per_feature_normal_dist":
-                for b in range(len(blocks)):
-                    feats = np.concatenate(
-                        input_features[blocks[b][0] : (blocks[b][-1] + 1)], axis=0
-                    )
-                    feats_mean = np.mean(feats, axis=0, keepdims=True)
-                    feats_std = np.std(feats, axis=0, keepdims=True)
-                    for i in blocks[b]:
-                        input_features[i] = (input_features[i] - feats_mean) / (
-                            feats_std + 1e-8
-                        )
+            input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
                 self.brain_data_samples.append(torch.from_numpy(dataSample))
