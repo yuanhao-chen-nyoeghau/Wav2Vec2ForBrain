@@ -34,7 +34,7 @@ class Brain2TextDataset(Dataset):
         self.tokenizer = get_tokenizer(
             train_file=yaml_config.dataset_all_sentences_path,
             dataset_splits_dir=yaml_config.dataset_splits_dir,
-            tokenizer_config_dir=yaml_config.tokenizer_config_dir,
+            tokenizer_config_dir=yaml_config.cache_dir,
             max_token_length=1,
             vocab_size=256,
         )
