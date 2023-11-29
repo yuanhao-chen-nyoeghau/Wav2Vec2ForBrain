@@ -19,3 +19,4 @@ class BaseArgsModel(BaseModel):
         "per_feature_normal_dist", "none"
     ] = "per_feature_normal_dist"
     use_wandb: bool = False
+    competition_mode: bool = False

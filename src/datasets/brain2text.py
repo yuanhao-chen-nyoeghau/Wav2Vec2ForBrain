@@ -18,17 +18,19 @@ class Brain2TextDataset(Dataset):
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
+        if split == "test" and config.competition_mode:
+            split = "val"
 
-        if not os.path.exists(Path(yaml_config.dataset_splits_dir) / str(split)):
-            raise Exception(
-                f"{Path(yaml_config.dataset_splits_dir) / str(split)} does not exist."
-            )
+        if split == "val":
+            data_path = Path(yaml_config.dataset_splits_dir) / "test"
+        else:
+            data_path = Path(yaml_config.dataset_splits_dir) / "train"
+
+        if not os.path.exists(data_path):
+            raise Exception(f"{data_path} does not exist.")
 
         data_files = [
-            loadmat(Path(yaml_config.dataset_splits_dir) / split / fileName)
-            for fileName in os.listdir(
-                Path(yaml_config.dataset_splits_dir) / str(split)
-            )
+            loadmat(data_path / fileName) for fileName in os.listdir(data_path)
         ]
 
         self.tokenizer = get_tokenizer(
@@ -69,6 +71,12 @@ class Brain2TextDataset(Dataset):
             # block-wise feature normalization
             blockNums = np.squeeze(dataFile["blockIdx"])
             blockList = np.unique(blockNums)
+
+            if split == "test" and not config.competition_mode:
+                blockList = [blockList[0]]
+            if split == "train" and not config.competition_mode:
+                blockList = blockList[1:]
+
             blocks = []
             for b in range(len(blockList)):
                 sentIdx = np.argwhere(blockNums == blockList[b])
