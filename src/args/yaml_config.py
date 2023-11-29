@@ -9,6 +9,9 @@ class YamlConfigModel(BaseModel):
     cache_dir: str = Field(
         description="Directory to store larger temporary files like model checkpoints in"
     )
+    dataset_splits_dir: str = Field(
+        description="Directory containing the original train and test split folder"
+    )
     wandb_api_key: str = Field(
         description="Your Weights and Biases API key. You can find it in your W&B account settings."
     )
@@ -16,9 +19,8 @@ class YamlConfigModel(BaseModel):
         default="brain2text", description="Your W&B project name."
     )
     wandb_entity: str = Field(
-        default="tfiedlerdev", description="Your W&B entity name."
+        default="machine-learning-hpi", description="Your W&B entity name."
     )
-    # dataset_path: str = Field(description="Path to the dataset.")
 
 
 class YamlConfig:

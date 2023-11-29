@@ -9,6 +9,17 @@ from src.args.yaml_config import YamlConfig
 experiments: dict[str, Experiment] = {"wav2vec": Wav2VecExperiment}
 
 
+def str_to_bool(value):
+    if value.lower() in ["true", "t"]:
+        return True
+    elif value.lower() in ["false", "f"]:
+        return False
+    elif value.lower() in ["none", "n"]:
+        return None
+    else:
+        raise argparse.ArgumentTypeError("Invalid boolean value: {}".format(value))
+
+
 def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
     "Add Pydantic model to an ArgumentParser"
     fields = model.__fields__
@@ -21,11 +32,7 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
             if is_literal:
                 return {"type": str, "choices": field.annotation.__args__}
             if is_bool:
-                if field.default == True:
-                    raise Exception(
-                        "Boolean fields must have a default of False, otherwise they can only be True"
-                    )
-                return {"action": "store_true"}
+                return {"type": str_to_bool}
             return {"type": field.type_}
 
         parser.add_argument(

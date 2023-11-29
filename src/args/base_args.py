@@ -14,5 +14,8 @@ class BaseArgsModel(BaseModel):
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10
     scheduler_gamma: float = 0.1
-    return_best_model: bool = False
+    return_best_model: bool = True
+    preprocessing: Literal[
+        "per_feature_normal_dist", "none"
+    ] = "per_feature_normal_dist"
     use_wandb: bool = False

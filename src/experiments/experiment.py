@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractclassmethod
 from torch.utils.data import Dataset
-from argparse import ArgumentParser
 from pydantic import BaseModel
+from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel
@@ -20,7 +20,6 @@ class Experiment(ABC):
         from src.train.train_loop import Trainer
 
         if self.config.use_wandb:
-            print("uses wandb")
             wandb.login(key=self.yaml_config.wandb_api_key, relogin=True)
 
         trainer = Trainer(self)
@@ -33,6 +32,7 @@ class Experiment(ABC):
             save_code=True,
             mode="online" if self.config.use_wandb else "disabled",
         ):
+            wandb.watch(trainer.model)
             trained_model, history = trainer.train()
 
     @abstractmethod
@@ -42,8 +42,10 @@ class Experiment(ABC):
     def get_collate_fn(self):
         return default_collate
 
-    def get_dataset(self, split=Literal["train", "val", "test"]) -> Dataset:
-        pass
+    def get_dataset(self, split: Literal["train", "val", "test"] = "train") -> Dataset:
+        return Brain2TextDataset(
+            config=self.config, yaml_config=self.yaml_config, split=split
+        )
 
     def get_model(self) -> B2TModel:
         pass
