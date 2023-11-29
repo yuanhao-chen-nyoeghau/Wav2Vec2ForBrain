@@ -17,7 +17,7 @@ Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 class Trainer:
     def __init__(self, experiment: Experiment):
         self.experiment = experiment
-        self.dataset = experiment.get_dataset()
+        self.dataset = experiment.create_dataset()
         self.config = experiment.config
         self.yaml_config = experiment.yaml_config
         self.dataloader_train = self._get_dataloader(split="train")
@@ -47,7 +47,7 @@ class Trainer:
 
     def _get_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         return DataLoader(
-            self.experiment.get_dataset(split),
+            self.experiment.create_dataset(split),
             batch_size=self.config.batch_size,
             shuffle=True,
             collate_fn=self.experiment.get_collate_fn(),
