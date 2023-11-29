@@ -3,6 +3,7 @@ channels:
   - pytorch
   - huggingface
   - nvidia
+  - conda-forge
   - defaults
   - anaconda
   - conda-forge

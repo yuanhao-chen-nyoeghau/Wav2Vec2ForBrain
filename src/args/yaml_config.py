@@ -9,10 +9,6 @@ class YamlConfigModel(BaseModel):
     cache_dir: str = Field(
         description="Directory to store larger temporary files like model checkpoints in"
     )
-    # TODO: uncomment once wandb is implemented
-    # wandb_api_key: str = Field(
-    #     description="Your Weights and Biases API key. You can find it in your W&B account settings."
-    # )
     dataset_splits_dir: str = Field(
         description="Directory containing the train, val and test split folder"
     )
@@ -20,6 +16,15 @@ class YamlConfigModel(BaseModel):
 
     tokenizer_config_dir: str = Field(
         description="Directoy containing the files to load the tokenizer (vocab and merges)"
+    )
+    wandb_api_key: str = Field(
+        description="Your Weights and Biases API key. You can find it in your W&B account settings."
+    )
+    wandb_project_name: str = Field(
+        default="brain2text", description="Your W&B project name."
+    )
+    wandb_entity: str = Field(
+        default="tfiedlerdev", description="Your W&B entity name."
     )
 
 

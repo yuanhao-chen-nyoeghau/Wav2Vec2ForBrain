@@ -8,6 +8,7 @@ from src.model.b2tmodel import B2TModel
 from typing import Literal
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
+import wandb
 
 
 class Experiment(ABC):
@@ -18,8 +19,21 @@ class Experiment(ABC):
     def run(self):
         from src.train.train_loop import Trainer
 
+        if self.config.use_wandb:
+            print("uses wandb")
+            wandb.login(key=self.yaml_config.wandb_api_key, relogin=True)
+
         trainer = Trainer(self)
-        trained_model, history = trainer.train()
+        with wandb.init(
+            project=self.yaml_config.wandb_project_name,
+            entity=self.yaml_config.wandb_entity,
+            config=self.config.dict(),
+            name=self.config.experiment_name,
+            dir=self.yaml_config.cache_dir,
+            save_code=True,
+            mode="online" if self.config.use_wandb else "disabled",
+        ):
+            trained_model, history = trainer.train()
 
     @abstractmethod
     def get_name(self) -> str:

@@ -18,3 +18,4 @@ class BaseArgsModel(BaseModel):
     preprocessing: Literal[
         "per_feature_normal_dist", "none"
     ] = "per_feature_normal_dist"
+    use_wandb: bool = False
