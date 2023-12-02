@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod, abstractclassmethod
 from torch.utils.data import Dataset
 from pydantic import BaseModel
 from src.datasets.brain2text import Brain2TextDataset
-from src.args.base_args import BaseArgsModel
+from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel
 from typing import Literal
@@ -13,7 +13,7 @@ import wandb
 
 class Experiment(ABC):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = BaseArgsModel(**config)
+        self.config = BaseExperimentArgsModel(**config)
         self.yaml_config = yamlConfig
 
     def run(self):
@@ -42,7 +42,9 @@ class Experiment(ABC):
     def get_collate_fn(self):
         return default_collate
 
-    def get_dataset(self, split: Literal["train", "val", "test"] = "train") -> Dataset:
+    def create_dataset(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> Dataset:
         return Brain2TextDataset(
             config=self.config, yaml_config=self.yaml_config, split=split
         )

@@ -1,10 +1,10 @@
 from src.experiments.experiment import Experiment
 from argparse import ArgumentParser
-from src.args.base_args import BaseArgsModel
+from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
 
 
-class Wav2VecArgsModel(BaseArgsModel):
+class Wav2VecArgsModel(BaseExperimentArgsModel):
     pass
 
 
