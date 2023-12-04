@@ -27,9 +27,9 @@ class B2TWav2Vec(B2TModel):
         )
         # Freeze all wav2vec2 parameters except feature extractor
         self.wav2vec2.requires_grad_(False)
-        self.wav2vec2.feature_extractor.requires_grad_(True)
-        self.wav2vec2.feature_extractor._requires_grad = True
-        for param in self.wav2vec2.feature_extractor.parameters():
+        self.wav2vec2.wav2vec2.feature_extractor.requires_grad_(True)
+        self.wav2vec2.wav2vec2.feature_extractor._requires_grad = True
+        for param in self.wav2vec2.wav2vec2.feature_extractor.parameters():
             param.requires_grad = True
 
     def forward(self, x: torch.Tensor, targets: Optional[torch.Tensor]) -> ModelOutput:
