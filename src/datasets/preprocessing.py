@@ -8,6 +8,8 @@ def preprocess_competition_recommended(
     n_trials = data_file["sentenceText"].shape[0]
     input_features = []
     transcriptions = []
+    preprocessed_features = []
+    preprocessed_transcriptions = []
     # collect area 6v tx1 and spikePow features
     for i in range(n_trials):
         tx_features = data_file["tx1"][0, i][:, 0:128]
@@ -32,11 +34,12 @@ def preprocess_competition_recommended(
         block_feats_mean = np.mean(block_features, axis=0, keepdims=True)
         block_feats_std = np.std(block_features, axis=0, keepdims=True)
         for i in block_index_range:
-            input_features[i] = (input_features[i] - block_feats_mean) / (
-                block_feats_std + 1e-8
+            preprocessed_features.append(
+                (input_features[i] - block_feats_mean) / (block_feats_std + 1e-8)
             )
+            preprocessed_transcriptions.append(transcriptions[i])
 
-    return input_features, transcriptions
+    return preprocessed_features, preprocessed_transcriptions
 
 
 def _fn_preprocess_single_feature(
@@ -48,26 +51,32 @@ def _fn_preprocess_single_feature(
         n_trials = data_file["sentenceText"].shape[0]
         features = []
         transcriptions = []
+        preprocessed_features = []
+        preprocessed_transcriptions = []
+
         for i in range(n_trials):
             trial_features = data_file[feature][0, i][:, 0:128]
             sentence = data_file["sentenceText"][i].strip()
             features.append(trial_features)
             transcriptions.append(sentence)
-        if apply_zscore:
-            for block_index_range in block_index_ranges:
-                # z-score features
-                block_features = np.concatenate(
-                    features[block_index_range[0] : (block_index_range[-1] + 1)],
-                    axis=0,
-                )
-                block_feats_mean = np.mean(block_features, axis=0, keepdims=True)
-                block_feats_std = np.std(block_features, axis=0, keepdims=True)
-                for i in block_index_range:
-                    features[i] = (features[i] - block_feats_mean) / (
-                        block_feats_std + 1e-8
-                    )
 
-        return features, transcriptions
+        for block_index_range in block_index_ranges:
+            # z-score features
+            block_features = np.concatenate(
+                features[block_index_range[0] : (block_index_range[-1] + 1)],
+                axis=0,
+            )
+            block_feats_mean = np.mean(block_features, axis=0, keepdims=True)
+            block_feats_std = np.std(block_features, axis=0, keepdims=True)
+            for i in block_index_range:
+                preprocessed_features.append(
+                    ((features[i] - block_feats_mean) / (block_feats_std + 1e-8))
+                    if apply_zscore
+                    else features[i]
+                )
+                preprocessed_transcriptions.append(transcriptions[i])
+
+        return preprocessed_features, preprocessed_transcriptions
 
     return preprocess_single_feature
 

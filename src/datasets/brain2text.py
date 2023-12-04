@@ -39,13 +39,18 @@ class Brain2TextDataset(Dataset):
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
+        if split == "val":
+            data_path = Path(yaml_config.dataset_splits_dir) / "test"
+        elif split == "test" and config.competition_mode:
+            data_path = Path(yaml_config.dataset_splits_dir) / "competitionHoldOut"
+        else:
+            data_path = Path(yaml_config.dataset_splits_dir) / "train"
 
-        split_dir = Path(yaml_config.dataset_splits_dir) / str(split)
-        if not os.path.exists(split_dir):
-            raise Exception(f"{split_dir} does not exist.")
+        if not os.path.exists(data_path):
+            raise Exception(f"{data_path} does not exist.")
 
         data_files = [
-            loadmat(split_dir / fileName) for fileName in os.listdir(split_dir)
+            loadmat(data_path / fileName) for fileName in os.listdir(data_path)
         ]
 
         self.tokenizer = tokenizer
@@ -59,11 +64,18 @@ class Brain2TextDataset(Dataset):
             # block-wise feature normalization
             blockNums = np.squeeze(data_file["blockIdx"])
             blockList = np.unique(blockNums)
+
+            if split == "test" and not config.competition_mode:
+                blockList = [blockList[0]]
+            if split == "train" and not config.competition_mode:
+                blockList = blockList[1:]
+
             blocks = []
             for b in range(len(blockList)):
                 sentIdx = np.argwhere(blockNums == blockList[b])
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
+
             input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
