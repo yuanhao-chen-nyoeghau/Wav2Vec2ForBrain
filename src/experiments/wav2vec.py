@@ -22,19 +22,12 @@ class Wav2VecExperiment(Experiment):
         return Wav2VecArgsModel
 
     def _create_tokenizer(self):
-        return (
-            AutoTokenizer.from_pretrained(
+        if self.config.tokenizer == "wav2vec_pretrained":
+            return AutoTokenizer.from_pretrained(
                 self.config.wav2vec_checkpoint,
                 cache_dir=self.yaml_config.cache_dir,
             )
-            if self.config.tokenizer == "wav2vec_pretrained"
-            else get_tokenizer(
-                dataset_splits_dir=self.yaml_config.dataset_splits_dir,
-                cache_dir=self.yaml_config.cache_dir,
-                max_token_length=1,
-                vocab_size=256,
-            )
-        )
+        raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
 
     def get_model(self):
         assert (

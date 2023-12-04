@@ -84,7 +84,7 @@ class Brain2TextDataset(Dataset):
                 self.encoded_sentences.append(
                     [
                         all_labels[token_id]
-                        for token_id in self.tokenizer.encode(sentence)
+                        for token_id in self.tokenizer.encode(sentence.upper())
                     ]
                 )
 
