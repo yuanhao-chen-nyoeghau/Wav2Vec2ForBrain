@@ -183,7 +183,7 @@ def pca_most_valuable_features(pca, data_percentage):
     return np.where(pca.explained_variance_ratio_.cumsum() >= data_percentage)[0][0]
 
 
-def show_clusters(data):
+def show_clusters(data, num_cluster: int, y_line: float):
     # PCA components
     pca = PCA(n_components=128)
     pca.fit_transform(data)
@@ -201,10 +201,8 @@ def show_clusters(data):
 
     clusters = shc.linkage(pcs_frame, method="ward")
     shc.dendrogram(Z=clusters)
-    plt.axhline(y=250000, color="r", linestyle="-")
+    plt.axhline(y=y_line, color="r", linestyle="-")
     plt.show()
-
-    num_cluster = 7
     agg_model = AgglomerativeClustering(
         n_clusters=num_cluster, affinity="euclidean", linkage="ward"
     )
