@@ -5,6 +5,8 @@ from typing import Literal
 from src.train.history import SingleEpochHistory, MetricEntry, TrainHistory, EpochLosses
 import os
 import wandb
+from transformers.modeling_outputs import CausalLMOutput
+
 
 Optimizers = {
     "sgd": torch.optim.SGD,
@@ -17,14 +19,15 @@ Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 class Trainer:
     def __init__(self, experiment: Experiment):
         self.experiment = experiment
-        self.dataset = experiment.create_dataset()
-        self.config = experiment.config
+        self.dataset = experiment._create_dataset()
+        self.config = experiment.base_config
         self.yaml_config = experiment.yaml_config
-        self.dataloader_train = self._get_dataloader(split="train")
-        self.dataloader_val = self._get_dataloader(split="val")
-        self.dataloader_test = self._get_dataloader(split="test")
 
-        self.model = experiment.get_model()
+        self.dataloader_train = experiment.dataloader_train
+        self.dataloader_val = experiment.dataloader_val
+        self.dataloader_test = experiment.dataloader_test
+
+        self.model = experiment.get_model().cuda()
         if self.config.optimize not in Optimizers:
             raise ValueError(
                 f"Optimizer {self.config.optimizer} not implemented. "
@@ -43,21 +46,12 @@ class Trainer:
             step_size=self.config.scheduler,
             gamma=self.config.scheduler_gamma,
         )
-        self.loss_fn = experiment.get_loss_function()
-
-    def _get_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
-        return DataLoader(
-            self.experiment.create_dataset(split),
-            batch_size=self.config.batch_size,
-            shuffle=True,
-            collate_fn=self.experiment.get_collate_fn(),
-        )
 
     def _log_intermediate(
         self, batch: int, n_batches: int, epoch_history: SingleEpochHistory
     ):
-        loss = epoch_history.get_last().word_error_rate
-        running = epoch_history.get_average().word_error_rate
+        loss = epoch_history.get_last().loss
+        running = epoch_history.get_average().loss
         print(
             f"Batch {batch + 1}/{n_batches} loss: {loss} running: {running}\r",
             end="",
@@ -71,16 +65,15 @@ class Trainer:
             self.optimizer.zero_grad()
 
             # Make predictions for this batch
-            outputs = self.model(inputs)
+            outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
             # Compute the loss and its gradients
-            loss = self.loss_fn(outputs, labels)
-            loss.backward()
+            outputs.loss.backward()
 
             # Adjust learning weights
             self.optimizer.step()
 
-            losses.add_batch_metric(MetricEntry(loss.item()))
+            losses.add_batch_metric(MetricEntry(outputs.loss.item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -96,10 +89,9 @@ class Trainer:
             inputs, labels = data
 
             with torch.no_grad():
-                outputs = self.model(inputs)
-                loss = self.loss_fn(outputs, labels)
+                outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
-            losses.add_batch_metric(MetricEntry(loss.item()))
+            losses.add_batch_metric(MetricEntry(outputs.loss.item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -121,20 +113,20 @@ class Trainer:
 
             print(
                 f"\n\n{'='*20}\nFinished Epoch {epoch + 1}/{self.config.epochs}"
-                f"train WER: {train_losses.get_average().word_error_rate} "
-                f"val WER: {val_losses.get_average().word_error_rate}"
+                f"train WER: {train_losses.get_average().loss} "
+                f"val WER: {val_losses.get_average().loss}"
             )
             history.append(EpochLosses(train_losses, val_losses))
             if self.config.return_best_model:
-                curr_epoch_val_loss = val_losses.get_average().word_error_rate
+                curr_epoch_val_loss = val_losses.get_average().loss
                 if curr_epoch_val_loss < best_model_val_loss:
                     best_model_val_loss = curr_epoch_val_loss
                     torch.save(self.model.state_dict(), best_model_path)
 
             wandb.log(
                 {
-                    "train_WER": train_losses.get_average().word_error_rate,
-                    "val_WER": val_losses.get_average().word_error_rate,
+                    f"train_{self.config.loss_function}_loss": train_losses.get_average().loss,
+                    f"val_{self.config.loss_function}_loss": val_losses.get_average().loss,
                 }
             )
 
@@ -143,5 +135,5 @@ class Trainer:
             os.remove(best_model_path)
             print("Loaded model with best validation loss of this experiment from disk")
         test_losses = self._evaluate_epoch(self.dataloader_test)
-        print(f"\nTest WER: {test_losses.get_average().word_error_rate}")
+        print(f"\nTest WER: {test_losses.get_average().loss}")
         return self.model, TrainHistory(history, test_losses)

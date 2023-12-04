@@ -11,6 +11,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
     ] = "seperate_zscoring"
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
 
 
 class BaseExperimentArgsModel(B2TDatasetArgsModel):
@@ -18,9 +19,9 @@ class BaseExperimentArgsModel(B2TDatasetArgsModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: str = "mse"
+    loss_function: str = "ctc"
     experiment_name: str = "experiment_1"
-    experiment_type: str = Field("wav2vec")
+    experiment_type: Literal["wav2vec"] = Field("wav2vec")
     log_every_n_batches: int = 1000
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10

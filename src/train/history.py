@@ -2,13 +2,13 @@ from typing import NamedTuple
 
 
 class MetricEntry(NamedTuple):
-    word_error_rate: float
+    loss: float
 
     def __iadd__(self, other):
-        self.word_error_rate += other.word_error_rate
+        self.loss += other.word_error_rate
 
     def __truediv__(self, other: float):
-        return MetricEntry(self.word_error_rate / other)
+        return MetricEntry(self.loss / other)
 
 
 class SingleEpochHistory:

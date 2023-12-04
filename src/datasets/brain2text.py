@@ -16,6 +16,7 @@ from src.datasets.preprocessing import (
     preprocess_only_tx_unnormalized,
     preprocess_only_tx_zscored,
 )
+from transformers import AutoTokenizer, PreTrainedTokenizer
 
 PreprocessingFunctions: dict[
     str, Callable[[dict, list[np.ndarray[np.int32]]], tuple[list, list[str]]]
@@ -34,6 +35,7 @@ class Brain2TextDataset(Dataset):
         self,
         config: B2TDatasetArgsModel,
         yaml_config: YamlConfigModel,
+        tokenizer: PreTrainedTokenizer,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
@@ -46,16 +48,13 @@ class Brain2TextDataset(Dataset):
             loadmat(split_dir / fileName) for fileName in os.listdir(split_dir)
         ]
 
-        self.tokenizer = get_tokenizer(
-            dataset_splits_dir=yaml_config.dataset_splits_dir,
-            cache_dir=yaml_config.cache_dir,
-            max_token_length=1,
-            vocab_size=256,
-        )
+        self.tokenizer = tokenizer
 
         self.encoded_sentences: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
         preprocess = PreprocessingFunctions[config.preprocessing]
+
+        all_labels = torch.eye(self.tokenizer.__len__())
         for data_file in data_files:
             # block-wise feature normalization
             blockNums = np.squeeze(data_file["blockIdx"])
@@ -70,7 +69,12 @@ class Brain2TextDataset(Dataset):
             for dataSample in input_features:
                 self.brain_data_samples.append(torch.from_numpy(dataSample))
             for sentence in transcriptions:
-                self.encoded_sentences.append(self.tokenizer.encode(sentence))
+                self.encoded_sentences.append(
+                    [
+                        all_labels[token_id]
+                        for token_id in self.tokenizer.encode(sentence)
+                    ]
+                )
 
         assert len(self.encoded_sentences) == len(
             self.brain_data_samples
@@ -81,6 +85,3 @@ class Brain2TextDataset(Dataset):
 
     def __getitem__(self, index) -> Any:
         return self.brain_data_samples[index], self.encoded_sentences[index]
-
-    def getTokenizer(self):
-        return self.tokenizer
