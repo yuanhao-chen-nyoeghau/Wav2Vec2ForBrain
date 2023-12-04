@@ -11,6 +11,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
     ] = "seperate_zscoring"
+    competition_mode: bool = False
 
 
 class BaseExperimentArgsModel(B2TDatasetArgsModel):
