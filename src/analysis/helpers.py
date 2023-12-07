@@ -163,6 +163,7 @@ def annotate_heatmap(
 def show_heatmap(
     data,
     title: str,
+    cbar_title: str = "Spike Power (mean of squared voltage)",
 ):
     fig, ax = plt.subplots()
 
@@ -172,7 +173,7 @@ def show_heatmap(
         range(0, data.shape[1]),
         ax=ax,
         cmap="YlGn",
-        cbarlabel="Spike Power (mean of squared voltage)",
+        cbarlabel=cbar_title,
     )
     # texts = annotate_heatmap(im, valfmt="{x:.1f}")
     plt.title(title)
@@ -183,7 +184,7 @@ def pca_most_valuable_features(pca, data_percentage):
     return np.where(pca.explained_variance_ratio_.cumsum() >= data_percentage)[0][0]
 
 
-def show_clusters(data, num_cluster: int, y_line: float):
+def show_clusters(data, num_cluster: int, samples: int):
     # PCA components
     pca = PCA(n_components=128)
     pca.fit_transform(data)
@@ -194,24 +195,59 @@ def show_clusters(data, num_cluster: int, y_line: float):
 
     index_50 = pca_most_valuable_features(pca, 0.50)
 
-    sns.pairplot(pd.DataFrame(pcs[:, :index_50]).sample(n=100000))
+    print(f"PCA\n50%: {index_50}, 95%: {index_95}")
+
+    select_features = min(5, index_50)
+
+    sns.set(style="ticks", color_codes=True)
+    sns.pairplot(
+        pd.DataFrame(pcs[:, :select_features]).sample(n=samples, random_state=1),
+        markers=".",
+    )
     plt.show()
 
-    pcs_frame = pd.DataFrame(pcs[:, :index_95]).sample(10000)
+    pcs_frame = pd.DataFrame(pcs[:, :index_95]).sample(n=samples, random_state=1)
 
     clusters = shc.linkage(pcs_frame, method="ward")
     shc.dendrogram(Z=clusters)
-    plt.axhline(y=y_line, color="r", linestyle="-")
     plt.show()
     agg_model = AgglomerativeClustering(
         n_clusters=num_cluster, affinity="euclidean", linkage="ward"
     )
     agg_model.fit(pcs_frame)
 
-    pcs_frame[index_50 + 1] = agg_model.labels_
+    pcs_frame[select_features + 1] = agg_model.labels_
 
     sns.set(style="ticks", color_codes=True)
     sns.pairplot(
-        pcs_frame.iloc[:, : index_50 + 2], hue=index_50 + 1, palette="husl", markers="."
+        pcs_frame.iloc[:, : select_features + 2],
+        hue=select_features + 1,
+        palette="husl",
+        markers=".",
     )
     plt.show()
+
+
+def write_feature_graph(
+    data: pd.Series, name: str, col: int, save_path: str, show_plot: bool = False
+):
+    plt.figure()
+    data.plot(kind="line")
+    plt.xlabel("Rolling mean of voltages")
+    plt.ylabel("Bin number")
+    plt.title("Rolling mean of voltages over time")
+    plt.savefig(save_path + f"/{name}_over_time_{col}.png")
+    if show_plot:
+        plt.show()
+    plt.close()
+
+
+def write_graph_per_feature(
+    data: pd.DataFrame, name: str, save_path: str, show_features: list[int] = []
+):
+    # Groups by time bin
+    mean_per_time_bin = data.groupby(level=1).mean()
+    rolling_mean = mean_per_time_bin.rolling(window=5, min_periods=1).mean()
+
+    for i, col in enumerate(rolling_mean.columns):
+        write_feature_graph(rolling_mean[col], name, col, save_path, i in show_features)
