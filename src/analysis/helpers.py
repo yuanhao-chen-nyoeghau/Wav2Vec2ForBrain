@@ -233,8 +233,8 @@ def write_feature_graph(
 ):
     plt.figure()
     data.plot(kind="line")
-    plt.xlabel("Rolling mean of voltages")
-    plt.ylabel("Bin number")
+    plt.ylabel(f"Rolling mean of {name}")
+    plt.xlabel("Bin number")
     plt.title("Rolling mean of voltages over time")
     plt.savefig(save_path + f"/{name}_over_time_{col}.png")
     if show_plot:
