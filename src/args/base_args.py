@@ -13,6 +13,7 @@ class B2TDatasetArgsModel(BaseModel):
     ] = "seperate_zscoring"
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
     competition_mode: bool = False
+    remove_punctuation: bool = True
 
 
 class BaseExperimentArgsModel(B2TDatasetArgsModel):

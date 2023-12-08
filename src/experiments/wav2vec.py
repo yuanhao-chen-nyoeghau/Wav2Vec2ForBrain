@@ -11,6 +11,7 @@ from src.model.b2t_wav2vec import B2TWav2Vec
 import torch
 from torch.nn.functional import pad
 from torch.utils.data import default_collate
+import re
 
 
 class Wav2VecExperiment(Experiment):
@@ -62,9 +63,16 @@ class Wav2VecExperiment(Experiment):
                 for x, _ in batch
             ]
 
+            def process_label(label: str) -> str:
+                if self.config.remove_punctuation:
+                    chars_to_ignore_regex = '[\,\?\.\!\-\;\:"]'
+                    label = re.sub(chars_to_ignore_regex, "", label)
+                label = label.upper()
+                return label
+
             all_labels = torch.eye(self.tokenizer.__len__())
             batch_label_ids: list[list[int]] = self.tokenizer(
-                [label.upper() for _, label in batch],
+                [process_label(label) for _, label in batch],
                 padding="longest",
                 return_tensors="pt",
             ).input_ids
