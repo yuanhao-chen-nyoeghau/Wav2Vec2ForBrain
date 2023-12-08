@@ -15,8 +15,21 @@ def show_hist(
     if log_scale:
         data = np.log1p(data)
 
+    # Remove outliers
+    lower_bound = np.percentile(data, 1)
+    upper_bound = np.percentile(data, 99)
+
+    data_no_outliers = data[(data >= lower_bound) & (data <= upper_bound)]
+
     # Create a histogram
-    plt.hist(data, bins=30, density=True, alpha=0.7, color="blue", edgecolor="black")
+    plt.hist(
+        data_no_outliers,
+        bins=30,
+        density=True,
+        alpha=0.7,
+        color="blue",
+        edgecolor="black",
+    )
 
     # Add labels and title
     plt.xlabel(xlabel)
@@ -245,9 +258,22 @@ def write_feature_graph(
 def write_graph_per_feature(
     data: pd.DataFrame, name: str, save_path: str, show_features: list[int] = []
 ):
+    def weight_by_sample_count(counts):
+        return counts / max(counts)
+
+    def weighted_avg(x):
+        non_nan_values = x[~np.isnan(x)]  # Exclude NaN values
+        non_nan_weights = weights.loc[non_nan_values.index]
+        return np.average(non_nan_values, weights=non_nan_weights)
+
     # Groups by time bin
     mean_per_time_bin = data.groupby(level=1).mean()
-    rolling_mean = mean_per_time_bin.rolling(window=5, min_periods=1).mean()
+    count_per_time_bin = data.groupby(level=1).count()
+    weights = count_per_time_bin.apply(weight_by_sample_count).iloc[:, 0]
+
+    rolling_mean = mean_per_time_bin.rolling(window=30, min_periods=1).apply(
+        weighted_avg
+    )
 
     for i, col in enumerate(rolling_mean.columns):
         write_feature_graph(rolling_mean[col], name, col, save_path, i in show_features)
