@@ -1,4 +1,4 @@
-name: b2t_debug
+name: b2t
 channels:
   - pytorch
   - huggingface

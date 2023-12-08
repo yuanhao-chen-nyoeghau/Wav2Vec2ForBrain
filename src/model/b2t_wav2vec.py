@@ -6,6 +6,7 @@ from torch.nn import Linear, Sequential, ReLU
 import torch
 from typing import Optional
 from src.args.yaml_config import YamlConfigModel
+from transformers import PreTrainedTokenizer
 
 # brain data is binned in 20 ms bins (50 Hz)
 # wav2vec2 was trained on 16kHz audio
@@ -16,23 +17,24 @@ from src.args.yaml_config import YamlConfigModel
 
 
 class B2TWav2Vec(B2TModel):
-    def __init__(self, config: Wav2VecArgsModel, yaml_config: YamlConfigModel):
+    def __init__(
+        self,
+        config: Wav2VecArgsModel,
+        yaml_config: YamlConfigModel,
+        tokenizer: PreTrainedTokenizer,
+    ):
         super().__init__()
         self.config = config
 
         self.brain2audioshape = self._get_brain2audioshape_module()
-        self.brain2audioshape.requires_grad_(True)
         self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
             config.wav2vec_checkpoint, cache_dir=yaml_config.cache_dir
         )
-        # Freeze all wav2vec2 parameters except feature extractor
-        self.wav2vec2.requires_grad_(False)
-        self.wav2vec2.wav2vec2.feature_extractor.requires_grad_(True)
-        self.wav2vec2.wav2vec2.feature_extractor._requires_grad = True
-        for param in self.wav2vec2.wav2vec2.feature_extractor.parameters():
-            param.requires_grad = True
+        self.tokenizer = tokenizer
 
-    def forward(self, x: torch.Tensor, targets: Optional[torch.Tensor]) -> ModelOutput:
+    def forward(
+        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
+    ) -> ModelOutput:
         assert (
             len(x.size()) == 2 or len(x.size()) == 3
         ), "x must be 2D shape: (timestamps, brain_data) or 3D shape: (batch_size, timestamps, brain_data)"
@@ -61,6 +63,12 @@ class B2TWav2Vec(B2TModel):
         # [[ 5,  6],
         # [11, 12]]])
         audio_shaped_data = torch.stack(result, dim=1).flatten(start_dim=1)
+
+        # replace padding token with -100 for it to be ignored in ctc loss
+        if targets is not None:
+            targets = torch.where(
+                targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
+            )
 
         wav2vec2_out: CausalLMOutput = self.wav2vec2(
             audio_shaped_data, return_dict=True, labels=targets

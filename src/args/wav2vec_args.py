@@ -8,3 +8,6 @@ class Wav2VecArgsModel(BaseExperimentArgsModel):
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
     brain2audioshape_strategy: Literal["shared_fc", "shared_fc_relu"] = "shared_fc"
+    unfreeze_strategy: Literal[
+        "wav2vec2featureextractor_ours", "all"
+    ] = "wav2vec2featureextractor_ours"

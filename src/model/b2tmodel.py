@@ -13,5 +13,7 @@ class ModelOutput:
 
 class B2TModel(Module, ABC):
     @abstractmethod
-    def forward(self, x: torch.Tensor, targets: Optional[torch.Tensor]) -> ModelOutput:
+    def forward(
+        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
+    ) -> ModelOutput:
         pass

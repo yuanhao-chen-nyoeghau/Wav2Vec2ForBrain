@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class B2TDatasetArgsModel(BaseModel):
@@ -20,12 +20,16 @@ class BaseExperimentArgsModel(B2TDatasetArgsModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: str = "ctc"
+    loss_function: Literal["ctc"] = "ctc"
     experiment_name: str = "experiment_1"
     experiment_type: Literal["wav2vec"] = Field("wav2vec")
-    log_every_n_batches: int = 1000
+    log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10
     scheduler_gamma: float = 0.1
     return_best_model: bool = True
     use_wandb: bool = False
+    from_checkpoint: Optional[str] = Field(
+        None, description="(optional) Path to model checkpoint"
+    )
+    only_test: bool = Field(False, description="Only run test, skip training")

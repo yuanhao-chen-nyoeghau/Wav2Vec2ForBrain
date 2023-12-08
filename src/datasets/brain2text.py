@@ -55,11 +55,10 @@ class Brain2TextDataset(Dataset):
 
         self.tokenizer = tokenizer
 
-        self.encoded_sentences: list[str] = []
+        self.transcriptions: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
         preprocess = PreprocessingFunctions[config.preprocessing]
 
-        all_labels = torch.eye(self.tokenizer.__len__())
         for data_file in data_files:
             # block-wise feature normalization
             blockNums = np.squeeze(data_file["blockIdx"])
@@ -79,21 +78,18 @@ class Brain2TextDataset(Dataset):
             input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
-                self.brain_data_samples.append(torch.from_numpy(dataSample))
-            for sentence in transcriptions:
-                self.encoded_sentences.append(
-                    [
-                        all_labels[token_id]
-                        for token_id in self.tokenizer.encode(sentence.upper())
-                    ]
+                self.brain_data_samples.append(
+                    torch.tensor(dataSample, dtype=torch.float32)
                 )
+            for sentence in transcriptions:
+                self.transcriptions.append(sentence)
 
-        assert len(self.encoded_sentences) == len(
+        assert len(self.transcriptions) == len(
             self.brain_data_samples
         ), "Length of labels and data samples must be equal."
 
     def __len__(self):
-        return len(self.encoded_sentences)
+        return len(self.transcriptions)
 
-    def __getitem__(self, index) -> Any:
-        return self.brain_data_samples[index], self.encoded_sentences[index]
+    def __getitem__(self, index) -> tuple[torch.Tensor, str]:
+        return self.brain_data_samples[index], self.transcriptions[index]

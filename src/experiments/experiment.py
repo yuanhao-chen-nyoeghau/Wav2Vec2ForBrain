@@ -15,6 +15,12 @@ from transformers import PreTrainedTokenizer
 import json
 import os
 from datetime import datetime
+from torch.optim.optimizer import Optimizer
+
+Optimizers: dict[str, Optimizer.__class__] = {
+    "sgd": torch.optim.SGD,
+    "adam": torch.optim.Adam,
+}
 
 
 class Experiment(ABC):
@@ -32,11 +38,16 @@ class Experiment(ABC):
             yamlConfig.cache_dir,
             "experiment_results",
             self.get_name(),
-            f"{datetime.now():%Y-%m-%d %H%#M#%S}",
+            f"{datetime.now():%Y-%m-%d_%H#%M#%S}",
         )
         os.makedirs(self.results_dir, exist_ok=True)
         with open(os.path.join(self.results_dir, "config.json"), "w") as f:
-            json.dump(config, f)
+            json.dump(config, f, indent=5)
+        self.model = self._create_model().cuda()
+        if not self.base_config.from_checkpoint is None:
+            self.model.load_state_dict(
+                torch.load(self.base_config.from_checkpoint, map_location="cuda")
+            )
 
     def run(self):
         from src.train.train_loop import Trainer
@@ -55,15 +66,23 @@ class Experiment(ABC):
             mode="online" if self.base_config.use_wandb else "disabled",
         ):
             wandb.watch(trainer.model)
-            trained_model, history = trainer.train()
-            torch.save(
-                trained_model.state_dict(), os.path.join(self.results_dir, "model.pt")
-            )
-            with open(os.path.join(self.results_dir, "history.json"), "w") as f:
-                json.dump(history, f)
-            test_prediction = self._predict_on_test(trained_model)
+            model_for_testing: B2TModel
+
+            if not self.config.only_test:
+                trained_model, history = trainer.train()
+                torch.save(
+                    trained_model.state_dict(),
+                    os.path.join(self.results_dir, "model.pt"),
+                )
+                with open(os.path.join(self.results_dir, "history.json"), "w") as f:
+                    json.dump(history.to_dict(), f, indent=5)
+                model_for_testing = trained_model
+            else:
+                model_for_testing = self.model
+
+            test_prediction = self._predict_on_test(model_for_testing)
             with open(os.path.join(self.results_dir, "test_prediction.json"), "w") as f:
-                json.dump(test_prediction, f)
+                json.dump(test_prediction, f, indent=5)
 
             print(f"Done. Saved results to {self.results_dir}")
 
@@ -89,7 +108,7 @@ class Experiment(ABC):
         pass
 
     @abstractmethod
-    def get_model(self) -> B2TModel:
+    def _create_model(self) -> B2TModel:
         pass
 
     @abstractclassmethod
@@ -110,8 +129,31 @@ class Experiment(ABC):
             inputs, labels = data
 
             with torch.no_grad():
-                outputs = model.forward(inputs)
-                # TODO: store tokenizer instance in experiment instance
-                predicted = self.tokenizer.decode(outputs.logits.argmax(dim=-1))
-                result.append({"predicted": predicted, "label": labels})
+                outputs = model.forward(inputs.cuda())
+
+                predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
+                predicted = self.tokenizer.batch_decode(predicted_ids)
+                result.append(
+                    {
+                        "predicted": predicted,
+                        "label": self.tokenizer.batch_decode(labels.cpu().numpy()),
+                    }
+                )
+            print(
+                f"Running predictions on test. Batch {i + 1}/{len(self.dataloader_test)}\r",
+                end="",
+            )
         return result
+
+    def _get_optimizer_cls(self) -> Optimizer.__class__:
+        if self.config.optimizer not in Optimizers:
+            raise ValueError(
+                f"Optimizer {self.config.optimizer} not implemented. "
+                f"Choose from {Optimizers.keys()} or implement your own."
+            )
+        return Optimizers[self.base_config.optimizer]
+
+    def create_optimizer(self) -> Optimizer:
+        return self._get_optimizer_cls()(
+            self.model.parameters(), lr=self.base_config.learning_rate
+        )

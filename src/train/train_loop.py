@@ -8,11 +8,6 @@ import wandb
 from transformers.modeling_outputs import CausalLMOutput
 
 
-Optimizers = {
-    "sgd": torch.optim.SGD,
-    "adam": torch.optim.Adam,
-}
-
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 
 
@@ -27,15 +22,9 @@ class Trainer:
         self.dataloader_val = experiment.dataloader_val
         self.dataloader_test = experiment.dataloader_test
 
-        self.model = experiment.get_model().cuda()
-        if self.config.optimize not in Optimizers:
-            raise ValueError(
-                f"Optimizer {self.config.optimizer} not implemented. "
-                f"Choose from {Optimizers.keys()} or implement your own."
-            )
-        self.optimizer = Optimizers[self.config.optimizer](
-            self.model.parameters(), lr=self.config
-        )
+        self.model = experiment.model
+
+        self.optimizer = experiment.create_optimizer()
         if self.config.scheduler not in Schedulers:
             raise ValueError(
                 f"Scheduler {self.config.scheduler} not implemented. "
@@ -43,7 +32,7 @@ class Trainer:
             )
         self.scheduler = Schedulers[self.config.scheduler](
             self.optimizer,
-            step_size=self.config.scheduler,
+            step_size=self.config.scheduler_step_size,
             gamma=self.config.scheduler_gamma,
         )
 
@@ -60,12 +49,15 @@ class Trainer:
     def _train_epoch(self):
         losses = SingleEpochHistory()
         self.model.train()
+
         for i, data in enumerate(self.dataloader_train):
             inputs, labels = data
             self.optimizer.zero_grad()
 
             # Make predictions for this batch
-            outputs = self.model.forward(inputs.cuda(), labels.cuda())
+            with torch.enable_grad():
+                # calculate gradient for whole model (but only optimize parts)
+                outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
             # Compute the loss and its gradients
             outputs.loss.backward()
@@ -135,5 +127,7 @@ class Trainer:
             os.remove(best_model_path)
             print("Loaded model with best validation loss of this experiment from disk")
         test_losses = self._evaluate_epoch(self.dataloader_test)
-        print(f"\nTest WER: {test_losses.get_average().loss}")
+        print(
+            f"\nTest loss ({self.config.loss_function}): {test_losses.get_average().loss}"
+        )
         return self.model, TrainHistory(history, test_losses)
