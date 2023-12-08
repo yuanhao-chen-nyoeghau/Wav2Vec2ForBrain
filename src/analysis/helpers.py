@@ -9,12 +9,7 @@ from sklearn.decomposition import PCA
 import pandas as pd
 
 
-def show_hist(
-    data, xlabel: str, title: str, log_scale: bool = False, ylabel: str = "Frequency"
-):
-    if log_scale:
-        data = np.log1p(data)
-
+def show_hist(data, xlabel: str, title: str, ylabel: str = "Frequency"):
     # Remove outliers
     lower_bound = np.percentile(data, 1)
     upper_bound = np.percentile(data, 99)
@@ -34,8 +29,7 @@ def show_hist(
     # Add labels and title
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.title(title + " converted to log-scale" if log_scale else "")
-
+    plt.title(title)
     plt.show()
 
 
@@ -208,8 +202,9 @@ def show_clusters(data, num_cluster: int, samples: int):
 
     index_50 = pca_most_valuable_features(pca, 0.50)
 
-    print(f"PCA\n50%: {index_50}, 95%: {index_95}")
+    print(f"PCA features\n50% of data: {index_50}, 95% of data: {index_95}")
 
+    # Don't want to pairplot more than 5 features, since it takes exponentially longer
     select_features = min(5, index_50)
 
     sns.set(style="ticks", color_codes=True)
@@ -246,9 +241,9 @@ def write_feature_graph(
 ):
     plt.figure()
     data.plot(kind="line")
-    plt.ylabel(f"Rolling mean of {name}")
+    plt.ylabel(f"Rolling mean of normalized {name}")
     plt.xlabel("Bin number")
-    plt.title("Rolling mean of voltages over time")
+    plt.title(f"Rolling mean of {name} over time")
     plt.savefig(save_path + f"/{name}_over_time_{col}.png")
     if show_plot:
         plt.show()
@@ -277,3 +272,15 @@ def write_graph_per_feature(
 
     for i, col in enumerate(rolling_mean.columns):
         write_feature_graph(rolling_mean[col], name, col, save_path, i in show_features)
+
+
+def show_corr_matrix(df: pd.DataFrame, vmin: float, vmax: float):
+    assert vmin < vmax, "Vmin needs to be smaller than Vmax"
+
+    corr_mat = df.corr()
+
+    plt.figure(figsize=(20, 20))
+    sns.heatmap(corr_mat, vmin=vmin, vmax=vmax)
+    plt.title("Correlation matrix")
+    plt.show()
+    plt.close()
