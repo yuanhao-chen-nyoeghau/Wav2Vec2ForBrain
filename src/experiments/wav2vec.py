@@ -67,7 +67,6 @@ class Wav2VecExperiment(Experiment):
                 # label = label.upper()
                 return label
 
-            all_labels = torch.eye(self.tokenizer.__len__())
             batch_label_ids: list[list[int]] = self.tokenizer(
                 [process_label(label) for _, label in batch],
                 padding="longest",
