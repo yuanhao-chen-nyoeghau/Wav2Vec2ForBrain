@@ -1,7 +1,7 @@
 from src.experiments.experiment import Experiment
 from torch.utils.data import DataLoader
 import torch
-from typing import Literal
+from typing import Literal, cast
 from src.train.history import SingleEpochHistory, MetricEntry, TrainHistory, EpochLosses
 import os
 import wandb
@@ -60,12 +60,13 @@ class Trainer:
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
             # Compute the loss and its gradients
-            outputs.loss.backward()
+            loss = cast(torch.Tensor, outputs.loss)
+            loss.backward()
 
             # Adjust learning weights
             self.optimizer.step()
 
-            losses.add_batch_metric(MetricEntry(outputs.loss.item()))
+            losses.add_batch_metric(MetricEntry(loss.item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -82,8 +83,9 @@ class Trainer:
 
             with torch.no_grad():
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
+                loss = cast(torch.Tensor, outputs.loss)
 
-            losses.add_batch_metric(MetricEntry(outputs.loss.item()))
+            losses.add_batch_metric(MetricEntry(loss.item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -92,7 +94,7 @@ class Trainer:
         return losses
 
     def train(self):
-        history: list[SingleEpochHistory] = []
+        history: list[EpochLosses] = []
         best_model_val_loss = float("inf")
         best_model_path = os.path.join(self.yaml_config.cache_dir, "best_model.pt")
 
@@ -105,8 +107,8 @@ class Trainer:
 
             print(
                 f"\n\n{'='*20}\nFinished Epoch {epoch + 1}/{self.config.epochs}"
-                f"train WER: {train_losses.get_average().loss} "
-                f"val WER: {val_losses.get_average().loss}"
+                f"train {self.config.loss_function}-loss: {train_losses.get_average().loss} "
+                f"val {self.config.loss_function}-loss: {val_losses.get_average().loss}"
             )
             history.append(EpochLosses(train_losses, val_losses))
             if self.config.return_best_model:

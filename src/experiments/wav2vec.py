@@ -1,16 +1,12 @@
 from torch.optim.optimizer import Optimizer
 from src.experiments.experiment import Experiment
-from argparse import ArgumentParser
-from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
-from typing import Literal
+from typing import Any
 from src.args.wav2vec_args import Wav2VecArgsModel
-from src.datasets.tokenizer import get_tokenizer
 from transformers import AutoTokenizer
 from src.model.b2t_wav2vec import B2TWav2Vec
 import torch
 from torch.nn.functional import pad
-from torch.utils.data import default_collate
 import re
 
 
@@ -39,8 +35,9 @@ class Wav2VecExperiment(Experiment):
         assert (
             self.config.tokenizer == "wav2vec_pretrained"
         ), "Only pretrained wav2vec is currently supported"
+
         assert (
-            self.config.loss_function == "ctc",
+            self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
         model = B2TWav2Vec(
@@ -65,9 +62,9 @@ class Wav2VecExperiment(Experiment):
 
             def process_label(label: str) -> str:
                 if self.config.remove_punctuation:
-                    chars_to_ignore_regex = '[\,\?\.\!\-\;\:"]'
+                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
                     label = re.sub(chars_to_ignore_regex, "", label)
-                label = label.upper()
+                # label = label.upper()
                 return label
 
             all_labels = torch.eye(self.tokenizer.__len__())
@@ -96,6 +93,5 @@ class Wav2VecExperiment(Experiment):
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
 
-        return self._get_optimizer_cls()(
-            get_trainable_params(), lr=self.config.learning_rate
-        )
+        optim: Any = self._get_optimizer_cls()
+        return optim(get_trainable_params(), lr=self.config.learning_rate)

@@ -1,11 +1,11 @@
-from abc import ABC, abstractmethod, abstractclassmethod
+from abc import ABC, abstractmethod, abstractclassmethod, ABCMeta
 from torch.utils.data import Dataset
 from pydantic import BaseModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel
-from typing import Literal
+from typing import Literal, Type, cast, Any
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
 import wandb
@@ -17,13 +17,13 @@ import os
 from datetime import datetime
 from torch.optim.optimizer import Optimizer
 
-Optimizers: dict[str, Optimizer.__class__] = {
+Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
 }
 
 
-class Experiment(ABC):
+class Experiment(metaclass=ABCMeta):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.base_config = BaseExperimentArgsModel(**config)
         self.yaml_config = yamlConfig
@@ -45,6 +45,7 @@ class Experiment(ABC):
             json.dump(config, f, indent=5)
         self.model = self._create_model().cuda()
         if not self.base_config.from_checkpoint is None:
+            print(f"loading model from checkpoint {self.base_config.from_checkpoint}")
             self.model.load_state_dict(
                 torch.load(self.base_config.from_checkpoint, map_location="cuda")
             )
@@ -56,7 +57,7 @@ class Experiment(ABC):
             wandb.login(key=self.yaml_config.wandb_api_key, relogin=True)
 
         trainer = Trainer(self)
-        with wandb.init(
+        wandb.init(
             project=self.yaml_config.wandb_project_name,
             entity=self.yaml_config.wandb_entity,
             config=self.base_config.dict(),
@@ -64,11 +65,14 @@ class Experiment(ABC):
             dir=self.yaml_config.cache_dir,
             save_code=True,
             mode="online" if self.base_config.use_wandb else "disabled",
-        ):
+        )
+        if wandb.run is None:
+            raise Exception("wandb init failed. wandb.run is None")
+        with wandb.run:
             wandb.watch(trainer.model)
             model_for_testing: B2TModel
 
-            if not self.config.only_test:
+            if not self.base_config.only_test:
                 trained_model, history = trainer.train()
                 torch.save(
                     trained_model.state_dict(),
@@ -80,9 +84,14 @@ class Experiment(ABC):
             else:
                 model_for_testing = self.model
 
-            test_prediction = self._predict_on_test(model_for_testing)
-            with open(os.path.join(self.results_dir, "test_prediction.json"), "w") as f:
-                json.dump(test_prediction, f, indent=5)
+            self._predict_and_store(
+                model_for_testing, self.dataloader_test, "test_prediction.json"
+            )
+
+            if self.base_config.predict_on_train == True:
+                self._predict_and_store(
+                    model_for_testing, self.dataloader_train, "train_prediction.json"
+                )
 
             print(f"Done. Saved results to {self.results_dir}")
 
@@ -111,9 +120,9 @@ class Experiment(ABC):
     def _create_model(self) -> B2TModel:
         pass
 
-    @abstractclassmethod
-    def get_args_model() -> BaseExperimentArgsModel.__class__:
-        pass
+    @abstractmethod
+    def get_args_model() -> Type[BaseExperimentArgsModel]:
+        raise NotImplementedError()
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         return DataLoader(
@@ -123,9 +132,16 @@ class Experiment(ABC):
             collate_fn=self.get_collate_fn(),
         )
 
-    def _predict_on_test(self, model: B2TModel):
+    def _predict_and_store(
+        self, model: B2TModel, dataloader: DataLoader, out_file: str
+    ):
+        prediction = self._predict(model, dataloader)
+        with open(os.path.join(self.results_dir, out_file), "w") as f:
+            json.dump(prediction, f, indent=5)
+
+    def _predict(self, model: B2TModel, dataloader: DataLoader):
         result = []
-        for i, data in enumerate(self.dataloader_test):
+        for i, data in enumerate(dataloader):
             inputs, labels = data
 
             with torch.no_grad():
@@ -145,15 +161,14 @@ class Experiment(ABC):
             )
         return result
 
-    def _get_optimizer_cls(self) -> Optimizer.__class__:
-        if self.config.optimizer not in Optimizers:
+    def _get_optimizer_cls(self) -> Type[Optimizer]:
+        if self.base_config.optimizer not in Optimizers:
             raise ValueError(
-                f"Optimizer {self.config.optimizer} not implemented. "
+                f"Optimizer {self.base_config.optimizer} not implemented. "
                 f"Choose from {Optimizers.keys()} or implement your own."
             )
         return Optimizers[self.base_config.optimizer]
 
     def create_optimizer(self) -> Optimizer:
-        return self._get_optimizer_cls()(
-            self.model.parameters(), lr=self.base_config.learning_rate
-        )
+        optim_cls: Any = self._get_optimizer_cls()
+        return optim_cls(self.model.parameters(), lr=self.base_config.learning_rate)

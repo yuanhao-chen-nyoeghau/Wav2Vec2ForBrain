@@ -3,10 +3,10 @@ from src.experiments.wav2vec import Wav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
-from typing import Literal
+from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
 
-experiments: dict[str, Experiment] = {"wav2vec": Wav2VecExperiment}
+experiments: dict[str, Type[Experiment]] = {"wav2vec": Wav2VecExperiment}
 
 
 def str_to_bool(value):
@@ -20,7 +20,7 @@ def str_to_bool(value):
         raise argparse.ArgumentTypeError("Invalid boolean value: {}".format(value))
 
 
-def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
+def _parser_from_model(parser: argparse.ArgumentParser, model: Type[BaseModel]):
     "Add Pydantic model to an ArgumentParser"
     fields = model.__fields__
 
@@ -30,7 +30,7 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: BaseModel):
             is_literal = getattr(field.annotation, "__origin__", None) is Literal
             is_bool = getattr(field.type_, "__name__", None) == "bool"
             if is_literal:
-                return {"type": str, "choices": field.annotation.__args__}
+                return {"type": str, "choices": cast(Any, field.annotation).__args__}
             if is_bool:
                 return {"type": str_to_bool}
             return {"type": field.type_}

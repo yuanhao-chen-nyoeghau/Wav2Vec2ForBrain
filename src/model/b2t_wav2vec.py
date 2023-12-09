@@ -4,7 +4,7 @@ from transformers.modeling_outputs import CausalLMOutput
 from src.args.wav2vec_args import Wav2VecArgsModel
 from torch.nn import Linear, Sequential, ReLU
 import torch
-from typing import Optional
+from typing import Optional, cast
 from src.args.yaml_config import YamlConfigModel
 from transformers import PreTrainedTokenizer
 
@@ -27,8 +27,11 @@ class B2TWav2Vec(B2TModel):
         self.config = config
 
         self.brain2audioshape = self._get_brain2audioshape_module()
-        self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(
-            config.wav2vec_checkpoint, cache_dir=yaml_config.cache_dir
+        self.wav2vec2 = cast(
+            Wav2Vec2ForCTC,
+            Wav2Vec2ForCTC.from_pretrained(
+                config.wav2vec_checkpoint, cache_dir=yaml_config.cache_dir
+            ),
         )
         self.tokenizer = tokenizer
 
@@ -73,6 +76,7 @@ class B2TWav2Vec(B2TModel):
         wav2vec2_out: CausalLMOutput = self.wav2vec2(
             audio_shaped_data, return_dict=True, labels=targets
         )
+
         return ModelOutput(
             logits=wav2vec2_out.logits,
             loss=wav2vec2_out.loss,

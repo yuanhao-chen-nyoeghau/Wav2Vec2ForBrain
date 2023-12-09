@@ -19,7 +19,8 @@ from src.datasets.preprocessing import (
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 PreprocessingFunctions: dict[
-    str, Callable[[dict, list[np.ndarray[np.int32]]], tuple[list, list[str]]]
+    str,
+    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
@@ -39,6 +40,8 @@ class Brain2TextDataset(Dataset):
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
+        self.config = config
+
         if split == "val":
             data_path = Path(yaml_config.dataset_splits_dir) / "test"
         elif split == "test" and config.competition_mode:
@@ -82,14 +85,18 @@ class Brain2TextDataset(Dataset):
                     torch.tensor(dataSample, dtype=torch.float32)
                 )
             for sentence in transcriptions:
-                self.transcriptions.append(sentence)
+                self.transcriptions.append(f"<s>{sentence.upper()}</s>")
 
         assert len(self.transcriptions) == len(
             self.brain_data_samples
         ), "Length of labels and data samples must be equal."
 
     def __len__(self):
-        return len(self.transcriptions)
+        return (
+            len(self.transcriptions)
+            if self.config.limit_samples is None
+            else self.config.limit_samples
+        )
 
     def __getitem__(self, index) -> tuple[torch.Tensor, str]:
         return self.brain_data_samples[index], self.transcriptions[index]

@@ -14,10 +14,11 @@ class B2TDatasetArgsModel(BaseModel):
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
     competition_mode: bool = False
     remove_punctuation: bool = True
+    limit_samples: Optional[int] = Field(None, description="Limit number of samples")
 
 
 class BaseExperimentArgsModel(B2TDatasetArgsModel):
-    batch_size: int = Field(32, description="Batch size for training and validation")
+    batch_size: int = Field(16, description="Batch size for training and validation")
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
@@ -34,3 +35,6 @@ class BaseExperimentArgsModel(B2TDatasetArgsModel):
         None, description="(optional) Path to model checkpoint"
     )
     only_test: bool = Field(False, description="Only run test, skip training")
+    predict_on_train: bool = Field(
+        False, description="Run prediction on train set after model training"
+    )
