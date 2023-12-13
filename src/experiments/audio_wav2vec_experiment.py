@@ -1,27 +1,39 @@
+import os
 from torch.optim.optimizer import Optimizer
+from datasets.audio import AudioDataset
+from model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any
-from src.args.wav2vec_args import B2TWav2VecArgsModel
+from typing import Any, Literal, cast
+from src.args.wav2vec_args import AudioWav2VecArgsModel
 from transformers import AutoTokenizer
-from model.b2t_wav2vec_model import B2TWav2Vec
 import torch
 from torch.nn.functional import pad
 import re
+from torch.utils.data import Dataset
+from datasets import load_dataset, DatasetDict
 
 
-class B2TWav2VecExperiment(Experiment):
+class AudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = B2TWav2VecArgsModel(**config)
+        self.config = AudioWav2VecArgsModel(**config)
         super().__init__(config, yamlConfig)
-        self.model: B2TWav2Vec = self.model
+        self.model: AudioWav2VecModel = self.model
+        base_dir = os.path.join(yamlConfig.cache_dir, "audio")
+        cache_dir = os.path.join(base_dir, "cache")
+        data_dir = os.path.join(base_dir, "data")
+        os.makedirs(cache_dir, exist_ok=True)
+        os.makedirs(data_dir, exist_ok=True)
+        self._hugg_dataset = load_dataset(
+            "timit_asr", cache_dir=cache_dir, data_dir=data_dir
+        )
 
     def get_name(self) -> str:
-        return "b2t_wav2vec"
+        return "audio_wav2vec"
 
     @staticmethod
     def get_args_model():
-        return B2TWav2VecArgsModel
+        return AudioWav2VecArgsModel
 
     def _create_tokenizer(self):
         if self.config.tokenizer == "wav2vec_pretrained":
@@ -40,7 +52,7 @@ class B2TWav2VecExperiment(Experiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = B2TWav2Vec(
+        model = AudioWav2VecModel(
             config=self.config,
             yaml_config=self.yaml_config,
             tokenizer=self.tokenizer,
@@ -49,11 +61,11 @@ class B2TWav2VecExperiment(Experiment):
 
     def get_collate_fn(self):
         def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max([x.size(0) for x, _ in batch])
-            padded_blocks = [
+            max_audio_len = max([x.size(0) for x, _ in batch])
+            padded_audio = [
                 pad(
                     x,
-                    (0, 0, 0, max_block_len - x.size(0)),
+                    (0, max_audio_len - x.size(0)),
                     mode="constant",
                     value=0,
                 )
@@ -73,29 +85,17 @@ class B2TWav2VecExperiment(Experiment):
                 return_tensors="pt",
             ).input_ids
 
-            return torch.stack(padded_blocks), batch_label_ids
+            return torch.stack(padded_audio), batch_label_ids
 
         return _collate
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
-            if self.config.unfreeze_strategy == "wav2vec2featureextractor_ours":
+            if self.config.unfreeze_strategy == "wav2vec2featureextractor":
                 return [
-                    {"params": self.model.brain2audioshape.parameters()},
                     {
                         "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
                     },
-                ]
-            if (
-                self.config.unfreeze_strategy
-                == "wav2vec2featureextractor_wav2vec2classifier_ours"
-            ):
-                return [
-                    {"params": self.model.brain2audioshape.parameters()},
-                    {
-                        "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
-                    },
-                    {"params": self.model.wav2vec2.wav2vec2.head.parameters()},
                 ]
             if self.config.unfreeze_strategy == "all":
                 return self.model.parameters()
@@ -105,3 +105,11 @@ class B2TWav2VecExperiment(Experiment):
 
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
+
+    def _create_dataset(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> Dataset:
+        return AudioDataset(
+            hugg_dataset=cast(DatasetDict, self._hugg_dataset),
+            split=split,
+        )

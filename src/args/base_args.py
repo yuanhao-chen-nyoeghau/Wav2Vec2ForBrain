@@ -24,7 +24,7 @@ class BaseExperimentArgsModel(B2TDatasetArgsModel):
     optimizer: Literal["adam", "sgd"] = "adam"
     loss_function: Literal["ctc"] = "ctc"
     experiment_name: str = "experiment_1"
-    experiment_type: Literal["wav2vec"] = Field("wav2vec")
+    experiment_type: Literal["b2t_wav2vec", "audio_wav2vec2"] = Field("b2t_wav2vec")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10

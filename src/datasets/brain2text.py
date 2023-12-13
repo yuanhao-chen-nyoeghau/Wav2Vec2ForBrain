@@ -36,7 +36,6 @@ class Brain2TextDataset(Dataset):
         self,
         config: B2TDatasetArgsModel,
         yaml_config: YamlConfigModel,
-        tokenizer: PreTrainedTokenizer,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
@@ -55,8 +54,6 @@ class Brain2TextDataset(Dataset):
         data_files = [
             loadmat(data_path / fileName) for fileName in os.listdir(data_path)
         ]
-
-        self.tokenizer = tokenizer
 
         self.transcriptions: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []

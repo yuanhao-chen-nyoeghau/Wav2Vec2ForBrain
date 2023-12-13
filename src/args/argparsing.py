@@ -1,12 +1,16 @@
 import argparse
-from experiments.b2t_wav2vec_experiment import Wav2VecExperiment
+from experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
+from experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
 from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
 
-experiments: dict[str, Type[Experiment]] = {"wav2vec": Wav2VecExperiment}
+experiments: dict[str, Type[Experiment]] = {
+    "b2t_wav2vec": B2TWav2VecExperiment,
+    "audio_wav2vec2": AudioWav2VecExperiment,
+}
 
 
 def str_to_bool(value):

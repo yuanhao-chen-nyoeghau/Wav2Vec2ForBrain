@@ -109,7 +109,6 @@ class Experiment(metaclass=ABCMeta):
             config=self.base_config,
             yaml_config=self.yaml_config,
             split=split,
-            tokenizer=self.tokenizer,
         )
 
     @abstractmethod

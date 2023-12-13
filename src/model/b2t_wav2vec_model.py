@@ -1,7 +1,7 @@
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC
 from transformers.modeling_outputs import CausalLMOutput
-from src.args.wav2vec_args import Wav2VecArgsModel
+from src.args.wav2vec_args import B2TWav2VecArgsModel
 from torch.nn import Linear, Sequential, ReLU, Flatten, Unflatten
 import torch
 from typing import Optional, cast
@@ -17,7 +17,7 @@ from transformers import PreTrainedTokenizer
 
 
 class Brain2AudioShapeModule(torch.nn.Module):
-    def __init__(self, config: Wav2VecArgsModel):
+    def __init__(self, config: B2TWav2VecArgsModel):
         super().__init__()
         self.config = config
         self.brain2audioshape = self._get_brain2audioshape_module()
@@ -104,7 +104,7 @@ class Brain2AudioShapeModule(torch.nn.Module):
 class B2TWav2Vec(B2TModel):
     def __init__(
         self,
-        config: Wav2VecArgsModel,
+        config: B2TWav2VecArgsModel,
         yaml_config: YamlConfigModel,
         tokenizer: PreTrainedTokenizer,
     ):
