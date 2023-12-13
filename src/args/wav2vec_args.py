@@ -1,5 +1,5 @@
 from src.args.base_args import BaseExperimentArgsModel
-from typing import Literal
+from typing import Literal, Optional
 
 
 class Wav2VecArgsModel(BaseExperimentArgsModel):
@@ -7,7 +7,10 @@ class Wav2VecArgsModel(BaseExperimentArgsModel):
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
-    brain2audioshape_strategy: Literal["shared_fc", "shared_fc_relu"] = "shared_fc"
+    brain2audioshape_strategy: Literal[
+        "shared_fc", "shared_fc_relu", "2d_cnn"
+    ] = "shared_fc"
     unfreeze_strategy: Literal[
         "wav2vec2featureextractor_ours", "all"
     ] = "wav2vec2featureextractor_ours"
+    brain2audio_cnn_bins: Optional[int] = None

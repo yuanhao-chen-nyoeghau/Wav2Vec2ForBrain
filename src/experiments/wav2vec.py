@@ -86,6 +86,17 @@ class Wav2VecExperiment(Experiment):
                         "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
                     },
                 ]
+            if (
+                self.config.unfreeze_strategy
+                == "wav2vec2featureextractor_wav2vec2classifier_ours"
+            ):
+                return [
+                    {"params": self.model.brain2audioshape.parameters()},
+                    {
+                        "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
+                    },
+                    {"params": self.model.wav2vec2.wav2vec2.head.parameters()},
+                ]
             if self.config.unfreeze_strategy == "all":
                 return self.model.parameters()
             raise Exception(
