@@ -4,7 +4,7 @@ from src.args.yaml_config import YamlConfigModel
 from typing import Any
 from src.args.wav2vec_args import B2TWav2VecArgsModel
 from transformers import AutoTokenizer
-from model.b2t_wav2vec_model import B2TWav2Vec
+from src.model.b2t_wav2vec_model import B2TWav2Vec
 import torch
 from torch.nn.functional import pad
 import re

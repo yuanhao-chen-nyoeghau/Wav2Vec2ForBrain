@@ -1,7 +1,7 @@
 from typing import Literal
 from torch.utils.data import Dataset
 from datasets import DatasetDict
-from args.yaml_config import YamlConfigModel
+from src.args.yaml_config import YamlConfigModel
 import torch
 
 

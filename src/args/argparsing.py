@@ -1,6 +1,6 @@
 import argparse
-from experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
-from experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
+from src.experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
+from src.experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel

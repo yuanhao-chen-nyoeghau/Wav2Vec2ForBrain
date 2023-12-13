@@ -1,7 +1,7 @@
 import os
 from torch.optim.optimizer import Optimizer
-from datasets.audio import AudioDataset
-from model.audio_wav2vec_model import AudioWav2VecModel
+from src.datasets.audio import AudioDataset
+from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
@@ -16,9 +16,6 @@ from datasets import load_dataset, DatasetDict
 
 class AudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = AudioWav2VecArgsModel(**config)
-        super().__init__(config, yamlConfig)
-        self.model: AudioWav2VecModel = self.model
         base_dir = os.path.join(yamlConfig.cache_dir, "audio")
         cache_dir = os.path.join(base_dir, "cache")
         data_dir = os.path.join(base_dir, "data")
@@ -27,6 +24,9 @@ class AudioWav2VecExperiment(Experiment):
         self._hugg_dataset = load_dataset(
             "timit_asr", cache_dir=cache_dir, data_dir=data_dir
         )
+        self.config = AudioWav2VecArgsModel(**config)
+        super().__init__(config, yamlConfig)
+        self.model: AudioWav2VecModel = self.model
 
     def get_name(self) -> str:
         return "audio_wav2vec"
