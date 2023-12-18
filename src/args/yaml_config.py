@@ -9,6 +9,7 @@ class YamlConfigModel(BaseModel):
     cache_dir: str = Field(
         description="Directory to store larger temporary files like model checkpoints in"
     )
+    fig_dir: str = Field(description="Directory to store figures in")
     dataset_splits_dir: str = Field(
         description="Directory containing the original train and test split folder"
     )

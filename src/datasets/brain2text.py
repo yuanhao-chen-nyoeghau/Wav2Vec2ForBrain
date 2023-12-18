@@ -75,7 +75,9 @@ class Brain2TextDataset(Dataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            input_features, transcriptions = preprocess(data_file, blocks)
+            input_features, transcriptions = preprocess(
+                data_file, blocks, config.window_size
+            )
 
             for dataSample in input_features:
                 self.brain_data_samples.append(

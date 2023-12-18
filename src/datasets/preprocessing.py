@@ -1,9 +1,32 @@
 import numpy as np
 from typing import Literal
+import pandas as pd
+from scipy.interpolate import interp1d
+
+
+def resample_to_window_size(data, window_size: int):
+    orig_window = 20
+    # Original window size is 20
+    if window_size == orig_window:
+        return data
+
+    time_series_idx = pd.to_timedelta(
+        np.arange(0, data.shape[0]) * orig_window, unit="ms"
+    )
+    resampled_array = (
+        pd.DataFrame(data, index=time_series_idx)
+        .resample(f"{window_size}L")
+        .mean()
+        .interpolate(method="linear")
+        .to_numpy()
+    )
+    return resampled_array
 
 
 def preprocess_competition_recommended(
-    data_file: dict, block_index_ranges: list[np.ndarray[np.int32]]
+    data_file: dict,
+    block_index_ranges: list[np.ndarray[np.int32]],
+    window_size: int,
 ):
     n_trials = data_file["sentenceText"].shape[0]
     input_features = []
@@ -12,8 +35,12 @@ def preprocess_competition_recommended(
     preprocessed_transcriptions = []
     # collect area 6v tx1 and spikePow features
     for i in range(n_trials):
-        tx_features = data_file["tx1"][0, i][:, 0:128]
-        spike_features = data_file["spikePow"][0, i][:, 0:128]
+        tx_features = resample_to_window_size(
+            data_file["tx1"][0, i][:, 0:128], window_size=window_size
+        )
+        spike_features = resample_to_window_size(
+            data_file["spikePow"][0, i][:, 0:128], window_size=window_size
+        )
         # get time series of TX and spike power for this trial
         # first 128 columns = area 6v only
         features = np.concatenate(
@@ -43,10 +70,13 @@ def preprocess_competition_recommended(
 
 
 def _fn_preprocess_single_feature(
-    feature: Literal["tx1", "spikePow"], apply_zscore: bool
+    feature: Literal["tx1", "spikePow"],
+    apply_zscore: bool,
 ):
     def preprocess_single_feature(
-        data_file: dict, block_index_ranges: list[np.ndarray[np.int32]]
+        data_file: dict,
+        block_index_ranges: list[np.ndarray[np.int32]],
+        window_size: int,
     ):
         n_trials = data_file["sentenceText"].shape[0]
         features = []
@@ -55,7 +85,9 @@ def _fn_preprocess_single_feature(
         preprocessed_transcriptions = []
 
         for i in range(n_trials):
-            trial_features = data_file[feature][0, i][:, 0:128]
+            trial_features = resample_to_window_size(
+                data_file[feature][0, i][:, 0:128], window_size=window_size
+            )
             sentence = data_file["sentenceText"][i].strip()
             features.append(trial_features)
             transcriptions.append(sentence)
@@ -96,12 +128,14 @@ preprocess_only_spikepow_zscored = _fn_preprocess_single_feature(
 
 
 def preprocess_seperate_zscoring(
-    data_file: dict, block_index_ranges: list[np.ndarray[np.int32]]
+    data_file: dict, block_index_ranges: list[np.ndarray[np.int32]], window_size: int
 ):
     tx_features, transcriptions = preprocess_only_tx_zscored(
-        data_file, block_index_ranges
+        data_file, block_index_ranges, window_size
     )
-    spike_features, _ = preprocess_only_spikepow_zscored(data_file, block_index_ranges)
+    spike_features, _ = preprocess_only_spikepow_zscored(
+        data_file, block_index_ranges, window_size
+    )
     assert len(tx_features) == len(
         spike_features
     ), "Length of tx and spike features must be equal."

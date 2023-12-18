@@ -15,6 +15,7 @@ class B2TDatasetArgsModel(BaseModel):
     competition_mode: bool = False
     remove_punctuation: bool = True
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
+    window_size: int = 20
 
 
 class BaseExperimentArgsModel(B2TDatasetArgsModel):
