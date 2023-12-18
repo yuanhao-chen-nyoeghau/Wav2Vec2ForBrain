@@ -18,7 +18,7 @@ class B2TDatasetArgsModel(BaseModel):
     window_size: int = 20
 
 
-class BaseExperimentArgsModel(B2TDatasetArgsModel):
+class BaseExperimentArgsModel(BaseModel):
     batch_size: int = Field(16, description="Batch size for training and validation")
     epochs: int = 10
     learning_rate: float = 0.001

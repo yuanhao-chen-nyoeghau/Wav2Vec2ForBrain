@@ -1,8 +1,8 @@
-from src.args.base_args import BaseExperimentArgsModel
+from src.args.base_args import BaseExperimentArgsModel, B2TDatasetArgsModel
 from typing import Literal, Optional
 
 
-class B2TWav2VecArgsModel(BaseExperimentArgsModel):
+class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
