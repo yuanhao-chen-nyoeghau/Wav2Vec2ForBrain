@@ -11,9 +11,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
     ] = "seperate_zscoring"
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
     competition_mode: bool = False
-    remove_punctuation: bool = True
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     window_size: int = 20
 

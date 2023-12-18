@@ -14,6 +14,8 @@ class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
         "wav2vec2featureextractor_ours", "all"
     ] = "wav2vec2featureextractor_ours"
     brain2audio_cnn_bins: Optional[int] = None
+    remove_punctuation: bool = True
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
 
 
 class AudioWav2VecArgsModel(BaseExperimentArgsModel):
@@ -22,3 +24,5 @@ class AudioWav2VecArgsModel(BaseExperimentArgsModel):
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
     unfreeze_strategy: Literal["wav2vec2featureextractor", "all"] = "all"
+    tokenizer: Literal["wav2vec_pretrained"] = "wav2vec_pretrained"
+    remove_punctuation: bool = True
