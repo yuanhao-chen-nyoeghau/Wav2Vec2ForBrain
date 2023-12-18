@@ -191,9 +191,12 @@ def pca_most_valuable_features(pca, data_percentage):
     return np.where(pca.explained_variance_ratio_.cumsum() >= data_percentage)[0][0]
 
 
-def show_clusters(data, num_cluster: int, samples: int):
+def show_clusters(data, num_cluster: int, samples: int | None = None):
+    if samples is None:
+        samples = len(data)
+
     # PCA components
-    pca = PCA(n_components=128)
+    pca = PCA(n_components=min(len(data), len(data.columns)))
     pca.fit_transform(data)
     index_95 = pca_most_valuable_features(pca, 0.95)
 
@@ -205,16 +208,16 @@ def show_clusters(data, num_cluster: int, samples: int):
     print(f"PCA features\n50% of data: {index_50}, 95% of data: {index_95}")
 
     # Don't want to pairplot more than 5 features, since it takes exponentially longer
-    select_features = min(5, index_50)
+    select_features = min(10, index_50)
 
     sns.set(style="ticks", color_codes=True)
     sns.pairplot(
         pd.DataFrame(pcs[:, :select_features]).sample(n=samples, random_state=1),
-        markers=".",
+        markers="o",
     )
     plt.show()
 
-    pcs_frame = pd.DataFrame(pcs[:, :index_95]).sample(n=samples, random_state=1)
+    pcs_frame = pd.DataFrame(pcs[:, :select_features]).sample(n=samples, random_state=1)
 
     clusters = shc.linkage(pcs_frame, method="ward")
     shc.dendrogram(Z=clusters)
@@ -231,7 +234,7 @@ def show_clusters(data, num_cluster: int, samples: int):
         pcs_frame.iloc[:, : select_features + 2],
         hue=select_features + 1,
         palette="husl",
-        markers=".",
+        markers="o",
     )
     plt.show()
 
