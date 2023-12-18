@@ -12,7 +12,7 @@ class AudioDataset(Dataset):
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
-        self._data = hugg_dataset[split]
+        self._data = hugg_dataset["test" if split == "val" else split]
 
     def __len__(self):
         return len(self._data)
