@@ -20,7 +20,9 @@ from transformers import AutoTokenizer, PreTrainedTokenizer
 
 PreprocessingFunctions: dict[
     str,
-    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
+    Callable[
+        [dict, list[np.ndarray[Any, np.dtype[np.int32]]], int], tuple[list, list[str]]
+    ],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
