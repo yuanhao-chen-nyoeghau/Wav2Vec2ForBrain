@@ -22,7 +22,7 @@ class AudioWav2VecExperiment(Experiment):
         os.makedirs(cache_dir, exist_ok=True)
         os.makedirs(data_dir, exist_ok=True)
         self._hugg_dataset = load_dataset(
-            "PolyAI/minds14", name="en-US", cache_dir=cache_dir, data_dir=data_dir
+            "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
         )
         self.config = AudioWav2VecArgsModel(**config)
         super().__init__(config, yamlConfig)

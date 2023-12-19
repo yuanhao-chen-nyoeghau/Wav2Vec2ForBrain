@@ -19,4 +19,7 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self._data[idx]
-        return torch.tensor(row["audio"]), row["text"].upper()
+        return (
+            torch.tensor(row["audio"]["array"], dtype=torch.float32),
+            row["transcription"].upper(),
+        )

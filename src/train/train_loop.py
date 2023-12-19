@@ -94,7 +94,11 @@ class Trainer:
         return losses
 
     def train(self):
-        history: list[EpochLosses] = []
+        history: list[EpochLosses] = (
+            self.experiment.checkpoint_history.epochs
+            if not self.experiment.checkpoint_history is None
+            else []
+        )
         best_model_val_loss = float("inf")
         best_model_path = os.path.join(self.yaml_config.cache_dir, "best_model.pt")
 

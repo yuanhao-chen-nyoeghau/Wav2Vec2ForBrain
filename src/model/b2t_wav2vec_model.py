@@ -1,8 +1,12 @@
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC
 from transformers.modeling_outputs import CausalLMOutput
-from src.args.wav2vec_args import B2TWav2VecArgsModel
-from torch.nn import Linear, Sequential, ReLU, Flatten, Unflatten
+from src.args.wav2vec_args import (
+    B2TWav2VecArgsModel,
+    B2TWav2VecCnnArgsModel,
+    B2TWav2VecFCArgsModel,
+)
+from torch.nn import Linear, Sequential, ReLU, Flatten, Unflatten, Identity
 import torch
 from typing import Optional, cast
 from src.args.yaml_config import YamlConfigModel
@@ -19,13 +23,19 @@ from transformers import PreTrainedTokenizer
 class Brain2AudioShapeModule(torch.nn.Module):
     def __init__(self, config: B2TWav2VecArgsModel):
         super().__init__()
-        self.config = config
+        self.config = cast(
+            B2TWav2VecCnnArgsModel
+            if config.experiment_type == "b2t_wav2vec_cnn"
+            else B2TWav2VecFCArgsModel,
+            config,
+        )
         self.brain2audioshape = self._get_brain2audioshape_module()
+        self.activation = self._get_activation()
 
     def forward(self, batched_input: torch.Tensor) -> torch.Tensor:
         # batched_input shape: (batch_size, timestamps, brain_data)
-
-        if "shared_fc" in self.config.brain2audioshape_strategy:
+        audio_shaped_data: torch.Tensor
+        if self.config.experiment_type == "b2t_wav2vec_fc":
             result = []
             for t in range(batched_input.size(1)):
                 timestamp_batch = batched_input[:, t, :]
@@ -47,42 +57,49 @@ class Brain2AudioShapeModule(torch.nn.Module):
             # [[ 5,  6],
             # [11, 12]]])
             audio_shaped_data = torch.stack(result, dim=1).flatten(start_dim=1)
-            return audio_shaped_data
-        elif self.config.brain2audioshape_strategy == "2d_cnn":
+
+        elif self.config.experiment_type == "b2t_wav2vec_cnn":
             input_with_channel_dim = batched_input.unsqueeze(1)
             # input_with_channel_dim shape: (batch_size, 1, timestamps, brain_data)
-            return self.brain2audioshape(input_with_channel_dim).flatten(start_dim=1)
-        raise Exception(
-            f"brain2audioshape_strategy {self.config.brain2audioshape_strategy} not implemented"
-        )
+            audio_shaped_data = self.brain2audioshape(input_with_channel_dim).flatten(
+                start_dim=1
+            )
+        else:
+            raise Exception(
+                f"experiment_type {self.config.experiment_type} not supported by Brain2AudioShapeModule"
+            )
+        return self.activation(audio_shaped_data)
+
+    def _get_activation(self):
+        if self.config.activation == "relu":
+            return ReLU()
+        elif self.config.activation == "identity":
+            return Identity()
+        raise Exception(f"Unknown activation {self.config.activation}")
 
     def _get_brain2audioshape_module(self):
         in_size = self._get_timestamp_vec_len()
-        if self.config.brain2audioshape_strategy == "shared_fc":
+        if self.config.experiment_type == "b2t_wav2vec_fc":
             return Sequential(Flatten(), Linear(in_size, 320))
-        elif self.config.brain2audioshape_strategy == "shared_fc_relu":
-            return Sequential(Flatten(), Linear(in_size, 320), ReLU())
-        elif self.config.brain2audioshape_strategy == "2d_cnn":
-            assert (
-                self.config.brain2audio_cnn_bins is not None
-            ), "With the specified brain2audioshape_strategy 2d_cnn, brain2audio_cnn_bins must be specified"
-            assert (self.config.brain2audio_cnn_bins % 2) == 1, (
-                "With the specified brain2audioshape_strategy 2d_cnn, "
-                "brain2audio_cnn_bins must be odd since it specifies the cnn kernel width"
-            )
+        elif self.config.experiment_type == "b2t_wav2vec_cnn":
+            config = cast(B2TWav2VecCnnArgsModel, self.config)
+
             return torch.nn.Conv2d(
                 in_channels=1,
-                out_channels=320,
-                kernel_size=(self.config.brain2audio_cnn_bins, in_size),
-                stride=(1, 1),
-                padding=(int((self.config.brain2audio_cnn_bins - 1) / 2), 2),
+                out_channels=config.brain2audio_cnn_out_channels,
+                kernel_size=(config.brain2audio_cnn_bins, in_size),
+                stride=(
+                    config.brain2audio_cnn_stride_bins,
+                    config.brain2audio_cnn_stride_width,
+                ),
+                padding=(int((config.brain2audio_cnn_bins - 1) / 2), 2),
                 dilation=(1, 1),
                 groups=1,
                 bias=True,
                 padding_mode="zeros",
             )
         raise Exception(
-            f"Unknown brain2audioshape strategy {self.config.brain2audioshape_strategy}"
+            f"experiment_type {self.config.experiment_type} not supported by Brain2AudioShapeModule"
         )
 
     def _get_timestamp_vec_len(self):

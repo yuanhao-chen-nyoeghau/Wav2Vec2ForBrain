@@ -58,3 +58,73 @@ class TrainHistory(NamedTuple):
             "epochs": [epoch.to_dict() for epoch in self.epochs],
             "test": self.test_losses.to_dict(),
         }
+
+    @classmethod
+    def from_json(cls, json_path: str):
+        import json
+
+        with open(json_path, "r") as f:
+            data = json.load(f)
+
+        epochs = data["epochs"]
+        test_losses = data["test"]
+
+        test_history = SingleEpochHistory()
+        for metric in test_losses["history"]:
+            test_history.add_batch_metric(MetricEntry(**metric))
+
+        epoch_histories: list[EpochLosses] = []
+
+        for epoch in epochs:
+            train_epoch_history = SingleEpochHistory()
+            for metric in epoch["train"]["history"]:
+                train_epoch_history.add_batch_metric(MetricEntry(**metric))
+
+            val_epoch_history = SingleEpochHistory()
+            for metric in epoch["val"]["history"]:
+                val_epoch_history.add_batch_metric(MetricEntry(**metric))
+
+            epoch_history = EpochLosses(
+                train_losses=train_epoch_history, val_losses=val_epoch_history
+            )
+            epoch_histories.append(epoch_history)
+
+        return cls(
+            epochs=epoch_histories,
+            test_losses=test_history,
+        )
+
+    def plot(self, out_path: str):
+        import matplotlib.pyplot as plt
+
+        # plot val and train loss history as subplots
+        train_losses = [epoch.train_losses.get_average().loss for epoch in self.epochs]
+        val_losses = [epoch.val_losses.get_average().loss for epoch in self.epochs]
+
+        # Creating a figure and subplots
+        fig, ax = plt.subplots()
+
+        # Plotting train loss history
+        ax.plot(
+            train_losses, label="Train Loss", linestyle="-", marker="o", color="blue"
+        )
+
+        # Plotting validation loss history on the same plot
+        ax.plot(
+            val_losses, label="Validation Loss", linestyle="-", marker="o", color="red"
+        )
+
+        # Adding labels and title
+        ax.set_xlabel("Epochs")
+        ax.set_ylabel("Loss")
+        ax.set_title("Train and Validation Loss History")
+
+        # Adding legend
+        ax.legend()
+
+        num_epochs = len(train_losses)
+        plt.xticks(list(range(num_epochs)), [str(i) for i in range(1, num_epochs + 1)])
+
+        # Displaying the plot
+        plt.show()
+        plt.savefig(out_path)

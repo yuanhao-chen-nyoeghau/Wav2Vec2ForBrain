@@ -1,18 +1,20 @@
 from torch.optim.optimizer import Optimizer
+from src.datasets.brain2text import Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any
+from typing import Any, Literal
 from src.args.wav2vec_args import B2TWav2VecArgsModel
 from transformers import AutoTokenizer
 from src.model.b2t_wav2vec_model import B2TWav2Vec
 import torch
 from torch.nn.functional import pad
 import re
+from torch.utils.data import Dataset
 
 
 class B2TWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = B2TWav2VecArgsModel(**config)
+        self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
         self.model: B2TWav2Vec = self.model
 
@@ -105,3 +107,12 @@ class B2TWav2VecExperiment(Experiment):
 
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
+
+    def _create_dataset(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> Dataset:
+        return Brain2TextDataset(
+            config=self.config,
+            yaml_config=self.yaml_config,
+            split=split,
+        )

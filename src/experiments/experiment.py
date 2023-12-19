@@ -16,6 +16,7 @@ import json
 import os
 from datetime import datetime
 from torch.optim.optimizer import Optimizer
+from src.train.history import TrainHistory
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -49,6 +50,17 @@ class Experiment(metaclass=ABCMeta):
             self.model.load_state_dict(
                 torch.load(self.base_config.from_checkpoint, map_location="cuda")
             )
+            history_path = os.path.join(
+                os.path.dirname(self.base_config.from_checkpoint), "history.json"
+            )
+            if os.path.exists(history_path):
+                print("Attempting to load history from checkpoint")
+                try:
+                    self.checkpoint_history = TrainHistory.from_json(history_path)
+                except:
+                    print("Failed to load history from checkpoint")
+                    self.checkpoint_history = None
+            print("")
 
     def run(self):
         from src.train.train_loop import Trainer
@@ -81,6 +93,8 @@ class Experiment(metaclass=ABCMeta):
                 with open(os.path.join(self.results_dir, "history.json"), "w") as f:
                     json.dump(history.to_dict(), f, indent=5)
                 model_for_testing = trained_model
+
+                history.plot(os.path.join(self.results_dir, "history.png"))
             else:
                 model_for_testing = self.model
 
@@ -102,14 +116,11 @@ class Experiment(metaclass=ABCMeta):
     def get_collate_fn(self):
         return default_collate
 
+    @abstractmethod
     def _create_dataset(
         self, split: Literal["train", "val", "test"] = "train"
     ) -> Dataset:
-        return Brain2TextDataset(
-            config=self.base_config,
-            yaml_config=self.yaml_config,
-            split=split,
-        )
+        raise NotImplementedError("Implement _create_dataset in subclass")
 
     @abstractmethod
     def _create_tokenizer(self) -> PreTrainedTokenizer:
