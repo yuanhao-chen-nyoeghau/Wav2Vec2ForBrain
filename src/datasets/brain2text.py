@@ -15,14 +15,13 @@ from src.datasets.preprocessing import (
     preprocess_only_spikepow_zscored,
     preprocess_only_tx_unnormalized,
     preprocess_only_tx_zscored,
+    resample_sample,
 )
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 PreprocessingFunctions: dict[
     str,
-    Callable[
-        [dict, list[np.ndarray[Any, np.dtype[np.int32]]], int], tuple[list, list[str]]
-    ],
+    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
@@ -77,9 +76,7 @@ class Brain2TextDataset(Dataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            input_features, transcriptions = preprocess(
-                data_file, blocks, config.window_size
-            )
+            input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
                 self.brain_data_samples.append(
@@ -100,4 +97,17 @@ class Brain2TextDataset(Dataset):
         )
 
     def __getitem__(self, index) -> tuple[torch.Tensor, str]:
-        return self.brain_data_samples[index], self.transcriptions[index]
+        orig_sample_rate = 50
+        target_sample_rate = self.config.sample_rate
+
+        if target_sample_rate % orig_sample_rate != 0:
+            print("WARNING: target_sample_rate % orig_sample_rate != 0")
+
+        sample = self.brain_data_samples[index]
+        resampled = (
+            resample_sample(sample, target_sample_rate, orig_sample_rate)
+            if target_sample_rate != orig_sample_rate
+            else sample
+        )
+
+        return resampled, self.transcriptions[index]

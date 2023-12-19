@@ -45,6 +45,7 @@ class Experiment(metaclass=ABCMeta):
         with open(os.path.join(self.results_dir, "config.json"), "w") as f:
             json.dump(config, f, indent=5)
         self.model = self._create_model().cuda()
+        self.checkpoint_history = None
         if not self.base_config.from_checkpoint is None:
             print(f"loading model from checkpoint {self.base_config.from_checkpoint}")
             self.model.load_state_dict(
@@ -59,7 +60,7 @@ class Experiment(metaclass=ABCMeta):
                     self.checkpoint_history = TrainHistory.from_json(history_path)
                 except:
                     print("Failed to load history from checkpoint")
-                    self.checkpoint_history = None
+
             print("")
 
     def run(self):

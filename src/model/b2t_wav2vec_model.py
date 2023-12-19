@@ -4,13 +4,19 @@ from transformers.modeling_outputs import CausalLMOutput
 from src.args.wav2vec_args import (
     B2TWav2VecArgsModel,
     B2TWav2VecCnnArgsModel,
-    B2TWav2VecFCArgsModel,
+    B2TWav2VecSharedAggregationArgsModel,
 )
 from torch.nn import Linear, Sequential, ReLU, Flatten, Unflatten, Identity
 import torch
 from typing import Optional, cast
 from src.args.yaml_config import YamlConfigModel
 from transformers import PreTrainedTokenizer
+
+
+class Mean(torch.nn.Module):
+    def forward(self, x):
+        return x.mean(dim=-1)
+
 
 # brain data is binned in 20 ms bins (50 Hz)
 # wav2vec2 was trained on 16kHz audio
@@ -26,7 +32,7 @@ class Brain2AudioShapeModule(torch.nn.Module):
         self.config = cast(
             B2TWav2VecCnnArgsModel
             if config.experiment_type == "b2t_wav2vec_cnn"
-            else B2TWav2VecFCArgsModel,
+            else B2TWav2VecSharedAggregationArgsModel,
             config,
         )
         self.brain2audioshape = self._get_brain2audioshape_module()
@@ -35,29 +41,37 @@ class Brain2AudioShapeModule(torch.nn.Module):
     def forward(self, batched_input: torch.Tensor) -> torch.Tensor:
         # batched_input shape: (batch_size, timestamps, brain_data)
         audio_shaped_data: torch.Tensor
-        if self.config.experiment_type == "b2t_wav2vec_fc":
-            result = []
-            for t in range(batched_input.size(1)):
-                timestamp_batch = batched_input[:, t, :]
-                result.append(self.brain2audioshape(timestamp_batch))
+        if self.config.experiment_type == "b2t_wav2vec_sharedaggregation":
+            config = cast(B2TWav2VecSharedAggregationArgsModel, self.config)
 
-            # result shape: (timestamps, batch_size, 320)
-            # audio shaped data: (batch_size, timestamps * 320)
+            if config.brain2audio_method == "fc":
+                result = []
+                for t in range(batched_input.size(1)):
+                    timestamp_batch = batched_input[:, t, :]
+                    result.append(self.brain2audioshape(timestamp_batch))
 
-            # Example (batch_size=3, timestamps=2, 320=2):
-            # >>> t1 = torch.tensor([[1,2],[3,4],[5,6]])
-            # >>> t2 = torch.tensor([[7,8],[9,10],[11,12]])
-            # >>> torch.stack([t1,t2],dim=1)
-            # tensor([[[ 1,  2],
-            # [ 7,  8]],
-            #
-            # [[ 3,  4],
-            # [ 9, 10]],
-            #
-            # [[ 5,  6],
-            # [11, 12]]])
-            audio_shaped_data = torch.stack(result, dim=1).flatten(start_dim=1)
+                # result shape: (timestamps, batch_size, 320)
+                # audio shaped data: (batch_size, timestamps * 320)
 
+                # Example (batch_size=3, timestamps=2, 320=2):
+                # >>> t1 = torch.tensor([[1,2],[3,4],[5,6]])
+                # >>> t2 = torch.tensor([[7,8],[9,10],[11,12]])
+                # >>> torch.stack([t1,t2],dim=1)
+                # tensor([[[ 1,  2],
+                # [ 7,  8]],
+                #
+                # [[ 3,  4],
+                # [ 9, 10]],
+                #
+                # [[ 5,  6],
+                # [11, 12]]])
+                audio_shaped_data = torch.stack(result, dim=1).flatten(start_dim=1)
+            elif config.brain2audio_method == "mean":
+                audio_shaped_data = self.brain2audioshape(batched_input)
+            else:
+                raise Exception(
+                    f"brain2audio_method {config.brain2audio_method} not supported by Brain2AudioShapeModule"
+                )
         elif self.config.experiment_type == "b2t_wav2vec_cnn":
             input_with_channel_dim = batched_input.unsqueeze(1)
             # input_with_channel_dim shape: (batch_size, 1, timestamps, brain_data)
@@ -79,8 +93,13 @@ class Brain2AudioShapeModule(torch.nn.Module):
 
     def _get_brain2audioshape_module(self):
         in_size = self._get_timestamp_vec_len()
-        if self.config.experiment_type == "b2t_wav2vec_fc":
-            return Sequential(Flatten(), Linear(in_size, 320))
+        if self.config.experiment_type == "b2t_wav2vec_sharedaggregation":
+            config = cast(B2TWav2VecSharedAggregationArgsModel, self.config)
+            return (
+                Sequential(Flatten(), Linear(in_size, 320))
+                if config.brain2audio_method == "fc"
+                else Mean()
+            )
         elif self.config.experiment_type == "b2t_wav2vec_cnn":
             config = cast(B2TWav2VecCnnArgsModel, self.config)
 
@@ -132,7 +151,9 @@ class B2TWav2Vec(B2TModel):
         self.wav2vec2 = cast(
             Wav2Vec2ForCTC,
             Wav2Vec2ForCTC.from_pretrained(
-                config.wav2vec_checkpoint, cache_dir=yaml_config.cache_dir
+                config.wav2vec_checkpoint,
+                cache_dir=yaml_config.cache_dir,
+                ctc_loss_reduction=config.ctc_loss_reduction,
             ),
         )
         print("config", self.wav2vec2.config)

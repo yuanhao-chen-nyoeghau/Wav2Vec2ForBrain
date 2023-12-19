@@ -15,8 +15,8 @@ class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     activation: Literal["identity", "relu"] = "identity"
 
 
-class B2TWav2VecFCArgsModel(B2TWav2VecArgsModel):
-    pass
+class B2TWav2VecSharedAggregationArgsModel(B2TWav2VecArgsModel):
+    brain2audio_method: Literal["fc", "mean"] = "mean"
 
 
 class B2TWav2VecCnnArgsModel(B2TWav2VecArgsModel):
