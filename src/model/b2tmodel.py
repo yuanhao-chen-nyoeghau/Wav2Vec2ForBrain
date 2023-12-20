@@ -1,7 +1,19 @@
 from torch.nn import Module
 import torch
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from typing import Optional
 
 
-class B2TModel(Module):
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+@dataclass
+class ModelOutput:
+    logits: torch.Tensor
+    loss: Optional[torch.Tensor] = None
+
+
+class B2TModel(Module, ABC):
+    @abstractmethod
+    def forward(
+        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
+    ) -> ModelOutput:
         pass
