@@ -17,6 +17,7 @@ class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
 
 class B2TWav2VecSharedAggregationArgsModel(B2TWav2VecArgsModel):
     brain2audio_method: Literal["fc", "mean"] = "mean"
+    brain2audio_out_per_sample: int = 320
 
 
 class B2TWav2VecCnnArgsModel(B2TWav2VecArgsModel):
