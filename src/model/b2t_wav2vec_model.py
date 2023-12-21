@@ -96,7 +96,9 @@ class Brain2AudioShapeModule(torch.nn.Module):
         if self.config.experiment_type == "b2t_wav2vec_sharedaggregation":
             config = cast(B2TWav2VecSharedAggregationArgsModel, self.config)
             return (
-                Sequential(Flatten(), Linear(in_size, 320))
+                Sequential(
+                    Flatten(), Linear(in_size, config.brain2audio_out_per_sample)
+                )
                 if config.brain2audio_method == "fc"
                 else Mean()
             )
