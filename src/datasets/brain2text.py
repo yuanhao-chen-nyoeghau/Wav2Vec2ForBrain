@@ -15,10 +15,13 @@ from src.datasets.preprocessing import (
     preprocess_only_spikepow_zscored,
     preprocess_only_tx_unnormalized,
     preprocess_only_tx_zscored,
+    resample_sample,
 )
+from transformers import AutoTokenizer, PreTrainedTokenizer
 
 PreprocessingFunctions: dict[
-    str, Callable[[dict, list[np.ndarray[np.int32]]], tuple[list, list[str]]]
+    str,
+    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
@@ -37,6 +40,8 @@ class Brain2TextDataset(Dataset):
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
+        self.config = config
+
         if split == "val":
             data_path = Path(yaml_config.dataset_splits_dir) / "test"
         elif split == "test" and config.competition_mode:
@@ -51,16 +56,10 @@ class Brain2TextDataset(Dataset):
             loadmat(data_path / fileName) for fileName in os.listdir(data_path)
         ]
 
-        self.tokenizer = get_tokenizer(
-            dataset_splits_dir=yaml_config.dataset_splits_dir,
-            cache_dir=yaml_config.cache_dir,
-            max_token_length=1,
-            vocab_size=256,
-        )
-
-        self.encoded_sentences: list[str] = []
+        self.transcriptions: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
         preprocess = PreprocessingFunctions[config.preprocessing]
+
         for data_file in data_files:
             # block-wise feature normalization
             blockNums = np.squeeze(data_file["blockIdx"])
@@ -77,24 +76,38 @@ class Brain2TextDataset(Dataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            input_features, transcriptions = preprocess(
-                data_file, blocks, config.window_size
-            )
+            input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
-                self.brain_data_samples.append(torch.from_numpy(dataSample))
+                self.brain_data_samples.append(
+                    torch.tensor(dataSample, dtype=torch.float32)
+                )
             for sentence in transcriptions:
-                self.encoded_sentences.append(self.tokenizer.encode(sentence))
+                self.transcriptions.append(f"<s>{sentence.upper()}</s>")
 
-        assert len(self.encoded_sentences) == len(
+        assert len(self.transcriptions) == len(
             self.brain_data_samples
         ), "Length of labels and data samples must be equal."
 
     def __len__(self):
-        return len(self.encoded_sentences)
+        return (
+            len(self.transcriptions)
+            if self.config.limit_samples is None
+            else self.config.limit_samples
+        )
 
-    def __getitem__(self, index) -> Any:
-        return self.brain_data_samples[index], self.encoded_sentences[index]
+    def __getitem__(self, index) -> tuple[torch.Tensor, str]:
+        orig_sample_rate = 50
+        target_sample_rate = self.config.sample_rate
 
-    def getTokenizer(self):
-        return self.tokenizer
+        if target_sample_rate % orig_sample_rate != 0:
+            print("WARNING: target_sample_rate % orig_sample_rate != 0")
+
+        sample = self.brain_data_samples[index]
+        resampled = (
+            resample_sample(sample, target_sample_rate, orig_sample_rate)
+            if target_sample_rate != orig_sample_rate
+            else sample
+        )
+
+        return resampled, self.transcriptions[index]
