@@ -1,11 +1,15 @@
 import os
 from torch.optim.optimizer import Optimizer
+from model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
 from src.datasets.b2t_audio import B2TAudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal
-from src.args.wav2vec_args import AudioWav2VecArgsModel
+from src.args.wav2vec_args import (
+    B2TAudioWav2VecArgsModel,
+    B2TWav2VecArgsModel,
+)
 from transformers import AutoTokenizer
 import torch
 from torch.nn.functional import pad
@@ -16,17 +20,17 @@ from src.args.base_args import B2TDatasetArgsModel
 
 class B2TAudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = AudioWav2VecArgsModel(**config)
-        self.ds_config = B2TDatasetArgsModel(limit_samples=None)
+        self.config = B2TAudioWav2VecArgsModel(**config)
+        self.ds_config = B2TDatasetArgsModel(**config)
         super().__init__(config, yamlConfig)
-        self.model: AudioWav2VecModel = self.model
+        self.model: B2TAudioWav2VecModel = self.model
 
     def get_name(self) -> str:
         return "b2t_audio_wav2vec"
 
     @staticmethod
     def get_args_model():
-        return AudioWav2VecArgsModel
+        return B2TWav2VecArgsModel
 
     def _create_tokenizer(self):
         if self.config.tokenizer == "wav2vec_pretrained":
@@ -45,11 +49,8 @@ class B2TAudioWav2VecExperiment(Experiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = AudioWav2VecModel(
-            config=self.config,
-            yaml_config=self.yaml_config,
-            tokenizer=self.tokenizer,
-        )
+
+        model = B2TAudioWav2VecModel(self.config, self.yaml_config, self.tokenizer)
         return model
 
     def get_collate_fn(self):
@@ -58,7 +59,14 @@ class B2TAudioWav2VecExperiment(Experiment):
             padded_audio = [
                 pad(
                     x,
-                    (0, max_audio_len - x.size(0)),
+                    (0, max_audio_len - x.size(0))
+                    if self.config.mean_reduction
+                    else (
+                        0,
+                        0,
+                        0,
+                        max_audio_len - x.size(0),
+                    ),
                     mode="constant",
                     value=0,
                 )
@@ -77,8 +85,8 @@ class B2TAudioWav2VecExperiment(Experiment):
                 padding="longest",
                 return_tensors="pt",
             ).input_ids
-
-            return torch.stack(padded_audio), batch_label_ids
+            batched_inputs = torch.stack(padded_audio)
+            return batched_inputs, batch_label_ids
 
         return _collate
 
@@ -86,9 +94,8 @@ class B2TAudioWav2VecExperiment(Experiment):
         def get_trainable_params():
             if self.config.unfreeze_strategy == "wav2vec2featureextractor":
                 return [
-                    {
-                        "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
-                    },
+                    {"params": self.model.wav2vec2.feature_extractor.parameters()},
+                    {"params": self.model.summarizer_module.parameters()},
                 ]
             if self.config.unfreeze_strategy == "all":
                 return self.model.parameters()
@@ -103,5 +110,8 @@ class B2TAudioWav2VecExperiment(Experiment):
         self, split: Literal["train", "val", "test"] = "train"
     ) -> Dataset:
         return B2TAudioDataset(
-            config=self.ds_config, yaml_config=self.yaml_config, split=split
+            config=self.ds_config,
+            yaml_config=self.yaml_config,
+            split=split,
+            mean_reduction=self.config.mean_reduction,
         )

@@ -15,9 +15,7 @@ from tqdm import tqdm
 
 PreprocessingFunctions: dict[
     str,
-    Callable[
-        [dict, list[np.ndarray[Any, np.dtype[np.int32]]], int], tuple[list, list[str]]
-    ],
+    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
@@ -58,6 +56,37 @@ def sample_raw_signal(sample_rate, x, y):
     new_x = np.arange(start_time, end_time + target_freq_s, target_freq_s)
     new_y = np.interp(new_x, x, y)
     return new_x, new_y
+
+
+def b2t_audio_transformation(spike_pows, spike_counts, smoothing_window, sampling_rate):
+    # Rolling mean over features
+    kernel = torch.ones(smoothing_window) / smoothing_window
+    kernel = kernel.cuda()
+
+    spike_powers = torch.nn.functional.conv1d(
+        spike_pows.view(1, 1, -1),
+        kernel.view(1, 1, -1),
+        padding=smoothing_window // 2,
+    ).view(-1)[1:]
+    spike_counts = torch.nn.functional.conv1d(
+        spike_counts.view(1, 1, -1),
+        kernel.view(1, 1, -1),
+        padding=smoothing_window // 2,
+    ).view(-1)[1:]
+
+    frequencies = spike_counts.cpu().numpy()
+    min_freq = frequencies.min()
+    frequencies = frequencies + abs(min_freq)
+    frequencies = frequencies * 100
+    frequencies = frequencies.astype(np.int16)
+
+    amplitudes = spike_powers.cpu().numpy()
+    min_freq = amplitudes.min()
+    amplitudes = amplitudes + abs(min_freq)
+
+    x, y = construct_audio_sig(amplitudes=amplitudes, frequencies=frequencies)
+    x, y = sample_raw_signal(sampling_rate, x, y)
+    return y
 
 
 class B2TAudioDataset(Dataset):
@@ -110,47 +139,41 @@ class B2TAudioDataset(Dataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            input_features, transcriptions = preprocess(data_file, blocks, 20)
+            input_features, transcriptions = preprocess(data_file, blocks)
 
             for dataSample in input_features:
                 brain_data_samples.append(torch.tensor(dataSample, dtype=torch.float32))
             for sentence in transcriptions:
                 self.transcriptions.append(f"<s>{sentence.upper()}</s>")
 
+        if self.config.limit_samples is not None:
+            brain_data_samples = brain_data_samples[: config.limit_samples]
+            self.transcriptions = self.transcriptions[: config.limit_samples]
+
         print("Converting to sound waves")
         self.soundwaves: list[torch.Tensor] = []
         for sample in tqdm(brain_data_samples):
             # TODO add no reduction behavior
-            spike_powers = sample[:, :128].mean(-1).cuda()
-            spike_counts = sample[:, 128:].mean(-1).cuda()
-
-            # Rolling mean over features
-            kernel = torch.ones(smoothing_window) / smoothing_window
-            kernel = kernel.cuda()
-
-            spike_powers = torch.nn.functional.conv1d(
-                spike_powers.view(1, 1, -1),
-                kernel.view(1, 1, -1),
-                padding=smoothing_window // 2,
-            ).view(-1)[1:]
-            spike_counts = torch.nn.functional.conv1d(
-                spike_counts.view(1, 1, -1),
-                kernel.view(1, 1, -1),
-                padding=smoothing_window // 2,
-            ).view(-1)[1:]
-
-            frequencies = spike_counts.cpu().numpy()
-            min_freq = frequencies.min()
-            frequencies = frequencies + abs(min_freq)
-            frequencies = frequencies * 100
-            frequencies = frequencies.astype(np.int16)
-
-            amplitudes = spike_powers.cpu().numpy()
-            min_freq = amplitudes.min()
-            amplitudes = amplitudes + abs(min_freq)
-
-            x, y = construct_audio_sig(amplitudes=amplitudes, frequencies=frequencies)
-            x, y = sample_raw_signal(sampling_rate, x, y)
+            if mean_reduction:
+                spike_powers = sample[:, :128].mean(-1).cuda()
+                spike_counts = sample[:, 128:].mean(-1).cuda()
+                y = b2t_audio_transformation(
+                    spike_powers, spike_counts, smoothing_window, sampling_rate
+                )
+            else:
+                sound_arrays = []
+                neuron_count = 128
+                for i in range(neuron_count):
+                    spike_powers = sample[:, i].cuda()
+                    spike_counts = sample[:, 128 + i].cuda()
+                    neuron_y = b2t_audio_transformation(
+                        spike_powers, spike_counts, smoothing_window, sampling_rate
+                    )
+                    sound_arrays.append(neuron_y)
+                min_len = min([len(wave) for wave in sound_arrays])
+                # Resampling sometimes results in different size arrays
+                sound_arrays = [sound_array[:min_len] for sound_array in sound_arrays]
+                y = np.stack(sound_arrays, axis=-1)
             y = torch.from_numpy(y).float()
             self.soundwaves.append(y)
 
