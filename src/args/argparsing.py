@@ -1,6 +1,8 @@
 import argparse
 from src.experiments.b2t_wav2vec_cnn_experiment import B2TWav2VecCnnExperiment
-from src.experiments.b2t_wav2vec_fc_experiment import B2TWav2VecFCExperiment
+from src.experiments.b2t_wav2vec_shared_agg_experiment import (
+    B2TWav2VecSharedAggregationExperiment,
+)
 from src.experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
 from src.experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
 from src.experiments.b2t_audio_wav2vec_experiment import B2TAudioWav2VecExperiment
@@ -12,7 +14,7 @@ from src.args.yaml_config import YamlConfig
 
 experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_cnn": B2TWav2VecCnnExperiment,
-    "b2t_wav2vec_fc": B2TWav2VecFCExperiment,
+    "b2t_wav2vec_sharedaggregation": B2TWav2VecSharedAggregationExperiment,
     "audio_wav2vec2": AudioWav2VecExperiment,
     "b2t_audio_wav2vec": B2TAudioWav2VecExperiment,
 }

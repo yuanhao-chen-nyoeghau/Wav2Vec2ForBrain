@@ -17,6 +17,7 @@ import os
 from datetime import datetime
 from torch.optim.optimizer import Optimizer
 from src.train.history import TrainHistory
+import sys
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -45,12 +46,16 @@ class Experiment(metaclass=ABCMeta):
         )
         os.makedirs(self.results_dir, exist_ok=True)
         with open(os.path.join(self.results_dir, "config.json"), "w") as f:
-            json.dump(config, f, indent=5)
+            config_copy = dict(config)
+            config_copy["repro_cmd"] = "python " + " ".join(sys.argv)
+            json.dump(config_copy, f, indent=5)
         self.model = self._create_model().cuda()
+        self.checkpoint_history = None
         if not self.base_config.from_checkpoint is None:
             print(f"loading model from checkpoint {self.base_config.from_checkpoint}")
             self.model.load_state_dict(
-                torch.load(self.base_config.from_checkpoint, map_location="cuda")
+                torch.load(self.base_config.from_checkpoint, map_location="cuda"),
+                strict=False,
             )
             history_path = os.path.join(
                 os.path.dirname(self.base_config.from_checkpoint), "history.json"
@@ -61,7 +66,7 @@ class Experiment(metaclass=ABCMeta):
                     self.checkpoint_history = TrainHistory.from_json(history_path)
                 except:
                     print("Failed to load history from checkpoint")
-                    self.checkpoint_history = None
+
             print("")
 
     def run(self):
