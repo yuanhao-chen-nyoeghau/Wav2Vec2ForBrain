@@ -1,15 +1,12 @@
 import os
 from torch.optim.optimizer import Optimizer
+from src.args.b2t_audio_args import B2TAudioDatasetArgsModel, B2TAudioWav2VecArgsModel
 from model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
 from src.datasets.b2t_audio import B2TAudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal
-from src.args.wav2vec_args import (
-    B2TAudioWav2VecArgsModel,
-    B2TWav2VecArgsModel,
-)
 from transformers import AutoTokenizer
 import torch
 from torch.nn.functional import pad
@@ -21,7 +18,12 @@ from src.args.base_args import B2TDatasetArgsModel
 class B2TAudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = B2TAudioWav2VecArgsModel(**config)
-        self.ds_config = B2TDatasetArgsModel(**config)
+        self.ds_config = B2TAudioDatasetArgsModel(**config)
+
+        assert (
+            self.config.mean_reduction == self.ds_config.mean_reduction
+        ), "Mean reduction needs to be set to the same value for data set and model so the training works correctly"
+
         super().__init__(config, yamlConfig)
         self.model: B2TAudioWav2VecModel = self.model
 
@@ -30,7 +32,7 @@ class B2TAudioWav2VecExperiment(Experiment):
 
     @staticmethod
     def get_args_model():
-        return B2TWav2VecArgsModel
+        return B2TAudioWav2VecArgsModel
 
     def _create_tokenizer(self):
         if self.config.tokenizer == "wav2vec_pretrained":
@@ -94,7 +96,9 @@ class B2TAudioWav2VecExperiment(Experiment):
         def get_trainable_params():
             if self.config.unfreeze_strategy == "wav2vec2featureextractor":
                 return [
-                    {"params": self.model.wav2vec2.feature_extractor.parameters()},
+                    {
+                        "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
+                    },
                     {"params": self.model.summarizer_module.parameters()},
                 ]
             if self.config.unfreeze_strategy == "all":
@@ -113,5 +117,4 @@ class B2TAudioWav2VecExperiment(Experiment):
             config=self.ds_config,
             yaml_config=self.yaml_config,
             split=split,
-            mean_reduction=self.config.mean_reduction,
         )

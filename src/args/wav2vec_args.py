@@ -36,8 +36,3 @@ class AudioWav2VecArgsModel(BaseExperimentArgsModel):
     unfreeze_strategy: Literal["wav2vec2featureextractor", "all"] = "all"
     tokenizer: Literal["wav2vec_pretrained"] = "wav2vec_pretrained"
     remove_punctuation: bool = True
-
-
-class B2TAudioWav2VecArgsModel(AudioWav2VecArgsModel):
-    hidden_nodes: int = 16
-    mean_reduction: bool = False
