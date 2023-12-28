@@ -11,4 +11,5 @@ class B2TAudioDatasetArgsModel(B2TDatasetArgsModel):
     smoothing_window: int = 50
     audio_smoothing_window: int = 5
     audio_frequency: int = 16000
+    frequency_coefficient: float = 50
     mean_reduction: bool = False

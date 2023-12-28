@@ -47,7 +47,7 @@ class B2TAudioWav2VecModel(B2TModel):
             targets = torch.where(
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
-        print(batched.size())
+
         if not self.config.mean_reduction:
             batched = self.summarizer_module(batched)
             batched = batched.squeeze(-1)

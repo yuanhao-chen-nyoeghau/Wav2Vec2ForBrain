@@ -26,7 +26,7 @@ PreprocessingFunctions: dict[
 }
 
 
-def rolling_mean_tensor(kernel_size, tensor):
+def rolling_mean_tensor(kernel_size: int, tensor: torch.Tensor) -> torch.Tensor:
     kernel = torch.ones(kernel_size) / kernel_size
     kernel = kernel.cuda().float()
 
@@ -38,8 +38,13 @@ def rolling_mean_tensor(kernel_size, tensor):
 
 
 def b2t_audio_transformation(
-    spike_pows, spike_counts, smoothing_window, audio_smoothing_window
-):
+    spike_pows: torch.Tensor,
+    spike_counts: torch.Tensor,
+    smoothing_window: int,
+    audio_smoothing_window: int,
+    freq_scale_factor: float,
+    target_audio_freq: float,
+) -> torch.Tensor:
     spike_pows = rolling_mean_tensor(smoothing_window, spike_pows)
     spike_counts = rolling_mean_tensor(smoothing_window, spike_counts)
 
@@ -50,7 +55,7 @@ def b2t_audio_transformation(
             size=spike_counts.size(), fill_value=min_spike_count.abs().item()
         ).cuda()
     )
-    spike_counts = spike_counts * 50
+    spike_counts = spike_counts * freq_scale_factor
     frequencies = spike_counts.int()
 
     min_spike_power = spike_pows.min()
@@ -84,7 +89,7 @@ def b2t_audio_transformation(
     time_stamps = time_stamps / 1000
 
     end_time = time_stamps[-1]
-    target_freq_s = 1.0 / 16000
+    target_freq_s = 1.0 / target_audio_freq
     new_x = np.arange(0, end_time + target_freq_s, target_freq_s)
     new_y = np.interp(new_x, time_stamps, signal)
     # Interpolating amplitudes for smoother amplitude in synthetic signal
@@ -164,10 +169,12 @@ class B2TAudioDataset(Dataset):
                 spike_powers = sample[:, :128].mean(-1).cuda()
                 spike_counts = sample[:, 128:].mean(-1).cuda()
                 y = b2t_audio_transformation(
-                    spike_powers,
-                    spike_counts,
-                    self.config.smoothing_window,
-                    self.config.audio_smoothing_window,
+                    spike_pows=spike_powers,
+                    spike_counts=spike_counts,
+                    smoothing_window=self.config.smoothing_window,
+                    audio_smoothing_window=self.config.audio_smoothing_window,
+                    freq_scale_factor=self.config.frequency_coefficient,
+                    target_audio_freq=self.config.audio_frequency,
                 )
             else:
                 sound_arrays = []
@@ -176,10 +183,12 @@ class B2TAudioDataset(Dataset):
                     spike_powers = sample[:, i].cuda()
                     spike_counts = sample[:, 128 + i].cuda()
                     neuron_y = b2t_audio_transformation(
-                        spike_powers,
-                        spike_counts,
-                        self.config.smoothing_window,
-                        self.config.audio_smoothing_window,
+                        spike_pows=spike_powers,
+                        spike_counts=spike_counts,
+                        smoothing_window=self.config.smoothing_window,
+                        audio_smoothing_window=self.config.audio_smoothing_window,
+                        freq_scale_factor=self.config.frequency_coefficient,
+                        target_audio_freq=self.config.audio_frequency,
                     )
                     sound_arrays.append(neuron_y)
                 min_len = min([wave.size(0) for wave in sound_arrays])
