@@ -14,7 +14,6 @@ Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 class Trainer:
     def __init__(self, experiment: Experiment):
         self.experiment = experiment
-        self.dataset = experiment._create_dataset()
         self.config = experiment.base_config
         self.yaml_config = experiment.yaml_config
 
@@ -110,7 +109,7 @@ class Trainer:
             self.scheduler.step()
 
             print(
-                f"\n\n{'='*20}\nFinished Epoch {epoch + 1}/{self.config.epochs}"
+                f"\n\n{'='*20}\nFinished Epoch {epoch + 1}/{self.config.epochs} "
                 f"train {self.config.loss_function}-loss: {train_losses.get_average().loss} "
                 f"val {self.config.loss_function}-loss: {val_losses.get_average().loss}"
             )

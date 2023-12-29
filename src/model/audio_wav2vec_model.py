@@ -22,7 +22,9 @@ class AudioWav2VecModel(B2TModel):
         self.wav2vec2 = cast(
             Wav2Vec2ForCTC,
             Wav2Vec2ForCTC.from_pretrained(
-                config.wav2vec_checkpoint, cache_dir=yaml_config.cache_dir
+                config.wav2vec_checkpoint,
+                cache_dir=yaml_config.cache_dir,
+                ctc_loss_reduction=config.ctc_loss_reduction,
             ),
         )
         print("config", self.wav2vec2.config)

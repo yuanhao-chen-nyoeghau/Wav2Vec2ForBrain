@@ -36,6 +36,8 @@ class Experiment(metaclass=ABCMeta):
         self.dataloader_val = self._create_dataloader(split="val")
         self.dataloader_test = self._create_dataloader(split="test")
 
+        self.checkpoint_history = None
+
         self.results_dir = os.path.join(
             yamlConfig.cache_dir,
             "experiment_results",

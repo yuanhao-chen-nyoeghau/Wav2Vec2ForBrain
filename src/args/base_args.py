@@ -25,8 +25,11 @@ class BaseExperimentArgsModel(BaseModel):
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
-        "b2t_wav2vec_sharedaggregation", "b2t_wav2vec_cnn", "audio_wav2vec2"
-    ] = Field("b2t_wav2vec")
+        "b2t_wav2vec_sharedaggregation",
+        "b2t_wav2vec_cnn",
+        "audio_wav2vec2",
+        "b2t_audio_wav2vec",
+    ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10
