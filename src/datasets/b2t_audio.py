@@ -165,7 +165,7 @@ class B2TAudioDataset(Dataset):
         print("Converting to sound waves")
         self.soundwaves: list[torch.Tensor] = []
         for sample in tqdm(brain_data_samples):
-            if self.config.mean_reduction:
+            if self.config.mean_reduction_data:
                 spike_powers = sample[:, :128].mean(-1).cuda()
                 spike_counts = sample[:, 128:].mean(-1).cuda()
                 y = b2t_audio_transformation(

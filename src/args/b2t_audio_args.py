@@ -4,7 +4,8 @@ from args.wav2vec_args import AudioWav2VecArgsModel
 
 class B2TAudioWav2VecArgsModel(AudioWav2VecArgsModel):
     hidden_nodes: int = 16
-    mean_reduction: bool = False
+    mean_reduction_model: bool = False
+    feature_extraction_per_feature: bool = True
 
 
 class B2TAudioDatasetArgsModel(B2TDatasetArgsModel):
@@ -12,4 +13,4 @@ class B2TAudioDatasetArgsModel(B2TDatasetArgsModel):
     audio_smoothing_window: int = 5
     audio_frequency: int = 16000
     frequency_coefficient: float = 50
-    mean_reduction: bool = False
+    mean_reduction_data: bool = False

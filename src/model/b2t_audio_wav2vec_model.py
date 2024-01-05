@@ -1,3 +1,6 @@
+from src.model.wav2vec_multi_wave_input import (
+    MultiWaveInputWav2VecCTC,
+)
 from src.args.b2t_audio_args import B2TAudioWav2VecArgsModel
 from src.args.yaml_config import YamlConfigModel
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -17,8 +20,7 @@ class B2TAudioWav2VecModel(B2TModel):
     ) -> None:
         super().__init__()
         self.config = config
-
-        self.wav2vec2 = cast(
+        wav2vec2 = cast(
             Wav2Vec2ForCTC,
             Wav2Vec2ForCTC.from_pretrained(
                 config.wav2vec_checkpoint,
@@ -26,6 +28,15 @@ class B2TAudioWav2VecModel(B2TModel):
                 ctc_loss_reduction=config.ctc_loss_reduction,
             ),
         )
+
+        if (
+            not self.config.mean_reduction_model
+            and self.config.feature_extraction_per_feature
+        ):
+            self.wav2vec2 = MultiWaveInputWav2VecCTC(wav2vec2)
+        else:
+            self.wav2vec2 = wav2vec2
+
         self.summarizer_module = torch.nn.Sequential(
             torch.nn.Linear(128, self.config.hidden_nodes),
             torch.nn.ReLU(),
@@ -48,7 +59,7 @@ class B2TAudioWav2VecModel(B2TModel):
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
 
-        if not self.config.mean_reduction:
+        if self.config.mean_reduction_model:
             batched = self.summarizer_module(batched)
             batched = batched.squeeze(-1)
 

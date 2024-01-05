@@ -20,7 +20,18 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--experiment_type=audio_wav2vec2"
+                "--experiment_type=audio_wav2vec"
+            ]
+        },
+        {
+            "name": "run.py b2t_audio_wav2vec",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_audio_wav2vec"
             ]
         }
     ]
