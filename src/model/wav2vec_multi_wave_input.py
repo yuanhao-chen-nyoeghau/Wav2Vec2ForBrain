@@ -17,6 +17,7 @@ class MultiWaveInputWav2VecCTC(Wav2Vec2ForCTC):
     def __init__(self, wav2vec2forCTC: Wav2Vec2ForCTC):
         super().__init__(wav2vec2forCTC.config)
 
+        # Putting in pretrained components
         self.wav2vec2 = MultiChannelWav2Vec2Model(wav2vec2forCTC.wav2vec2)
         self.dropout = wav2vec2forCTC.dropout
 
@@ -71,6 +72,8 @@ class MultiWaveInputWav2VecCTC(Wav2Vec2ForCTC):
                 if attention_mask is not None
                 else torch.ones_like(input_values, dtype=torch.long)
             )
+
+            # Fixes input lengths for higher dimensional input
             if len(attention_mask.size()) == 3:
                 input_lengths = self._get_feat_extract_output_lengths(
                     torch.tensor([attention_mask.size(1)] * attention_mask.size(0)).to(
@@ -116,32 +119,6 @@ class MultiWaveInputWav2VecCTC(Wav2Vec2ForCTC):
         )
 
 
-class MultiWaveInputWav2VecCTC_old(Module):
-    def __init__(self, wav2_vec_checkpoint, cache_dir, ctc_loss_reduction):
-        super().__init__()
-
-        self.wav2vec2 = cast(
-            Wav2Vec2ForCTC,
-            Wav2Vec2ForCTC.from_pretrained(
-                wav2_vec_checkpoint,
-                cache_dir=cache_dir,
-                ctc_loss_reduction=ctc_loss_reduction,
-            ),
-        )
-        self.config = self.wav2vec2.config
-
-        self.wav2vec2.wav2vec2 = MultiChannelWav2Vec2Model(self.wav2vec2.wav2vec2)
-
-    def forward(
-        self,
-        input_values: Optional[torch.Tensor],
-        return_dict: Optional[bool] = None,
-        labels: Optional[torch.Tensor] = None,
-    ) -> Union[Tuple, CausalLMOutput]:
-        output = self.wav2vec2(input_values, return_dict=return_dict, labels=labels)
-        return output
-
-
 class MultiChannelWav2Vec2Model(Wav2Vec2Model):
     def __init__(self, wav2vec2_model: Wav2Vec2Model):
         super().__init__(wav2vec2_model.config)
@@ -178,6 +155,7 @@ class MultiChannelWav2Vec2Model(Wav2Vec2Model):
 
         channels = input_values.size(-1)
 
+        # Added sequential feature extraction for every soundwave
         features_per_channel = []
 
         for i in range(channels):
@@ -186,13 +164,9 @@ class MultiChannelWav2Vec2Model(Wav2Vec2Model):
             features_per_channel.append(extract_features)
 
         extract_features = torch.stack(features_per_channel, 1)
-        extract_features = torch.mean(extract_features, 1).squeeze()
+        extract_features = torch.mean(extract_features, 1).squeeze(1)
 
         hidden_states, extract_features = self.feature_projection(extract_features)
-
-        if len(hidden_states.size()) == 2:
-            hidden_states = hidden_states.unsqueeze(0)
-            extract_features = extract_features.unsqueeze(0)
 
         hidden_states = self._mask_hidden_states(
             hidden_states,
