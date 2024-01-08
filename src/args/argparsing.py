@@ -1,4 +1,5 @@
 import argparse
+from src.experiments.b2t_resnet_experiment import B2TResnetExperiment
 from src.experiments.b2t_wav2vec_cnn_experiment import B2TWav2VecCnnExperiment
 from src.experiments.b2t_wav2vec_shared_agg_experiment import (
     B2TWav2VecSharedAggregationExperiment,
@@ -17,6 +18,7 @@ experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_sharedaggregation": B2TWav2VecSharedAggregationExperiment,
     "audio_wav2vec2": AudioWav2VecExperiment,
     "b2t_audio_wav2vec": B2TAudioWav2VecExperiment,
+    "b2t_resnet": B2TResnetExperiment,
 }
 
 
