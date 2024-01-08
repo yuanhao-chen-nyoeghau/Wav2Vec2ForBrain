@@ -4,20 +4,29 @@ from dataclasses import dataclass
 
 @dataclass
 class MetricEntry:
+    metrics: dict[str, float]
     loss: float = 0
 
     def __iadd__(self, other: "MetricEntry"):
+        for key, value in other.metrics.items():
+            if key in self.metrics and self.metrics[key] is not None:
+                self.metrics[key] += value
+            else:
+                self.metrics[key] = value
         self.loss += other.loss
         return self
 
     def __truediv__(self, other: float):
-        return MetricEntry(self.loss / other)
+        metrics_copy = dict(self.metrics)
+        for key, value in metrics_copy.items():
+            self.metrics[key] /= other
+        return MetricEntry(metrics_copy, self.loss / other)
 
 
 class SingleEpochHistory:
     def __init__(self):
         self.metrics: list[MetricEntry] = []
-        self._total_loss = MetricEntry(loss=0.0)
+        self._total_loss = MetricEntry({})
         self._total_loss_count = 0
 
     def add_batch_metric(self, loss: MetricEntry):
@@ -97,22 +106,37 @@ class TrainHistory(NamedTuple):
     def plot(self, out_path: str):
         import matplotlib.pyplot as plt
 
-        # plot val and train loss history as subplots
-        train_losses = [epoch.train_losses.get_average().loss for epoch in self.epochs]
-        val_losses = [epoch.val_losses.get_average().loss for epoch in self.epochs]
+        if len(self.epochs) == 0:
+            return
 
+        sample_epoch = self.epochs[0]
+        train_metric_keys = sample_epoch.train_losses.metrics[0].metrics.keys()
+        val_metric_keys = sample_epoch.val_losses.metrics[0].metrics.keys()
         # Creating a figure and subplots
         fig, ax = plt.subplots()
+        for metric_key in train_metric_keys:
+            # plot val and train loss history as subplots
+            train_losses = [
+                epoch.train_losses.get_average().metrics[metric_key]
+                for epoch in self.epochs
+            ]
+            # Plotting train loss history
+            ax.plot(
+                train_losses, label=f"{metric_key} (train)", linestyle="-", marker="o"
+            )
 
-        # Plotting train loss history
-        ax.plot(
-            train_losses, label="Train Loss", linestyle="-", marker="o", color="blue"
-        )
-
-        # Plotting validation loss history on the same plot
-        ax.plot(
-            val_losses, label="Validation Loss", linestyle="-", marker="o", color="red"
-        )
+        for metric_key in val_metric_keys:
+            val_losses = [
+                epoch.val_losses.get_average().metrics[metric_key]
+                for epoch in self.epochs
+            ]
+            # Plotting validation loss history on the same plot
+            ax.plot(
+                val_losses,
+                label=f"{metric_key} (validation)",
+                linestyle="-",
+                marker="o",
+            )
 
         # Adding labels and title
         ax.set_xlabel("Epochs")
@@ -122,7 +146,7 @@ class TrainHistory(NamedTuple):
         # Adding legend
         ax.legend()
 
-        num_epochs = len(train_losses)
+        num_epochs = len(self.epochs)
         plt.xticks(list(range(num_epochs)), [str(i) for i in range(1, num_epochs + 1)])
 
         # Displaying the plot

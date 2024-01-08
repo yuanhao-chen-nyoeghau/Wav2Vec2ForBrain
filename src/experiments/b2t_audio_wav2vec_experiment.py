@@ -1,7 +1,7 @@
 import os
 from torch.optim.optimizer import Optimizer
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel, B2TAudioWav2VecArgsModel
-from model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
+from src.model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
 from src.datasets.b2t_audio import B2TAudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment

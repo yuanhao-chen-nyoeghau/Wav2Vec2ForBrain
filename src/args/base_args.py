@@ -21,7 +21,7 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc"] = "ctc"
+    loss_function: Literal["ctc", "contrastive_loss"] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
@@ -29,6 +29,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_wav2vec_cnn",
         "audio_wav2vec2",
         "b2t_audio_wav2vec",
+        "b2t_wav2vec_pretraining",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"

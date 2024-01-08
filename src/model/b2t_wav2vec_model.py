@@ -41,7 +41,10 @@ class Brain2AudioShapeModule(torch.nn.Module):
     def forward(self, batched_input: torch.Tensor) -> torch.Tensor:
         # batched_input shape: (batch_size, timestamps, brain_data)
         audio_shaped_data: torch.Tensor
-        if self.config.experiment_type == "b2t_wav2vec_sharedaggregation":
+        if (
+            self.config.experiment_type == "b2t_wav2vec_sharedaggregation"
+            or self.config.experiment_type == "b2t_wav2vec_pretraining"
+        ):
             config = cast(B2TWav2VecSharedAggregationArgsModel, self.config)
 
             if config.brain2audio_method == "fc":
@@ -93,7 +96,10 @@ class Brain2AudioShapeModule(torch.nn.Module):
 
     def _get_brain2audioshape_module(self):
         in_size = self._get_timestamp_vec_len()
-        if self.config.experiment_type == "b2t_wav2vec_sharedaggregation":
+        if (
+            self.config.experiment_type == "b2t_wav2vec_sharedaggregation"
+            or self.config.experiment_type == "b2t_wav2vec_pretraining"
+        ):
             config = cast(B2TWav2VecSharedAggregationArgsModel, self.config)
             return (
                 Sequential(
@@ -156,6 +162,7 @@ class B2TWav2Vec(B2TModel):
                 config.wav2vec_checkpoint,
                 cache_dir=yaml_config.cache_dir,
                 ctc_loss_reduction=config.ctc_loss_reduction,
+                pad_token_id=tokenizer.pad_token_id,
             ),
         )
         print("config", self.wav2vec2.config)
@@ -183,7 +190,12 @@ class B2TWav2Vec(B2TModel):
             audio_shaped_data, return_dict=True, labels=targets
         )
 
+        metrics = (
+            {"ctc_loss": wav2vec2_out.loss.item()}
+            if wav2vec2_out.loss is not None
+            else {}
+        )
+
         return ModelOutput(
-            logits=wav2vec2_out.logits,
-            loss=wav2vec2_out.loss,
+            logits=wav2vec2_out.logits, loss=wav2vec2_out.loss, metrics=metrics
         )

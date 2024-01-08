@@ -67,7 +67,10 @@ class B2TAudioWav2VecModel(B2TModel):
             batched, return_dict=True, labels=targets
         )
 
+        metrics = (
+            {"ctc_loss": model_out.loss.item()} if model_out.loss is not None else {}
+        )
+
         return ModelOutput(
-            logits=model_out.logits,
-            loss=model_out.loss,
+            logits=model_out.logits, loss=model_out.loss, metrics=metrics
         )

@@ -5,13 +5,16 @@ from typing import Literal, Optional
 class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
-        "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
+        "facebook/wav2vec2-base-100h",
+        "facebook/wav2vec2-base-960h",
+        "facebook/wav2vec2-xls-r-300m",
     ] = "facebook/wav2vec2-base-960h"
     unfreeze_strategy: Literal[
-        "wav2vec2featureextractor_ours", "all"
+        "wav2vec2featureextractor_ours", "all", "ours", "lm_head"
     ] = "wav2vec2featureextractor_ours"
     remove_punctuation: bool = True
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = None
     activation: Literal["identity", "relu"] = "identity"
 
 

@@ -27,8 +27,12 @@ class B2TWav2VecExperiment(Experiment):
 
     def _create_tokenizer(self):
         if self.config.tokenizer == "wav2vec_pretrained":
+            assert (
+                not self.config.tokenizer_checkpoint is None
+            ), "Tokenizer checkpoint (--tokenizer_checkpoint) must be set when using --tokenizer=wav2vec_pretrained"
+
             return AutoTokenizer.from_pretrained(
-                self.config.wav2vec_checkpoint,
+                self.config.tokenizer_checkpoint,
                 cache_dir=self.yaml_config.cache_dir,
             )
         raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
@@ -99,6 +103,8 @@ class B2TWav2VecExperiment(Experiment):
                     },
                     {"params": self.model.wav2vec2.wav2vec2.head.parameters()},
                 ]
+            if self.config.unfreeze_strategy == "lm_head":
+                return self.model.wav2vec2.lm_head.parameters()
             if self.config.unfreeze_strategy == "all":
                 return self.model.parameters()
             raise Exception(
