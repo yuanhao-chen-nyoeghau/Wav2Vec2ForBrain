@@ -7,3 +7,11 @@ We attempt to decode thought about text based on brain electrode data
 conda activate b2t
 conda env update --file environment.yaml --prune
 ```
+
+### If Update leads to cudaKernelExc Error
+```
+conda create --name b2t pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+conda activate b2t
+conda install scipy pydantic tokenizers transformers matplotlib
+conda install -c conda-forge wandb
+``` 
