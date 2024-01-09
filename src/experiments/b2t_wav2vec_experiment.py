@@ -54,12 +54,16 @@ class B2TWav2VecExperiment(Experiment):
         return model
 
     def get_collate_fn(self):
+        multiple_channels = self.config.preprocessing == "seperate_zscoring_2channels"
+
         def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max([x.size(0) for x, _ in batch])
+            max_block_len = max(
+                [x.size(1 if multiple_channels else 0) for x, _ in batch]
+            )
             padded_blocks = [
                 pad(
                     x,
-                    (0, 0, 0, max_block_len - x.size(0)),
+                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
                     mode="constant",
                     value=0,
                 )

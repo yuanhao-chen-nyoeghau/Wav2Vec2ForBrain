@@ -33,6 +33,27 @@
             "args": [
                 "--experiment_type=b2t_audio_wav2vec"
             ]
+        },
+        {
+            "name": "run.py b2t_custom_encoder",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_wav2vec_custom_encoder",
+                "--batch_size=8",
+                "--epochs=1",
+                "--learning_rate=0.001",
+                "--unfreeze_strategy=all",
+                "--sample_rate=50",
+                "--tokenizer_checkpoint=facebook/wav2vec2-base-100h",
+                "--wav2vec_checkpoint=facebook/wav2vec2-xls-r-300m",
+                "--mode=pretraining",
+                "--preprocessing=seperate_zscoring_2channels",
+                "--tokenizer_checkpoint=facebook/wav2vec2-base-100h"
+            ]
         }
     ]
 }
