@@ -19,7 +19,7 @@ class MetricEntry:
     def __truediv__(self, other: float):
         metrics_copy = dict(self.metrics)
         for key, value in metrics_copy.items():
-            self.metrics[key] /= other
+            metrics_copy[key] /= other
         return MetricEntry(metrics_copy, self.loss / other)
 
 
