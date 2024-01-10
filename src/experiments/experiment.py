@@ -166,7 +166,9 @@ class Experiment(metaclass=ABCMeta):
 
             with torch.no_grad():
                 outputs = model.forward(inputs.cuda())
-
+                if outputs.logits.shape[0] == 0:
+                    print("Skipping _predict because outputs don't have logits")
+                    return []
                 predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
                 predicted = self.tokenizer.batch_decode(predicted_ids)
                 result.append(

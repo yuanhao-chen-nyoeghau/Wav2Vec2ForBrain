@@ -205,18 +205,14 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
             shape=(batch_size, int(sequence_length)), mask_prob=0.2, mask_length=2
         )
 
-        sampled_negative_indices = (
-            torch.tensor(
-                data=_sample_negative_indices(
-                    features_shape=(batch_size, sequence_length),
-                    num_negatives=self.wav2vec2.config.num_negatives,
-                    mask_time_indices=mask_time_indices,
-                ),
-                device=batched_input.device,
-                dtype=torch.long,
-            )
-            if self.training
-            else None
+        sampled_negative_indices = torch.tensor(
+            data=_sample_negative_indices(
+                features_shape=(batch_size, sequence_length),
+                num_negatives=self.wav2vec2.config.num_negatives,
+                mask_time_indices=mask_time_indices,
+            ),
+            device=batched_input.device,
+            dtype=torch.long,
         )
         mask_time_indices = torch.tensor(
             data=mask_time_indices, device=batched_input.device, dtype=torch.long
