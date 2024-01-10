@@ -14,6 +14,10 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 from torch import nn
 from transformers.activations import ACT2FN
+from transformers.models.wav2vec2.modeling_wav2vec2 import (
+    _compute_mask_indices,
+    _sample_negative_indices,
+)
 
 IN_CHANNELS = 2
 NUM_FEATURES = 128
@@ -31,7 +35,10 @@ class ConvLayer(nn.Module):
             nn.Conv2d(
                 self.in_conv_dim,
                 self.out_conv_dim,
-                kernel_size=(config.conv_kernel[layer_id], NUM_FEATURES),
+                kernel_size=(
+                    config.conv_kernel[layer_id],
+                    NUM_FEATURES if layer_id == 0 else 1,
+                ),
                 stride=config.conv_stride[layer_id],
                 bias=config.conv_bias,
             )
@@ -40,7 +47,7 @@ class ConvLayer(nn.Module):
     def forward(self, hidden_states):
         hidden_states = self.conv(hidden_states)
 
-        return hidden_states.squeeze(-1)
+        return hidden_states
 
 
 class Wav2Vec2GroupNormConvLayer(nn.Module):
@@ -116,8 +123,21 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
         self.gradient_checkpointing = False
         self._requires_grad = True
 
-    def forward(self, x: torch.Tensor):
-        return super().forward(x)
+    def forward(self, input_values):
+        hidden_states = input_values
+
+        for conv_layer in self.conv_layers:
+            if self._requires_grad and self.gradient_checkpointing and self.training:
+                hidden_states = self._gradient_checkpointing_func(
+                    conv_layer.__call__,
+                    hidden_states,
+                )
+            else:
+                hidden_states = conv_layer(hidden_states)
+
+        return hidden_states.squeeze(
+            -1
+        )  # removing extra dim that we get through our 2D instead of 1D input shape
 
 
 class _CustomEncodeBaseW2VModel(B2TModel):
@@ -176,9 +196,42 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
     ) -> ModelOutput:
         batched_input, targets = self._prepare_input(x, targets)
 
+        batch_size = batched_input.shape[0]
+        raw_sequence_length = batched_input.shape[2]
+
+        # TODO: calculate for general case
+        sequence_length = raw_sequence_length
+        mask_time_indices = _compute_mask_indices(
+            shape=(batch_size, int(sequence_length)), mask_prob=0.2, mask_length=2
+        )
+
+        sampled_negative_indices = (
+            torch.tensor(
+                data=_sample_negative_indices(
+                    features_shape=(batch_size, sequence_length),
+                    num_negatives=self.wav2vec2.config.num_negatives,
+                    mask_time_indices=mask_time_indices,
+                ),
+                device=batched_input.device,
+                dtype=torch.long,
+            )
+            if self.training
+            else None
+        )
+        mask_time_indices = torch.tensor(
+            data=mask_time_indices, device=batched_input.device, dtype=torch.long
+        )
+
         wav2vec2_out = cast(
             Wav2Vec2ForPreTrainingOutput,
-            self.wav2vec2.forward(batched_input, return_dict=True),
+            self.wav2vec2.forward(
+                batched_input,
+                return_dict=True,
+                mask_time_indices=cast(torch.BoolTensor, mask_time_indices),
+                sampled_negative_indices=cast(
+                    torch.BoolTensor, sampled_negative_indices
+                ),
+            ),
         )
         metrics = (
             {"contrastive_loss": wav2vec2_out.loss.item()}

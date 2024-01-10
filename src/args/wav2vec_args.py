@@ -45,9 +45,9 @@ class AudioWav2VecArgsModel(BaseExperimentArgsModel):
 class B2TWav2VecCustomEncoderArgsModel(B2TWav2VecArgsModel):
     mode: Literal["pretraining", "finetuning"] = "pretraining"
     conv_bias: bool = True
-    conv_stride: list[int] = [1, 1, 1, 1, 1]  # [5, 2, 2, 2, 2, 2, 2]
-    conv_kernel: list[int] = [1, 1, 1, 1, 1]  # [10, 3, 3, 3, 3, 2, 2]
-    conv_dim: list[int] = [32, 64, 128, 256, 512]  # [512, 512, 512, 512, 512, 512, 512]
+    conv_stride: list[int] = [1]  # [5, 2, 2, 2, 2, 2, 2]
+    conv_kernel: list[int] = [1]  # [10, 3, 3, 3, 3, 2, 2]
+    conv_dim: list[int] = [512]  # [512, 512, 512, 512, 512, 512, 512]
     feat_extract_activation: Literal[
         "gelu",
         "gelu_10",
@@ -68,5 +68,5 @@ class B2TWav2VecCustomEncoderArgsModel(B2TWav2VecArgsModel):
         "swish",
         "tanh",
     ] = "gelu"
-    feat_extract_norm: Literal["group", "layer"] = "layer"
-    num_feat_extract_layers: int = 5  # 7
+    feat_extract_norm: Literal["group", "layer"] = "group"
+    num_feat_extract_layers: int = 1  # 7
