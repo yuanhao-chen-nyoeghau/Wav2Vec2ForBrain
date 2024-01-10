@@ -54,7 +54,10 @@ class B2TWav2VecExperiment(Experiment):
         return model
 
     def get_collate_fn(self):
-        multiple_channels = self.config.preprocessing == "seperate_zscoring_2channels"
+        multiple_channels = (
+            self.config.preprocessing == "seperate_zscoring_2channels"
+            or self.config.preprocessing == "seperate_zscoring_4channels"
+        )
 
         def _collate(batch: list[tuple[torch.Tensor, str]]):
             max_block_len = max(

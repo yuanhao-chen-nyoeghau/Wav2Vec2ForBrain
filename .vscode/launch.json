@@ -56,14 +56,14 @@
             ]
         },
         {
-            "name": "run.py resnet",
+            "name": "run.py b2t_wav2vec_resnet",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "--experiment_type=b2t_resnet"
+                "--experiment_type=b2t_wav2vec_resnet"
             ]
         }
     ]

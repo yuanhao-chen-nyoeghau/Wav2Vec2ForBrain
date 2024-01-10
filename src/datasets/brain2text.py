@@ -15,6 +15,7 @@ from src.datasets.preprocessing import (
     preprocess_only_spikepow_zscored,
     preprocess_only_tx_unnormalized,
     preprocess_only_tx_zscored,
+    preprocess_seperate_zscoring_4channels,
     resample_sample,
     preprocess_seperate_zscoring_2channels,
 )
@@ -31,6 +32,7 @@ PreprocessingFunctions: dict[
     "only_spikepow_unnormalized": preprocess_only_spikepow_unnormalized,
     "only_spikepow_zscored": preprocess_only_spikepow_zscored,
     "seperate_zscoring_2channels": preprocess_seperate_zscoring_2channels,
+    "seperate_zscoring_4channels": preprocess_seperate_zscoring_4channels,
 }
 
 

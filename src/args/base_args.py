@@ -11,7 +11,8 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
         "seperate_zscoring_2channels",
-    ] = "seperate_zscoring"
+        "seperate_zscoring_4channels",
+    ] = "seperate_zscoring_4channels"
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
