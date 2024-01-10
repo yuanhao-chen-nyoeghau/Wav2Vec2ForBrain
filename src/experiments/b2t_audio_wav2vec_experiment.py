@@ -1,7 +1,7 @@
 import os
 from torch.optim.optimizer import Optimizer
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel, B2TAudioWav2VecArgsModel
-from model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
+from src.model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
 from src.datasets.b2t_audio import B2TAudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
@@ -19,10 +19,6 @@ class B2TAudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = B2TAudioWav2VecArgsModel(**config)
         self.ds_config = B2TAudioDatasetArgsModel(**config)
-
-        assert (
-            self.config.mean_reduction == self.ds_config.mean_reduction
-        ), "Mean reduction needs to be set to the same value for data set and model so the training works correctly"
 
         super().__init__(config, yamlConfig)
         self.model: B2TAudioWav2VecModel = self.model
@@ -62,7 +58,7 @@ class B2TAudioWav2VecExperiment(Experiment):
                 pad(
                     x,
                     (0, max_audio_len - x.size(0))
-                    if self.config.mean_reduction
+                    if self.ds_config.mean_reduction_data
                     else (
                         0,
                         0,

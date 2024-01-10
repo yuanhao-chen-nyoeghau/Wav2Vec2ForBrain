@@ -10,6 +10,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_tx_zscored",
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
+        "seperate_zscoring_2channels",
     ] = "seperate_zscoring"
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
@@ -21,7 +22,7 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc"] = "ctc"
+    loss_function: Literal["ctc", "contrastive_loss"] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
@@ -29,7 +30,9 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_wav2vec_cnn",
         "audio_wav2vec2",
         "b2t_audio_wav2vec",
-        "b2t_resnet",
+        "b2t_wav2vec_resnet",
+        "b2t_wav2vec_pretraining",
+        "b2t_wav2vec_custom_encoder",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"

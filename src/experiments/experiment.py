@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
-from src.model.b2tmodel import B2TModel
+from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Literal, Type, cast, Any
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
@@ -101,20 +101,23 @@ class Experiment(metaclass=ABCMeta):
                     json.dump(history.to_dict(), f, indent=5)
                 model_for_testing = trained_model
 
-                history.plot(os.path.join(self.results_dir, "history.png"))
+                self.plot_results(history)
             else:
                 model_for_testing = self.model
 
-            self._predict_and_store(
-                model_for_testing, self.dataloader_test, "test_prediction.json"
-            )
-
-            if self.base_config.predict_on_train == True:
-                self._predict_and_store(
-                    model_for_testing, self.dataloader_train, "train_prediction.json"
-                )
+            self.run_real_world_test(model_for_testing)
 
             print(f"Done. Saved results to {self.results_dir}")
+
+    def plot_results(self, history: TrainHistory):
+        history.plot(os.path.join(self.results_dir, "history.png"))
+
+    def run_real_world_test(self, model: B2TModel):
+        self._predict_and_store(model, self.dataloader_test, "test_prediction.json")
+        if self.base_config.predict_on_train == True:
+            self._predict_and_store(
+                model, self.dataloader_train, "train_prediction.json"
+            )
 
     @abstractmethod
     def get_name(self) -> str:
@@ -163,13 +166,17 @@ class Experiment(metaclass=ABCMeta):
 
             with torch.no_grad():
                 outputs = model.forward(inputs.cuda())
-
+                if outputs.logits.shape[0] == 0:
+                    print("Skipping _predict because outputs don't have logits")
+                    return []
                 predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
                 predicted = self.tokenizer.batch_decode(predicted_ids)
                 result.append(
                     {
                         "predicted": predicted,
-                        "label": self.tokenizer.batch_decode(labels.cpu().numpy()),
+                        "label": self.tokenizer.batch_decode(
+                            labels.cpu().numpy(), group_tokens=False
+                        ),
                     }
                 )
             print(

@@ -1,12 +1,17 @@
 import argparse
 from src.experiments.b2t_resnet_experiment import B2TResnetExperiment
+from src.experiments.b2t_custom_encoder_w2v_experiment import (
+    B2TWav2VecCustomEncoderExperiment,
+)
 from src.experiments.b2t_wav2vec_cnn_experiment import B2TWav2VecCnnExperiment
 from src.experiments.b2t_wav2vec_shared_agg_experiment import (
     B2TWav2VecSharedAggregationExperiment,
 )
 from src.experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
-from src.experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
 from src.experiments.b2t_audio_wav2vec_experiment import B2TAudioWav2VecExperiment
+from src.experiments.b2t_pretraining_wav2vec_experiment import (
+    B2TWav2VecPretrainingExperiment,
+)
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
@@ -18,7 +23,9 @@ experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_sharedaggregation": B2TWav2VecSharedAggregationExperiment,
     "audio_wav2vec2": AudioWav2VecExperiment,
     "b2t_audio_wav2vec": B2TAudioWav2VecExperiment,
-    "b2t_resnet": B2TResnetExperiment,
+    "b2t_wav2vec_resnet": B2TResnetExperiment,
+    "b2t_wav2vec_pretraining": B2TWav2VecPretrainingExperiment,
+    "b2t_wav2vec_custom_encoder": B2TWav2VecCustomEncoderExperiment,
 }
 
 

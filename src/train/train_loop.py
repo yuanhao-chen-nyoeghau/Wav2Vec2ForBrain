@@ -41,7 +41,7 @@ class Trainer:
         loss = epoch_history.get_last().loss
         running = epoch_history.get_average().loss
         print(
-            f"Batch {batch + 1}/{n_batches} loss: {loss} running: {running}\r",
+            f"Batch {batch + 1}/{n_batches} loss: {loss:.2f} running: {running:.2f}\r",
             end="",
         )
 
@@ -65,7 +65,7 @@ class Trainer:
             # Adjust learning weights
             self.optimizer.step()
 
-            losses.add_batch_metric(MetricEntry(loss.item()))
+            losses.add_batch_metric(MetricEntry(outputs.metrics, loss.item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -82,9 +82,13 @@ class Trainer:
 
             with torch.no_grad():
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
-                loss = cast(torch.Tensor, outputs.loss)
 
-            losses.add_batch_metric(MetricEntry(loss.item()))
+            losses.add_batch_metric(
+                MetricEntry(
+                    outputs.metrics,
+                    outputs.loss.item() if outputs.loss is not None else 0,
+                )
+            )
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
