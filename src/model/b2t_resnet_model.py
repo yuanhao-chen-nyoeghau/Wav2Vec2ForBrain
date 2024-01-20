@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import Optional, cast, Tuple
 from torch import Tensor, conv2d
 from src.args.b2t_resnet_args import B2TWav2VecResnetArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -13,13 +13,8 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     _compute_mask_indices,
     _sample_negative_indices,
 )
-from torchvision.models import resnet152
 from torch import nn
 import torch
-
-
-IN_CHANNELS = 2
-NUM_FEATURES = 128
 
 
 class FeatureEncoder(Wav2Vec2FeatureEncoder):
@@ -27,47 +22,85 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
 
     def __init__(self, config: B2TWav2VecResnetArgsModel):
         super().__init__(config)
-        self.resnet = resnet152(pretrained=True)
         self.gradient_checkpointing = False
-        self.conv_transformer = nn.Conv3d(
-            4, 3, (1, 3, 3), stride=1, padding=(0, 1, 1)
-        ).cuda()
-        num_in_features = self.resnet.fc.in_features
+
         self.num_out_features = 512
-        self.resnet.fc = nn.Linear(num_in_features, self.num_out_features)
-        self.resnet = self.resnet.cuda()
+
+        # in: [4, time, 8, 8]
+        self.block1 = self.cnn3d_layer(
+            in_features=4,
+            out_features=64,
+            kernel_size=(1, 3, 3),
+            stride=(1, 1, 1),
+            padding=(0, 1, 1),
+            max_pool_kernel_size=(1, 3, 3),
+            max_pool_stride=(1, 2, 2),
+            max_pool_padding=(0, 1, 1),
+        )
+        # in: [64, time, 4, 4]
+        self.block2 = self.cnn3d_layer(
+            in_features=64,
+            out_features=256,
+            kernel_size=(1, 1, 1),
+            stride=(1, 1, 1),
+            padding=(0, 0, 0),
+            max_pool_kernel_size=(1, 3, 3),
+            max_pool_stride=(1, 2, 2),
+            max_pool_padding=(0, 1, 1),
+        )
+
+        # in: [256, time, 2, 2]
+        self.block3 = self.cnn3d_layer(
+            in_features=256,
+            out_features=512,
+            kernel_size=(1, 1, 1),
+            stride=(1, 1, 1),
+            padding=(0, 0, 0),
+            max_pool_kernel_size=(1, 3, 3),
+            max_pool_stride=(1, 2, 2),
+            max_pool_padding=(0, 1, 1),
+        )
+        # out: [512, time, 1, 1]
+        self.classifier = self.linear_classifier(
+            in_features=512, out_features=self.num_out_features
+        )
+        # out: [512, time]
+
         self._requires_grad = True
 
+    def cnn3d_layer(
+        self,
+        in_features: int,
+        out_features: int,
+        kernel_size: Tuple[int, int, int],
+        stride: Tuple[int, int, int],
+        padding: Tuple[int, int, int],
+        max_pool_kernel_size: Tuple[int, int, int],
+        max_pool_stride: Tuple[int, int, int],
+        max_pool_padding: Tuple[int, int, int],
+    ):
+        return nn.Sequential(
+            nn.Conv3d(in_features, out_features, kernel_size, stride, padding),
+            nn.BatchNorm3d(out_features),
+            nn.ReLU(),
+            nn.MaxPool3d(max_pool_kernel_size, max_pool_stride, max_pool_padding),
+        )
+
+    def linear_classifier(self, in_features: int, out_features: int):
+        return nn.Sequential(
+            nn.Conv2d(1, out_features, kernel_size=(in_features, 1), stride=(1, 1)),
+            nn.BatchNorm2d(out_features),
+            nn.ReLU(),
+        )
+
     def forward(self, input_values):
-        hidden_states = input_values
-        hidden_states = self.conv_transformer(hidden_states)
-
-        batch_length = hidden_states.size(0)
-        input_length = hidden_states.size(2)
-
-        hidden_states = hidden_states.view(
-            -1, hidden_states.size(1), hidden_states.size(3), hidden_states.size(4)
-        )
-        hidden_states = nn.functional.interpolate(
-            hidden_states, size=(64, 64), mode="bilinear"
-        )
-        resnet_output = self.resnet(hidden_states)
-        resnet_output = resnet_output.view(
-            batch_length, input_length, resnet_output.size(1)
-        ).permute(0, 2, 1)
-
-        """ resnet_output = torch.zeros(
-            [batch_length, self.num_out_features, input_length]
-        ).cuda()
-        for i in range(hidden_states.size(2)):
-            input_image = hidden_states[:, :, i, :, :].squeeze(2)
-            input_image = nn.functional.interpolate(
-                input_image, size=(64, 64), mode="bilinear"
-            )
-            features = self.resnet(input_image)
-            resnet_output[:, :, i] = features """
-
-        return resnet_output
+        output = self.block1(input_values)
+        output = self.block2(output)
+        output = self.block3(output)
+        output = output.squeeze()
+        output = output.unsqueeze(1)
+        output = self.classifier(output).squeeze()
+        return output
 
 
 class _CustomEncodeBaseW2VModel(B2TModel):
@@ -90,7 +123,16 @@ class _CustomEncodeBaseW2VModel(B2TModel):
 
         is_batched = len(x.size()) == 4
         batched_input = x if is_batched else x.unsqueeze(0)
-        batched_input = batched_input.view(
+
+        attention_mask = torch.zeros(
+            batched_input.size(0), batched_input.size(2)
+        ).cuda()
+        for batch_idx in range(batched_input.size(0)):
+            for time_idx in range(batched_input.size(2)):
+                data = batched_input[batch_idx, :, time_idx, :]
+                attention_mask[batch_idx, time_idx] = torch.all(data != 0.0)
+
+        batched_input = batched_input.reshape(
             batched_input.size(0), batched_input.size(1), batched_input.size(2), 8, 8
         )
         # replace padding token with -100 for it to be ignored in ctc loss
@@ -99,7 +141,7 @@ class _CustomEncodeBaseW2VModel(B2TModel):
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
 
-        return batched_input, targets
+        return batched_input, targets, attention_mask
 
 
 class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
@@ -126,7 +168,7 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
     def forward(
         self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
     ) -> ModelOutput:
-        batched_input, targets = self._prepare_input(x, targets)
+        batched_input, targets, attention_mask = self._prepare_input(x, targets)
 
         batch_size = batched_input.shape[0]
         raw_sequence_length = batched_input.shape[2]
@@ -195,11 +237,16 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
     def forward(
         self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
     ) -> ModelOutput:
-        batched_input, targets = self._prepare_input(x, targets)
+        batched_input, targets, attention_mask = self._prepare_input(x, targets)
 
         wav2vec2_out = cast(
             CausalLMOutput,
-            self.wav2vec2.forward(batched_input, return_dict=True),
+            self.wav2vec2.forward(
+                batched_input,
+                attention_mask=attention_mask,
+                labels=targets,
+                return_dict=True,
+            ),
         )
         metrics = (
             {"ctc_loss": wav2vec2_out.loss.item()}

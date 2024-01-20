@@ -6,7 +6,7 @@ from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
 
 
 class B2TWav2VecResnetArgsModel(B2TWav2VecArgsModel):
-    mode: Literal["pretraining", "finetuning"] = "pretraining"
+    mode: Literal["pretraining", "finetuning"] = "finetuning"
     conv_bias: bool = True
     conv_stride: list[int] = [1]  # [5, 2, 2, 2, 2, 2, 2]
     conv_kernel: list[int] = [1]  # [10, 3, 3, 3, 3, 2, 2]
