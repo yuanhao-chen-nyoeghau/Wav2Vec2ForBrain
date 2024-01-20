@@ -2,3 +2,4 @@
 config.yaml
 test.ipynb
 brain2text.code-workspace
+test_out/*

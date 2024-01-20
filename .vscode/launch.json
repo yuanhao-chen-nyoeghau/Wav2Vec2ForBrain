@@ -54,6 +54,69 @@
                 "--preprocessing=seperate_zscoring_2channels",
                 "--tokenizer_checkpoint=facebook/wav2vec2-base-100h"
             ]
-        }
+        },
+        {
+            "name": "run.py b2t_custom_encoder finetuning",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_wav2vec_custom_encoder",
+                "--batch_size=8",
+                "--epochs=10",
+                "--learning_rate=0.00001",
+                "--unfreeze_strategy=all",
+                "--sample_rate=50",
+                "--tokenizer_checkpoint=facebook/wav2vec2-base-100h",
+                "--wav2vec_checkpoint=facebook/wav2vec2-xls-r-300m",
+                "--mode=finetuning",
+                "--preprocessing=seperate_zscoring_2channels",
+                "--loss_function=ctc",
+                "--from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2t_wav2vec_custom_encoder/2024-01-10_08#58#14/model.pt"
+            ]
+        },
+        {
+            "name": "run.py onehot_index",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=onehot_index",
+                "--batch_size=1",
+                "--epochs=1000",
+                "--learning_rate=0.001",
+                "--sample_rate=50",
+                "--tokenizer_checkpoint=facebook/wav2vec2-base-100h",
+                "--preprocessing=seperate_zscoring_2channels",
+                "--loss_function=ctc",
+                "--limit_samples=1",
+                "--predict_on_train=true"
+            ]
+        },
+        {
+            "name": "run.py direct_cnn",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_cnn",
+                "--batch_size=1",
+                "--epochs=1000",
+                "--learning_rate=0.1",
+                "--sample_rate=50",
+                "--tokenizer_checkpoint=facebook/wav2vec2-base-100h",
+                "--preprocessing=seperate_zscoring_2channels",
+                "--loss_function=ctc",
+                "--limit_samples=1",
+                "--predict_on_train=true",
+                "--return_best_model=false"
+            ]
+        },
     ]
 }

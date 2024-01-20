@@ -48,23 +48,6 @@ class B2TWav2VecPretrainingExperiment(B2TWav2VecSharedAggregationExperiment):
     def plot_results(self, history: TrainHistory):
         super().plot_results(history)
 
-        test_cosine_similarities = [
-            item.metrics["cosine_similarity"] for item in history.test_losses.metrics
-        ]
+        out_dir = os.path.join(self.results_dir, "histograms")
 
-        import matplotlib.pyplot as plt
-
-        # Sample data: Replace these with your actual float arrays
-
-        # Create a figure and a set of subplots
-        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-
-        # Histogram for data1
-        ax.hist(test_cosine_similarities, bins=10, color="blue", alpha=0.7)
-        ax.set_title("Test Set")
-        ax.set_xlabel("Cosine Similarity")
-        ax.set_ylabel("Frequency")
-
-        # Display the histograms
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.results_dir, "histogram.png"))
+        history.plot_metric_histograms(out_dir, "cosine_similarity")
