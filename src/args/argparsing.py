@@ -1,5 +1,6 @@
 import argparse
 from src.experiments.b2t_resnet_experiment import B2TWav2VecResnetExperiment
+from src.experiments.b2t_direct_cnn_experiment import CNNExperiment
 from src.experiments.b2t_custom_encoder_w2v_experiment import (
     B2TWav2VecCustomEncoderExperiment,
 )
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
 from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
+from src.experiments.onehotindex_fc_experiment import OneHotIndexExperiment
 
 experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_cnn": B2TWav2VecCnnExperiment,
@@ -26,6 +28,8 @@ experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_resnet": B2TWav2VecResnetExperiment,
     "b2t_wav2vec_pretraining": B2TWav2VecPretrainingExperiment,
     "b2t_wav2vec_custom_encoder": B2TWav2VecCustomEncoderExperiment,
+    "onehot_index": OneHotIndexExperiment,
+    "b2t_cnn": CNNExperiment,
 }
 
 

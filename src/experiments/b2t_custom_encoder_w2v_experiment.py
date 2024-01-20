@@ -7,6 +7,8 @@ from src.args.yaml_config import YamlConfigModel
 from src.args.wav2vec_args import (
     B2TWav2VecCustomEncoderArgsModel,
 )
+from src.train.history import TrainHistory
+import os
 
 
 class B2TWav2VecCustomEncoderExperiment(B2TWav2VecExperiment):
@@ -36,3 +38,13 @@ class B2TWav2VecCustomEncoderExperiment(B2TWav2VecExperiment):
         raise Exception(
             f"Mode {self.config.mode} not supported yet by {self.get_name()}"
         )
+
+    def plot_results(self, history: TrainHistory):
+        super().plot_results(history)
+
+        if self.config.mode != "pretraining":
+            return
+
+        out_dir = os.path.join(self.results_dir, "histograms")
+
+        history.plot_metric_histograms(out_dir, "cosine_similarity")

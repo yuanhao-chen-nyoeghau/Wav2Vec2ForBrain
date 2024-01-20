@@ -1,5 +1,8 @@
+from re import I
 from typing import NamedTuple
 from dataclasses import dataclass
+
+from jinja2 import pass_eval_context
 
 
 @dataclass
@@ -45,6 +48,38 @@ class SingleEpochHistory:
             "history": [metric.__dict__ for metric in self.metrics],
             "average": self.get_average().__dict__,
         }
+
+    def plot_metric_as_hist(self, metric_key: str, title: str, plt_ax):
+        metric = [
+            item.metrics[metric_key]
+            for item in self.metrics
+            if metric_key in item.metrics
+        ]
+        # Histogram for data1
+        plt_ax.hist(metric, bins=10, color="blue", alpha=0.7)
+        num_ignored = len(self.metrics) - len(metric)
+        plt_ax.set_title(
+            title
+            + (
+                f" (ignored {num_ignored} batches w/o {metric_key})"
+                if num_ignored > 0
+                else ""
+            )
+        )
+        plt_ax.set_xlabel(metric_key)
+        plt_ax.set_ylabel("Frequency")
+
+    def save_plot_metric_as_hist(self, metric_key: str, title: str, out_path: str):
+        import matplotlib.pyplot as plt
+
+        # Create a figure and a set of subplots
+        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+
+        self.plot_metric_as_hist(metric_key, title, ax)
+
+        # Display the histograms
+        plt.tight_layout()
+        plt.savefig(out_path)
 
 
 class EpochLosses(NamedTuple):
@@ -109,46 +144,75 @@ class TrainHistory(NamedTuple):
         if len(self.epochs) == 0:
             return
 
-        sample_epoch = self.epochs[0]
-        train_metric_keys = sample_epoch.train_losses.metrics[0].metrics.keys()
-        val_metric_keys = sample_epoch.val_losses.metrics[0].metrics.keys()
+        metric_keys = set()
+        for epoch in self.epochs:
+            metric_keys = metric_keys.union(
+                epoch.train_losses.get_average().metrics.keys()
+            )
+            metric_keys = metric_keys.union(
+                epoch.val_losses.get_average().metrics.keys()
+            )
+
         # Creating a figure and subplots
-        fig, ax = plt.subplots()
-        for metric_key in train_metric_keys:
+        fig, axs = plt.subplots(nrows=len(metric_keys), ncols=1)
+        for i, metric_key in enumerate(metric_keys):
+            train_averages = [epoch.train_losses.get_average() for epoch in self.epochs]
+            val_averages = [epoch.val_losses.get_average() for epoch in self.epochs]
             # plot val and train loss history as subplots
             train_losses = [
-                epoch.train_losses.get_average().metrics[metric_key]
-                for epoch in self.epochs
+                epoch.metrics[metric_key]
+                for epoch in train_averages
+                if metric_key in epoch.metrics
             ]
-            # Plotting train loss history
+            val_losses = [
+                epoch.metrics[metric_key]
+                for epoch in val_averages
+                if metric_key in epoch.metrics
+            ]
+            ax = axs[i] if len(metric_keys) > 1 else axs
             ax.plot(
                 train_losses, label=f"{metric_key} (train)", linestyle="-", marker="o"
             )
-
-        for metric_key in val_metric_keys:
-            val_losses = [
-                epoch.val_losses.get_average().metrics[metric_key]
-                for epoch in self.epochs
-            ]
-            # Plotting validation loss history on the same plot
             ax.plot(
                 val_losses,
                 label=f"{metric_key} (validation)",
                 linestyle="-",
                 marker="o",
             )
-
-        # Adding labels and title
-        ax.set_xlabel("Epochs")
-        ax.set_ylabel("Loss")
-        ax.set_title("Train and Validation Loss History")
-
-        # Adding legend
-        ax.legend()
-
+            ax.set_xlabel("Epochs")
+            ax.set_ylabel(metric_key)
+            ax.set_title(f"Train and Validation {metric_key} history")
+            ax.legend()
         num_epochs = len(self.epochs)
         plt.xticks(list(range(num_epochs)), [str(i) for i in range(1, num_epochs + 1)])
 
-        # Displaying the plot
-        plt.show()
+        plt.tight_layout()
         plt.savefig(out_path)
+
+    def plot_metric_histograms(self, out_dir: str, metric_key: str):
+        import os
+        import matplotlib.pyplot as plt
+
+        out_dir = os.path.join(out_dir, metric_key)
+        os.makedirs(out_dir, exist_ok=True)
+
+        self.test_losses.save_plot_metric_as_hist(
+            metric_key,
+            "Test set",
+            os.path.join(out_dir, "test_histogram.png"),
+        )
+        fig, ax = plt.subplots(len(self.epochs), 2, figsize=(10, len(self.epochs) * 5))
+        for i, epoch in enumerate(self.epochs):
+            epoch.train_losses.plot_metric_as_hist(
+                metric_key,
+                f"Train (ep. {i})",
+                ax[i, 0],
+            )
+            epoch.val_losses.plot_metric_as_hist(
+                metric_key,
+                f"Val (ep. {i})",
+                ax[i, 1],
+            )
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(out_dir, "val_train_histograms.png"))

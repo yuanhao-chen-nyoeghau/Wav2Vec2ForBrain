@@ -33,6 +33,7 @@ class Trainer:
             self.optimizer,
             step_size=self.config.scheduler_step_size,
             gamma=self.config.scheduler_gamma,
+            verbose=True,
         )
 
     def _log_intermediate(
@@ -65,7 +66,7 @@ class Trainer:
             # Adjust learning weights
             self.optimizer.step()
 
-            losses.add_batch_metric(MetricEntry(outputs.metrics, loss.item()))
+            losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
@@ -102,7 +103,9 @@ class Trainer:
             if not self.experiment.checkpoint_history is None
             else []
         )
-        best_model_val_loss = float("inf")
+        best_model_val_metric = float(
+            "inf" if self.config.minimize_best_model_metric else "-inf"
+        )
         best_model_path = os.path.join(self.yaml_config.cache_dir, "best_model.pt")
 
         for epoch in range(self.config.epochs):
@@ -119,9 +122,19 @@ class Trainer:
             )
             history.append(EpochLosses(train_losses, val_losses))
             if self.config.return_best_model:
-                curr_epoch_val_loss = val_losses.get_average().loss
-                if curr_epoch_val_loss < best_model_val_loss:
-                    best_model_val_loss = curr_epoch_val_loss
+                curr_epoch_val_metric = (
+                    val_losses.get_average().loss
+                    if self.config.best_model_metric == "loss"
+                    else val_losses.get_average().metrics[self.config.best_model_metric]
+                )
+
+                is_better = (
+                    curr_epoch_val_metric < best_model_val_metric
+                    if self.config.minimize_best_model_metric
+                    else curr_epoch_val_metric > best_model_val_metric
+                )
+                if is_better:
+                    best_model_val_metric = curr_epoch_val_metric
                     torch.save(self.model.state_dict(), best_model_path)
 
             wandb.log(

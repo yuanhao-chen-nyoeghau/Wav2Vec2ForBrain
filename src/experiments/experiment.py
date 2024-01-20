@@ -165,7 +165,7 @@ class Experiment(metaclass=ABCMeta):
             inputs, labels = data
 
             with torch.no_grad():
-                outputs = model.forward(inputs.cuda())
+                outputs = model.forward(inputs.cuda(), labels.cuda())
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
                     return []

@@ -34,12 +34,22 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_wav2vec_resnet",
         "b2t_wav2vec_pretraining",
         "b2t_wav2vec_custom_encoder",
+        "onehot_index",
+        "b2t_cnn",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
     scheduler_step_size: int = 10
     scheduler_gamma: float = 0.1
     return_best_model: bool = True
+    best_model_metric: str = Field(
+        "loss",
+        description='The metric by which to measure the models performance. Can be "loss" for using the applied loss or any metric that is returned by the model',
+    )
+    minimize_best_model_metric: bool = Field(
+        True,
+        description="Specify if best_model_metric should be minimized or maximized",
+    )
     use_wandb: bool = False
     from_checkpoint: Optional[str] = Field(
         None, description="(optional) Path to model checkpoint"

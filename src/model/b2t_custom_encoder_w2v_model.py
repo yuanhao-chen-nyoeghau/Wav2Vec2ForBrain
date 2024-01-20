@@ -229,11 +229,16 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
                 ),
             ),
         )
-        metrics = (
-            {"contrastive_loss": wav2vec2_out.loss.item()}
-            if wav2vec2_out.loss is not None
-            else {}
+        cosine_sim = torch.cosine_similarity(
+            wav2vec2_out.projected_states,
+            wav2vec2_out.projected_quantized_states,
+            dim=-1,
         )
+
+        metrics = {"cosine_similarity": cosine_sim.mean().item()}
+        if wav2vec2_out.loss is not None:
+            metrics["contrastive_loss"] = wav2vec2_out.loss.item()
+
         return ModelOutput(
             logits=torch.tensor([]), loss=wav2vec2_out.loss, metrics=metrics
         )
@@ -256,6 +261,10 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
                 cache_dir=yaml_config.cache_dir,
                 ctc_loss_reduction=config.ctc_loss_reduction,
                 pad_token_id=tokenizer.pad_token_id,
+                conv_kernel=config.conv_kernel,
+                conv_stride=config.conv_stride,
+                num_feat_extract_layers=config.num_feat_extract_layers,
+                ignore_mismatched_sizes=True,
             ),
         )
         self.wav2vec2.wav2vec2.feature_extractor = FeatureEncoder(config)
@@ -267,7 +276,14 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
 
         wav2vec2_out = cast(
             CausalLMOutput,
-            self.wav2vec2.forward(batched_input, return_dict=True),
+            self.wav2vec2.forward(
+                batched_input,
+                return_dict=True,
+                labels=targets,
+                attention_mask=torch.ones(
+                    (batched_input.shape[0], batched_input.shape[2]), dtype=torch.long
+                ).to(batched_input.device),
+            ),
         )
         metrics = (
             {"ctc_loss": wav2vec2_out.loss.item()}
