@@ -4,8 +4,6 @@ from torch import FloatTensor, Tensor
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Model
 from transformers.modeling_outputs import CausalLMOutput, Wav2Vec2BaseModelOutput
 from torch.nn import Module
-from model.b2tmodel import ModelOutput
-
 from src.args.b2t_audio_args import B2TAudioWav2VecArgsModel
 from src.args.yaml_config import YamlConfigModel
 from torch import nn

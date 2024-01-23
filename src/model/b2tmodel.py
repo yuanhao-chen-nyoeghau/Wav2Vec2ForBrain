@@ -8,6 +8,7 @@ from typing import Optional
 @dataclass
 class ModelOutput:
     logits: torch.Tensor
+    metrics: dict[str, float]
     loss: Optional[torch.Tensor] = None
 
 

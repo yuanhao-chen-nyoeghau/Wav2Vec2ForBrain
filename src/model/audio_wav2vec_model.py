@@ -50,8 +50,14 @@ class AudioWav2VecModel(B2TModel):
         wav2vec2_out: CausalLMOutput = self.wav2vec2(
             batched_input, return_dict=True, labels=targets
         )
+        metrics = (
+            {"ctc_loss": wav2vec2_out.loss.item()}
+            if wav2vec2_out.loss is not None
+            else {}
+        )
 
         return ModelOutput(
             logits=wav2vec2_out.logits,
             loss=wav2vec2_out.loss,
+            metrics=metrics,
         )

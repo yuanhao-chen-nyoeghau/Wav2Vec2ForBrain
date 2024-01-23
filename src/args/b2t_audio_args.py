@@ -1,5 +1,5 @@
-from args.base_args import B2TDatasetArgsModel
-from args.wav2vec_args import AudioWav2VecArgsModel
+from src.args.base_args import B2TDatasetArgsModel
+from src.args.wav2vec_args import AudioWav2VecArgsModel
 
 
 class B2TAudioWav2VecArgsModel(AudioWav2VecArgsModel):

@@ -144,3 +144,53 @@ def preprocess_seperate_zscoring(
     ]
 
     return features, transcriptions
+
+
+def preprocess_seperate_zscoring_2channels(
+    data_file: dict,
+    block_index_ranges: list[np.ndarray[Any, np.dtype[np.int32]]],
+):
+    tx_features, transcriptions = preprocess_only_tx_zscored(
+        data_file, block_index_ranges
+    )
+    spike_features, _ = preprocess_only_spikepow_zscored(data_file, block_index_ranges)
+    assert len(tx_features) == len(
+        spike_features
+    ), "Length of tx and spike features must be equal."
+
+    features = [
+        np.stack(
+            [
+                tx_features[i],
+                spike_features[i],
+            ],
+            axis=0,
+        )
+        for i in range(len(tx_features))
+    ]
+
+    return features, transcriptions
+
+
+def preprocess_seperate_zscoring_4channels(
+    data_file: dict, block_index_ranges: list[np.ndarray[Any, np.dtype[np.int32]]]
+):
+    tx_features, transcriptions = preprocess_only_tx_zscored(
+        data_file, block_index_ranges
+    )
+    spike_features, _ = preprocess_only_spikepow_zscored(data_file, block_index_ranges)
+
+    features = [
+        np.stack(
+            [
+                tx_features[i][:, :64],
+                tx_features[i][:, 64:],
+                spike_features[i][:, :64],
+                spike_features[i][:, 64:],
+            ],
+            axis=0,
+        )
+        for i in range(len(tx_features))
+    ]
+
+    return features, transcriptions
