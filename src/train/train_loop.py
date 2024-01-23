@@ -7,7 +7,6 @@ import os
 import wandb
 from transformers.modeling_outputs import CausalLMOutput
 
-
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 
 
@@ -62,6 +61,10 @@ class Trainer:
             # Compute the loss and its gradients
             loss = cast(torch.Tensor, outputs.loss)
             loss.backward()
+            if self.config.gradient_clipping is not None:
+                torch.nn.utils.clip_grad_norm_(  # type:ignore
+                    self.model.parameters(), self.config.gradient_clipping
+                )
 
             # Adjust learning weights
             self.optimizer.step()
@@ -136,6 +139,7 @@ class Trainer:
                 if is_better:
                     best_model_val_metric = curr_epoch_val_metric
                     torch.save(self.model.state_dict(), best_model_path)
+                    print("\n\nSaving model checkpoint\n")
 
             wandb.log(
                 {

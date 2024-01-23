@@ -180,7 +180,7 @@ class Experiment(metaclass=ABCMeta):
                     }
                 )
             print(
-                f"Running predictions on test. Batch {i + 1}/{len(self.dataloader_test)}\r",
+                f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
                 end="",
             )
         return result

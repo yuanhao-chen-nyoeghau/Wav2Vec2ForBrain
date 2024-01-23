@@ -1,4 +1,5 @@
 import argparse
+from src.experiments.b2t_gru_experiment import B2tGruExperiment
 from src.experiments.b2t_direct_cnn_experiment import CNNExperiment
 from src.experiments.b2t_custom_encoder_w2v_experiment import (
     B2TWav2VecCustomEncoderExperiment,
@@ -28,6 +29,7 @@ experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_custom_encoder": B2TWav2VecCustomEncoderExperiment,
     "onehot_index": OneHotIndexExperiment,
     "b2t_cnn": CNNExperiment,
+    "b2t_gru": B2tGruExperiment,
 }
 
 

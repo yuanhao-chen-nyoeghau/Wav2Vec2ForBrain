@@ -1,3 +1,4 @@
+from src.experiments.b2t_experiment import B2TExperiment
 from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from torch.optim.optimizer import Optimizer
@@ -27,12 +28,9 @@ def calc_seq_len(index_seq: torch.Tensor):
 
 
 class B2TCNNArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = None
-    remove_punctuation: bool = True
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
     conv_kernel_time: list[int] = [5, 3, 3, 3]
-    conv_kernel_features: list[int] = [128, 1, 1, 1]
-    conv_out_channels: list[int] = [64, 256, 512, 32]
+    conv_kernel_features: list[int] = [128, 1, 1, 1]  # [5, 5, 3, 118]
+    conv_out_channels: list[int] = [256, 256, 512, 32]
     conv_padding: list[Literal["same", "valid", 0]] = [0, 0, 0, 0]
     activation: Literal["gelu"] = "gelu"
     conv_bias: bool = True
@@ -126,14 +124,14 @@ class CNNModel(B2TModel):
         )
 
 
-class CNNExperiment(Experiment):
+class CNNExperiment(B2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
         self.model: B2TModel = self.model
 
     def get_name(self) -> str:
-        return "fc"
+        return "direct_cnn"
 
     @staticmethod
     def get_args_model():
@@ -162,53 +160,3 @@ class CNNExperiment(Experiment):
         )
         model = CNNModel(self.config, self.tokenizer)
         return model
-
-    def get_collate_fn(self):
-        multiple_channels = self.config.preprocessing == "seperate_zscoring_2channels"
-
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max(
-                [x.size(1 if multiple_channels else 0) for x, _ in batch]
-            )
-            padded_blocks = [
-                pad(
-                    x,
-                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: list[list[int]] = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return torch.stack(padded_blocks), batch_label_ids
-
-        return _collate
-
-    def create_optimizer(self) -> Optimizer:
-        def get_trainable_params():
-            return self.model.parameters()
-
-        optim: Any = self._get_optimizer_cls()
-        return optim(get_trainable_params(), lr=self.config.learning_rate)
-
-    def _create_dataset(
-        self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
-        return Brain2TextDataset(
-            config=self.config,
-            yaml_config=self.yaml_config,
-            split=split,
-        )
