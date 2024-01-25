@@ -11,7 +11,8 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_unnormalized",
         "only_spikepow_zscored",
         "seperate_zscoring_2channels",
-    ] = "seperate_zscoring"
+        "seperate_zscoring_4channels",
+    ] = "seperate_zscoring_4channels"
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
@@ -30,6 +31,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_wav2vec_cnn",
         "audio_wav2vec2",
         "b2t_audio_wav2vec",
+        "b2t_wav2vec_resnet",
         "b2t_wav2vec_pretraining",
         "b2t_wav2vec_custom_encoder",
         "onehot_index",
