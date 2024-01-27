@@ -36,6 +36,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_wav2vec_custom_encoder",
         "onehot_index",
         "b2t_cnn",
+        "b2t_gru",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -58,3 +59,13 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
+    remove_punctuation: bool = True
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal[
+        "facebook/wav2vec2-base-100h", None
+    ] = "facebook/wav2vec2-base-100h"
+    gradient_clipping: Optional[float] = None
+
+
+class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
+    pass

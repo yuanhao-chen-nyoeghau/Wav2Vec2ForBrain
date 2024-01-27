@@ -1,9 +1,9 @@
-from src.args.base_args import BaseExperimentArgsModel, B2TDatasetArgsModel
+from src.args.base_args import B2TArgsModel, BaseExperimentArgsModel
 from typing import Literal, Optional
 from transformers.activations import ACT2FN
 
 
-class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
+class B2TWav2VecArgsModel(B2TArgsModel):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h",
@@ -13,9 +13,6 @@ class B2TWav2VecArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     unfreeze_strategy: Literal[
         "wav2vec2featureextractor_ours", "all", "ours", "lm_head"
     ] = "wav2vec2featureextractor_ours"
-    remove_punctuation: bool = True
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = None
     activation: Literal["identity", "relu"] = "identity"
 
 

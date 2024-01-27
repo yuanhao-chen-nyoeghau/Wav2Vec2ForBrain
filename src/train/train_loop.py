@@ -6,6 +6,7 @@ from src.train.history import SingleEpochHistory, MetricEntry, TrainHistory, Epo
 import os
 import wandb
 from transformers.modeling_outputs import CausalLMOutput
+from torcheval.metrics import WordErrorRate
 
 
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
@@ -46,6 +47,37 @@ class Trainer:
             end="",
         )
 
+    def _calculate_wer(
+        self, predicted_logits: torch.Tensor, labels: torch.Tensor
+    ) -> float:
+        predicted_ids = predicted_logits.argmax(dim=-1).cpu().numpy()
+        predicted_strings = self.experiment.tokenizer.batch_decode(
+            predicted_ids, group_tokens=True
+        )
+        label_strings = self.experiment.tokenizer.batch_decode(
+            labels.cpu().numpy(), group_tokens=False
+        )
+
+        # remove characters after EOS token
+        def cut_after_eos_token(string: str):
+            eos_token = "</s>"
+            index_of_eos = string.find(eos_token)
+            if index_of_eos != -1:
+                return string[: (index_of_eos + len(eos_token))]
+            else:
+                return string
+
+        predicted_strings = [
+            cut_after_eos_token(string) for string in predicted_strings
+        ]
+
+        return (
+            WordErrorRate()
+            .update(input=predicted_strings, target=label_strings)
+            .compute()
+            .item()
+        )
+
     def _train_epoch(self):
         losses = SingleEpochHistory()
         self.model.train()
@@ -66,6 +98,9 @@ class Trainer:
             # Adjust learning weights
             self.optimizer.step()
 
+            outputs.metrics["word_error_rate"] = self._calculate_wer(
+                predicted_logits=outputs.logits, labels=labels
+            )
             losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
             if (
                 i % self.config.log_every_n_batches
@@ -84,6 +119,9 @@ class Trainer:
             with torch.no_grad():
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
+            outputs.metrics["word_error_rate"] = self._calculate_wer(
+                predicted_logits=outputs.logits, labels=labels
+            )
             losses.add_batch_metric(
                 MetricEntry(
                     outputs.metrics,
@@ -136,6 +174,7 @@ class Trainer:
                 if is_better:
                     best_model_val_metric = curr_epoch_val_metric
                     torch.save(self.model.state_dict(), best_model_path)
+                    print("\n\nSaving model checkpoint\n")
 
             wandb.log(
                 {

@@ -129,5 +129,45 @@
                 "--experiment_type=b2t_wav2vec_resnet"
             ]
         },
+        {
+            "name": "run.py gru overfit",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_gru",
+                "--batch_size=1",
+                "--epochs=100",
+                "--learning_rate=0.1",
+                "--sample_rate=50",
+                "--preprocessing=seperate_zscoring",
+                "--loss_function=ctc",
+                "--limit_samples=1",
+                "--predict_on_train=true",
+                "--return_best_model=false"
+            ]
+        },
+        {
+            "name": "run.py gru",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_gru",
+                "--batch_size=8",
+                "--epochs=10",
+                "--learning_rate=0.001",
+                "--sample_rate=50",
+                "--preprocessing=seperate_zscoring",
+                "--loss_function=ctc",
+                "--predict_on_train=true",
+                "--return_best_model=true",
+                "--gradient_clipping=1"
+            ]
+        },
     ]
 }

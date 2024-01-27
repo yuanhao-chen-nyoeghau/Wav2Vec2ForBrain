@@ -23,13 +23,14 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
     def __init__(self, config: B2TWav2VecResnetArgsModel):
         super().__init__(config)
         self.gradient_checkpointing = False
+        self.config = config
 
         self.num_out_features = 512
 
         # in: [4, time, 8, 8]
         self.block1 = self.cnn3d_layer(
             in_features=4,
-            out_features=64,
+            out_features=512,
             kernel_size=(1, 3, 3),
             stride=(1, 1, 1),
             padding=(0, 1, 1),
@@ -39,8 +40,8 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
         )
         # in: [64, time, 4, 4]
         self.block2 = self.cnn3d_layer(
-            in_features=64,
-            out_features=256,
+            in_features=512,
+            out_features=1024,
             kernel_size=(1, 1, 1),
             stride=(1, 1, 1),
             padding=(0, 0, 0),
@@ -51,8 +52,8 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
 
         # in: [256, time, 2, 2]
         self.block3 = self.cnn3d_layer(
-            in_features=256,
-            out_features=512,
+            in_features=1024,
+            out_features=2048,
             kernel_size=(1, 1, 1),
             stride=(1, 1, 1),
             padding=(0, 0, 0),
@@ -61,10 +62,11 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
             max_pool_padding=(0, 1, 1),
         )
         # out: [512, time, 1, 1]
-        self.classifier = self.linear_classifier(
-            in_features=512, out_features=self.num_out_features
-        )
-        # out: [512, time]
+        if self.config.extractor_head == "linear":
+            self.classifier = self.linear_classifier(
+                in_features=2048, out_features=self.num_out_features
+            )
+            # out: [512, time]
 
         self._requires_grad = True
 
@@ -97,9 +99,12 @@ class FeatureEncoder(Wav2Vec2FeatureEncoder):
         output = self.block1(input_values)
         output = self.block2(output)
         output = self.block3(output)
-        output = output.squeeze()
-        output = output.unsqueeze(1)
-        output = self.classifier(output).squeeze()
+        output = output.squeeze(-1)
+        output = output.squeeze(-1)
+        if self.config.extractor_head == "linear":
+            output = output.unsqueeze(1)
+            output = self.classifier(output)
+            output = output.squeeze(2)
         return output
 
 
@@ -113,7 +118,7 @@ class _CustomEncodeBaseW2VModel(B2TModel):
         self.config = config
         assert (
             self.config.preprocessing == "seperate_zscoring_4channels"
-        ), "Preprocessing must be seperate_zscoring_2channels for CustomFeatureEncoder model"
+        ), "Preprocessing must be seperate_zscoring_4channels for FeatureEncoder model"
         self.tokenizer = tokenizer
 
     def _prepare_input(self, x: torch.Tensor, targets: Optional[torch.Tensor] = None):
@@ -124,24 +129,17 @@ class _CustomEncodeBaseW2VModel(B2TModel):
         is_batched = len(x.size()) == 4
         batched_input = x if is_batched else x.unsqueeze(0)
 
-        attention_mask = torch.zeros(
-            batched_input.size(0), batched_input.size(2)
-        ).cuda()
-        for batch_idx in range(batched_input.size(0)):
-            for time_idx in range(batched_input.size(2)):
-                data = batched_input[batch_idx, :, time_idx, :]
-                attention_mask[batch_idx, time_idx] = torch.all(data != 0.0)
-
-        batched_input = batched_input.reshape(
+        """ batched_input = batched_input.reshape(
             batched_input.size(0), batched_input.size(1), batched_input.size(2), 8, 8
-        )
+        ) """
+        batched_input = batched_input.view(*batched_input.size()[:-1], *(8, 8))
         # replace padding token with -100 for it to be ignored in ctc loss
         if targets is not None:
             targets = torch.where(
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
 
-        return batched_input, targets, attention_mask
+        return batched_input, targets
 
 
 class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
@@ -168,7 +166,7 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
     def forward(
         self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
     ) -> ModelOutput:
-        batched_input, targets, attention_mask = self._prepare_input(x, targets)
+        batched_input, targets = self._prepare_input(x, targets)
 
         batch_size = batched_input.shape[0]
         raw_sequence_length = batched_input.shape[2]
@@ -203,11 +201,16 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
                 ),
             ),
         )
-        metrics = (
-            {"contrastive_loss": wav2vec2_out.loss.item()}
-            if wav2vec2_out.loss is not None
-            else {}
+        cosine_sim = torch.cosine_similarity(
+            wav2vec2_out.projected_states,
+            wav2vec2_out.projected_quantized_states,
+            dim=-1,
         )
+
+        metrics = {"cosine_similarity": cosine_sim.mean().item()}
+        if wav2vec2_out.loss is not None:
+            metrics["contrastive_loss"] = wav2vec2_out.loss.item()
+
         return ModelOutput(
             logits=torch.tensor([]), loss=wav2vec2_out.loss, metrics=metrics
         )
@@ -230,6 +233,10 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
                 cache_dir=yaml_config.cache_dir,
                 ctc_loss_reduction=config.ctc_loss_reduction,
                 pad_token_id=tokenizer.pad_token_id,
+                conv_kernel=config.conv_kernel,
+                conv_stride=config.conv_stride,
+                num_feat_extract_layers=config.num_feat_extract_layers,
+                ignore_mismatched_sizes=True,
             ),
         )
         self.wav2vec2.wav2vec2.feature_extractor = FeatureEncoder(config)
@@ -237,15 +244,17 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
     def forward(
         self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
     ) -> ModelOutput:
-        batched_input, targets, attention_mask = self._prepare_input(x, targets)
+        batched_input, targets = self._prepare_input(x, targets)
 
         wav2vec2_out = cast(
             CausalLMOutput,
             self.wav2vec2.forward(
                 batched_input,
-                attention_mask=attention_mask,
-                labels=targets,
                 return_dict=True,
+                labels=targets,
+                attention_mask=torch.ones(
+                    (batched_input.shape[0], batched_input.shape[2]), dtype=torch.long
+                ).to(batched_input.device),
             ),
         )
         metrics = (
