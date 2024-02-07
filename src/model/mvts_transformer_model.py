@@ -351,27 +351,14 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         self.feat_dim = feat_dim
         self.num_classes = num_classes
-        self.output_layer = self.build_output_module(d_model, max_len, num_classes)
 
-    def build_output_module(
-        self, d_model: int, max_len: int, num_classes: int
-    ) -> nn.Module:
-        """ Build linear layer that maps from d_model*max_len to num_classes.
+        self.output_layer = nn.Linear(d_model, num_classes)
 
-        Softmax not included here as it is computed in the loss function.
-
-        Args:
-            d_model: the embed dim
-            max_len: maximum length of the input sequence
-            num_classes: the number of classes in the classification task
-
-        Returns:
-            output_layer: Tensor of shape (batch_size, num_classes)
-        """
-        output_layer = nn.Linear(d_model * max_len, num_classes)
-        # no softmax (or log softmax), because CrossEntropyLoss does this internally. If probabilities are needed,
-        # add F.log_softmax and use NLLoss
-        return output_layer
+    # def build_output_module(self, d_model, max_len, num_classes):
+    #     output_layer = nn.Linear(d_model * max_len, num_classes)
+    #     # no softmax (or log softmax), because CrossEntropyLoss does this internally. If probabilities are needed,
+    #     # add F.log_softmax and use NLLoss
+    #     return output_layer
 
     def forward(self, X: Tensor, padding_masks: Tensor) -> Tensor:
         """
@@ -381,7 +368,6 @@ class TSTransformerEncoderClassiregressor(nn.Module):
         Returns:
             output: (batch_size, num_classes)
         """
-
         # permute because pytorch convention for transformers is [seq_length, batch_size, feat_dim]. padding_masks [batch_size, feat_dim]
         inp = X.permute(1, 0, 2)
         inp = self.project_inp(inp) * math.sqrt(
@@ -389,8 +375,9 @@ class TSTransformerEncoderClassiregressor(nn.Module):
         )  # [seq_length, batch_size, d_model] project input vectors to d_model dimensional space
         inp = self.pos_enc(inp)  # add positional encoding
         # NOTE: logic for padding masks is reversed to comply with definition in MultiHeadAttention, TransformerEncoderLayer
+        inverse_padding_masks=~padding_masks
         output = self.transformer_encoder(
-            inp, src_key_padding_mask=~padding_masks
+            inp, src_key_padding_mask=inverse_padding_masks.float()
         )  # (seq_length, batch_size, d_model)
         output = self.act(
             output
@@ -400,9 +387,6 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         # Output
         output = output * padding_masks.unsqueeze(-1)  # zero-out padding embeddings
-        output = output.reshape(
-            output.shape[0], -1
-        )  # (batch_size, seq_length * d_model)
-        output = self.output_layer(output)  # (batch_size, num_classes)
+        output = self.output_layer(output) # (batch_size, seq_length, vocab)
 
         return output
