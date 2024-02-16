@@ -97,7 +97,7 @@ class Brain2TextDataset(Dataset):
         return (
             len(self.transcriptions)
             if self.config.limit_samples is None
-            else self.config.limit_samples
+            else min(len(self.transcriptions), self.config.limit_samples)
         )
 
     def __getitem__(self, index) -> tuple[torch.Tensor, str]:
