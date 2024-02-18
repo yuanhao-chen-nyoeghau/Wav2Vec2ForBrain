@@ -37,6 +37,7 @@ class BaseExperimentArgsModel(BaseModel):
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
+        "b2t_gru+trafo",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -61,10 +62,11 @@ class BaseExperimentArgsModel(BaseModel):
     )
     remove_punctuation: bool = True
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal[
-        "facebook/wav2vec2-base-100h", None
-    ] = "facebook/wav2vec2-base-100h"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
     gradient_clipping: Optional[float] = None
+    use_fast_tokenizer: bool = False
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
