@@ -60,7 +60,7 @@ class CTCTextDataset(Dataset):
         )
 
     def __getitem__(self, index) -> tuple[torch.Tensor, str]:
-        sentence = self.sentences[index]
+        sentence = self.sentences[index].upper()
         input_ids = self.tokenizer.encode(sentence, return_tensors="pt").squeeze(0)  # type: ignore
         prob_seq = self.convert_ids_to_prob_seq(input_ids)
         return prob_seq, sentence

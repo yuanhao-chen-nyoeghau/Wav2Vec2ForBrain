@@ -7,13 +7,15 @@ from src.args.base_args import (
 )
 from src.model.b2tmodel import B2TModel
 from src.args.yaml_config import YamlConfigModel
-from typing import Literal, cast
+from typing import Any, Callable, Literal, Optional, cast
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 from torch.nn.functional import pad
 import re
 from transformers import PreTrainedTokenizer
+from torch.utils.data import DataLoader
+from src.model.b2tmodel import B2TModel, ModelOutput
 
 
 class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
@@ -105,3 +107,53 @@ class CtcLmExperiment(Experiment):
                 ),
             )
         raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
+
+    def _predict(
+        self,
+        model: B2TModel,
+        dataloader: DataLoader,
+        handle_prediction_batch: Optional[
+            Callable[[int, ModelOutput, list[str]], Any]
+        ] = None,
+    ):
+        result = []
+        for i, data in enumerate(dataloader):
+            inputs, labels = data
+
+            with torch.no_grad():
+                outputs = model.forward(inputs.cuda(), labels.cuda())
+                if outputs.logits.shape[0] == 0:
+                    print("Skipping _predict because outputs don't have logits")
+                    return []
+                predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
+                inputs = self.tokenizer.batch_decode(
+                    inputs.argmax(dim=-1).cpu().numpy()
+                )
+                predicted = self.tokenizer.batch_decode(predicted_ids)
+                targets = self.tokenizer.batch_decode(
+                    labels.cpu().numpy(), group_tokens=False
+                )
+                if handle_prediction_batch is not None:
+                    handle_prediction_batch(i, outputs, targets)
+                combined = zip(predicted, targets, inputs)
+                batch_predictions = []
+                batch_result = {
+                    "metrics": outputs.metrics,
+                    "batch_id": i,
+                    "predictions": batch_predictions,
+                }
+
+                for prediction, target, input in combined:
+                    batch_predictions.append(
+                        {
+                            "prediction": prediction,
+                            "target    ": target,
+                            "input": input,
+                        }
+                    )
+                result.append(batch_result)
+            print(
+                f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
+                end="",
+            )
+        return result

@@ -154,7 +154,9 @@ class TrainHistory(NamedTuple):
             )
 
         # Creating a figure and subplots
-        fig, axs = plt.subplots(nrows=len(metric_keys), ncols=1)
+        fig, axs = plt.subplots(
+            nrows=len(metric_keys), ncols=1, figsize=(10, 5 * len(metric_keys))
+        )
         num_epochs = len(self.epochs)
 
         for i, metric_key in enumerate(metric_keys):
