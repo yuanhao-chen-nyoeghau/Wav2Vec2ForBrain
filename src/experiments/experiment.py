@@ -154,7 +154,12 @@ class Experiment(metaclass=ABCMeta):
     def _predict_and_store(
         self, model: B2TModel, dataloader: DataLoader, out_file_prefix: str
     ):
-        def handle_batch(batch_id: int, outputs: ModelOutput, targets: list[str]):
+        def handle_batch(
+            batch_id: int,
+            inputs: torch.Tensor,
+            outputs: ModelOutput,
+            targets: list[str],
+        ):
             if batch_id >= self.base_config.visualize_predictions_n_batches:
                 return
             out_dir = os.path.join(self.results_dir, f"{out_file_prefix}_predictions")
@@ -163,9 +168,11 @@ class Experiment(metaclass=ABCMeta):
                 f"\nVisualizing prediction {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {out_file_prefix}..."
             )
             self.visualize_predictions(
+                inputs,
                 outputs,
                 targets,
                 os.path.join(out_dir, f"batch_{batch_id}.png"),
+                batch_id,
             )
 
         prediction = self._predict(model, dataloader, handle_batch)
@@ -179,7 +186,7 @@ class Experiment(metaclass=ABCMeta):
         model: B2TModel,
         dataloader: DataLoader,
         handle_prediction_batch: Optional[
-            Callable[[int, ModelOutput, list[str]], Any]
+            Callable[[int, torch.Tensor, ModelOutput, list[str]], Any]
         ] = None,
     ):
         result = []
@@ -198,7 +205,7 @@ class Experiment(metaclass=ABCMeta):
                     labels.cpu().numpy(), group_tokens=False
                 )
                 if handle_prediction_batch is not None:
-                    handle_prediction_batch(i, outputs, targets)
+                    handle_prediction_batch(i, inputs, outputs, targets)
                 combined = zip(predicted, targets)
                 batch_predictions = []
                 batch_result = {
@@ -238,7 +245,12 @@ class Experiment(metaclass=ABCMeta):
         )
 
     def visualize_predictions(
-        self, output: ModelOutput, target_batch: list[str], out_path: str
+        self,
+        inputs: torch.Tensor,
+        output: ModelOutput,
+        target_batch: list[str],
+        out_path: str,
+        batch_id: int,
     ):
         import numpy as np
         import matplotlib.pyplot as plt
