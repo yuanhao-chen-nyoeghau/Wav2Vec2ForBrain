@@ -26,12 +26,16 @@ class CTCLMModel(B2TModel):
         self.config = config
         self.tokenizer = tokenizer
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=tokenizer.vocab_size, nhead=config.nhead
+            d_model=config.d_model, nhead=config.nhead, batch_first=True
         )
-        self.model = nn.Sequential(
+        self.tok_embed = nn.Linear(tokenizer.vocab_size, config.d_model)
+        self.pos_embed = nn.Embedding(1000, config.d_model)
+        self.norm = nn.LayerNorm(config.d_model)
+
+        self.transformer = nn.Sequential(
             nn.TransformerEncoder(encoder_layer, num_layers=config.num_layers),
             create_fully_connected(
-                tokenizer.vocab_size,
+                config.d_model,
                 tokenizer.vocab_size,
                 config.classifier_hidden_sizes,
                 config.classifier_activation,
@@ -43,12 +47,18 @@ class CTCLMModel(B2TModel):
         self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
     ) -> ModelOutput:
         assert targets is not None, "Targets must be set"
+        device = x.device
         if targets is not None:
             targets = torch.where(
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
+        seq_len = x.size(1)
+        pos = torch.arange(seq_len, dtype=torch.long).to(device)
+        batch_size = x.size(0)
+        pos = pos.expand(batch_size, -1)  # (seq_len,) -> (batch_size, seq_len)
+        embedding = self.tok_embed(x) + self.pos_embed(pos)
 
-        out = self.model(x)
+        out = self.transformer(self.norm(embedding))
         ctc_loss_before = compute_ctc_loss(x, x.log(), targets, self.loss)
         out = log_softmax(out, -1)
         # out shape: (seq_len, batch_size, vocab_size)
