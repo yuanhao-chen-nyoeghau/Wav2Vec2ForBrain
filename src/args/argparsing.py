@@ -50,6 +50,15 @@ def str_to_bool(value):
         raise argparse.ArgumentTypeError("Invalid boolean value: {}".format(value))
 
 
+def str_to_list(value):
+    import json
+
+    parsed = json.loads(value)
+    if not isinstance(parsed, list):
+        raise argparse.ArgumentTypeError("Invalid list value: {}".format(value))
+    return parsed
+
+
 def _parser_from_model(parser: argparse.ArgumentParser, model: Type[BaseModel]):
     "Add Pydantic model to an ArgumentParser"
     fields = model.__fields__
@@ -59,10 +68,14 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: Type[BaseModel]):
         def get_type_args():
             is_literal = getattr(field.annotation, "__origin__", None) is Literal
             is_bool = getattr(field.type_, "__name__", None) == "bool"
+            is_list = getattr(field.outer_type_, "__name__", None) == "list"
+
             if is_literal:
                 return {"type": str, "choices": cast(Any, field.annotation).__args__}
             if is_bool:
                 return {"type": str_to_bool}
+            if is_list:
+                return {"type": str_to_list}
             return {"type": field.type_}
 
         parser.add_argument(
