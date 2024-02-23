@@ -30,6 +30,7 @@ class CTCTextDatasetArgsModel(BaseModel):
     noise_std: float = 2
     correct_as_second_prob = 0.2
     random_second_id_in_blank_prob: float = 0.1
+    cache_generated_samples: bool = False
 
 
 class BaseExperimentArgsModel(BaseModel):
