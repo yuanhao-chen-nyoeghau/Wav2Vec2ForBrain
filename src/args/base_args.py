@@ -62,11 +62,13 @@ class BaseExperimentArgsModel(BaseModel):
     )
     remove_punctuation: bool = True
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h"] = (
         "facebook/wav2vec2-base-100h"
     )
     gradient_clipping: Optional[float] = None
     use_fast_tokenizer: bool = False
+    use_prefix_beam_search: bool = True
+    beam_search_language_model: str = "openai-community/gpt2"
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
