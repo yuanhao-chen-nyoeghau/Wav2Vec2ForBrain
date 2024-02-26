@@ -33,7 +33,7 @@ class MvtsTransformerModel(B2TModel):
     def __init__(self, config: B2TMvtsTransformerArgsModel, tokenizer: PreTrainedTokenizer):
         super().__init__()
         self.tokenizer = tokenizer
-        self.max_len = 950
+        self.max_len = 1000
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
         self.transformer = TSTransformerEncoderClassiregressor(
             feat_dim=256,
@@ -43,7 +43,7 @@ class MvtsTransformerModel(B2TModel):
             num_layers=2,
             dim_feedforward=256,
             num_classes=31,
-            dropout=0,
+            dropout=0.5,
             pos_encoding="learnable",
             activation="gelu",
             norm="BatchNorm",
@@ -72,7 +72,6 @@ class MvtsTransformerModel(B2TModel):
         in_seq_lens = in_seq_lens.clamp(max=out.shape[1])   
         out = out.transpose(0, 1)
         # out shape: (seq_len, batch_size, vocab_size)
-
         ctc_loss = self.loss(
             out,
             targets,
