@@ -1,5 +1,7 @@
 import argparse
 from src.experiments.mvts_transformer_experiment import MvtsTransformerExperiment
+from src.experiments.ctc_lm_experiment import CtcLmExperiment
+from src.experiments.b2t_mamba_experiment import B2tMambaExperiment
 from src.experiments.b2t_gru_experiment import B2tGruExperiment
 from src.experiments.b2t_resnet_experiment import B2TWav2VecResnetExperiment
 from src.experiments.b2t_direct_cnn_experiment import CNNExperiment
@@ -34,6 +36,8 @@ experiments: dict[str, Type[Experiment]] = {
     "b2t_cnn": CNNExperiment,
     "b2t_gru": B2tGruExperiment,
     "mvts_transformer": MvtsTransformerExperiment,
+    "b2t_mamba": B2tMambaExperiment,
+    "ctc_lm": CtcLmExperiment,
 }
 
 

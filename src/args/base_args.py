@@ -18,6 +18,20 @@ class B2TDatasetArgsModel(BaseModel):
     sample_rate: int = 50
 
 
+class CTCTextDatasetArgsModel(BaseModel):
+    limit_samples: Optional[int] = Field(None, description="Limit number of samples")
+    train_ratio: float = 0.8
+    val_ratio: float = 0.1
+    test_ratio: float = 0.1
+    avg_num_blank_after_char: int = 6
+    insert_wrong_char_prob: float = 0.05
+    remove_char_prob: float = 0.05
+    noise_mean: float = -16
+    noise_std: float = 2
+    correct_as_second_prob = 0.2
+    random_second_id_in_blank_prob: float = 0.1
+
+
 class BaseExperimentArgsModel(BaseModel):
     batch_size: int = Field(16, description="Batch size for training and validation")
     epochs: int = 10
@@ -38,6 +52,8 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_cnn",
         "b2t_gru",
         "mvts_transformer"
+        "b2t_mamba",
+        "ctc_lm",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -62,10 +78,12 @@ class BaseExperimentArgsModel(BaseModel):
     )
     remove_punctuation: bool = True
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal[
-        "facebook/wav2vec2-base-100h", None
-    ] = "facebook/wav2vec2-base-100h"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
     gradient_clipping: Optional[float] = None
+    weight_decay: float = 0.0
+    visualize_predictions_n_batches: int = 1
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):

@@ -7,7 +7,7 @@ import os
 import wandb
 from transformers.modeling_outputs import CausalLMOutput
 from torcheval.metrics import WordErrorRate
-
+import uuid
 
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 
@@ -144,7 +144,10 @@ class Trainer:
         best_model_val_metric = float(
             "inf" if self.config.minimize_best_model_metric else "-inf"
         )
-        best_model_path = os.path.join(self.yaml_config.cache_dir, "best_model.pt")
+        best_model_path = os.path.join(
+            self.yaml_config.cache_dir, str(uuid.uuid4()), "best_model.pt"
+        )
+        os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
 
         for epoch in range(self.config.epochs):
             print(f"\nEpoch {epoch + 1}/{self.config.epochs}")
@@ -174,7 +177,7 @@ class Trainer:
                 if is_better:
                     best_model_val_metric = curr_epoch_val_metric
                     torch.save(self.model.state_dict(), best_model_path)
-                    print("\n\nSaving model checkpoint\n")
+                    print(f"\n\nSaving model checkpoint at {best_model_path}\n")
 
             wandb.log(
                 {
@@ -186,6 +189,7 @@ class Trainer:
         if self.config.return_best_model:
             self.model.load_state_dict(torch.load(best_model_path))
             os.remove(best_model_path)
+            os.rmdir(os.path.dirname(best_model_path))
             print("Loaded model with best validation loss of this experiment from disk")
         test_losses = self._evaluate_epoch(self.dataloader_test)
         print(

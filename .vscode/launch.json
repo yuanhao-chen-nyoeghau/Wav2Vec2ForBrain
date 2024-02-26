@@ -169,5 +169,34 @@
                 "--gradient_clipping=1"
             ]
         },
+        {
+            "name": "run.py mamba only test good model",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_mamba",
+                "--preprocessing=seperate_zscoring",
+                "--batch_size=2",
+                "--predict_on_train=True",
+                "--n_layer=64",
+                "--learning_rate=0.000015",
+                "--return_best_model=true",
+                "--epochs=100",
+                "--d_model=256",
+                "--rms_norm=true",
+                "--feature_extractor_activation=sigmoid",
+                "--scheduler_step_size=20",
+                "--scheduler_gamma=0.9",
+                "--from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/best/2024-02-08_06#06#45/model.pt",
+                "--input_dropout=0.5",
+                "--only_test=true",
+                "--visualize_predictions_n_batches=4",
+                "--limit_samples=8",
+                "--predict_on_train=false"
+            ]
+        }
     ]
 }
