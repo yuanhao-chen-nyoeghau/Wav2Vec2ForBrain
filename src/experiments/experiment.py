@@ -213,14 +213,18 @@ class Experiment(metaclass=ABCMeta):
         beam_search_strings = []
         for i in range(self.base_config.batch_size):
             sentence_ctc = batch_ctc[i, :, :]
-            beam_search_strings.append(
-                prefix_beam_search(
+            output_string = (
+                "<s>"
+                + prefix_beam_search(
                     ctc=sentence_ctc,
                     lm=self.beam_search_lm,
                     experiment_tokenizer=self.tokenizer,
                     lm_tokenizer=self.beam_search_tokenizer,
-                )
+                ).replace("|", " ")
+                + "</s>"
             )
+            beam_search_strings.append(output_string)
+
         return beam_search_strings
 
     def _get_optimizer_cls(self) -> Type[Optimizer]:

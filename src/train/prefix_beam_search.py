@@ -29,6 +29,7 @@ def translate_string(
     }
     for key, val in mapping.items():
         input_string = input_string.replace(key, val)
+    input_string = input_string.replace("|", " ")
     input_string = input_string.lower()
     return input_string
 
@@ -43,8 +44,8 @@ def prefix_beam_search(
     lm_tokenizer: (
         transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast
     ),
-    k=3,
-    alpha=0.30,
+    k=25,
+    alpha=0.70,
     beta=5,
     prune=0.001,
 ):
@@ -111,41 +112,38 @@ def prefix_beam_search(
                     # END: STEP 4
 
                     # STEP 5: Extending with any other non-blank character and LM constraints
-                    elif len(l.replace("|", "")) > 0 and c in (
+                    elif len(
+                        l.replace("|", "").replace("<s>", "").replace("</s>", "")
+                    ) > 0 and c in (
                         "|",
                         experiment_tokenizer.eos_token,
                     ):
                         truncated_string = l_plus.strip(
                             experiment_tokenizer.eos_token
                         ).strip("|")
-                        if len(truncated_string) > 0:
-                            translated_string = translate_string(
-                                truncated_string,
-                                input_tokenizer=experiment_tokenizer,
-                                other_tokenizer=lm_tokenizer,
-                            )
-                            split_by_spaces = translated_string.split("|")
-                            next_word = split_by_spaces[-1]
-                            if len(split_by_spaces) > 1:
-                                prefix = " ".join(split_by_spaces[:-1])
-                            else:
-                                prefix = ""
+                        translated_string = translate_string(
+                            truncated_string,
+                            input_tokenizer=experiment_tokenizer,
+                            other_tokenizer=lm_tokenizer,
+                        )
 
-                            # Calculate probability that next_word comes after the given prefix
-                            inputs = lm_tokenizer(
-                                prefix, next_word, return_tensors="pt"
-                            )
-                            output = lm(**inputs)
-                            output_probs = torch.nn.functional.softmax(
-                                output.logits, dim=-1
-                            )
-                            next_token_probs = output_probs[0, -1, :]
-                            lm_prob = next_token_probs[
-                                int(inputs.input_ids[0, -1].item())
-                            ].item()
-                            lm_prob = lm_prob**alpha
-                        else:
-                            lm_prob = 0.0
+                        # Calculate probability that next_word comes after the given prefix
+                        inputs = lm_tokenizer(translated_string, return_tensors="pt")
+                        output = lm(**inputs)
+                        output_probs = torch.nn.functional.softmax(
+                            output.logits, dim=-1
+                        )
+                        sentence_prob = 0.0
+                        for i in range(output_probs.shape[1]):
+                            token_id = int(inputs.input_ids[0, i].item())
+                            token_prob = output_probs[0, i, token_id].item()
+                            sentence_prob = sentence_prob + token_prob
+                        # next_token_probs = output_probs[0, -1, :]
+                        # lm_prob = next_token_probs[
+                        #     int(inputs.input_ids[0, -1].item())
+                        # ].item()
+                        lm_prob = sentence_prob / output_probs.shape[1]
+                        lm_prob = lm_prob**alpha
                         Pnb[t][l_plus] += (
                             lm_prob * ctc[t][c_ix] * (Pb[t - 1][l] + Pnb[t - 1][l])
                         )
@@ -162,6 +160,7 @@ def prefix_beam_search(
                     # END: STEP 6
 
         # STEP 7: Select most probable prefixes
+        Pb[t], Pnb[t] = normalize_counters(Pb[t], Pnb[t])
         A_next = Pb[t] + Pnb[t]
         sorter = lambda l: A_next[l] * (len(W(l)) + 1) ** beta
         A_prev = sorted(A_next, key=sorter, reverse=True)[:k]
@@ -169,6 +168,16 @@ def prefix_beam_search(
     if len(A_prev) > 0:
         return A_prev[0].strip(experiment_tokenizer.eos_token)
     else:
-        return (
-            "Prefix search unsuccessful, might be because underlying logits are too bad"
-        )
+        return "Prefix search unsuccessful"
+
+
+def normalize_counters(
+    blank_prob_counter: Counter, no_blank_prob_counter: Counter
+) -> tuple[Counter, Counter]:
+    total = sum(blank_prob_counter.values()) + sum(no_blank_prob_counter.values())
+    if total > 0:
+        return Counter(
+            {key: val / total for key, val in blank_prob_counter.items()}
+        ), Counter({key: val / total for key, val in no_blank_prob_counter.items()})
+    else:
+        return blank_prob_counter, no_blank_prob_counter
