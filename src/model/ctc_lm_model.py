@@ -26,19 +26,19 @@ class CTCLMModel(B2TModel):
         self.config = config
         self.tokenizer = tokenizer
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=config.d_model, nhead=config.nhead, batch_first=True
+            d_model=config.ctclm_d_model, nhead=config.ctclm_nhead, batch_first=True
         )
-        self.tok_embed = nn.Linear(tokenizer.vocab_size, config.d_model)
-        self.pos_embed = nn.Embedding(1000, config.d_model)
-        self.norm = nn.LayerNorm(config.d_model)
+        self.tok_embed = nn.Linear(tokenizer.vocab_size, config.ctclm_d_model)
+        self.pos_embed = nn.Embedding(2000, config.ctclm_d_model)
+        self.norm = nn.LayerNorm(config.ctclm_d_model)
 
         self.transformer = nn.Sequential(
-            nn.TransformerEncoder(encoder_layer, num_layers=config.num_layers),
+            nn.TransformerEncoder(encoder_layer, num_layers=config.ctclm_num_layers),
             create_fully_connected(
-                config.d_model,
+                config.ctclm_d_model,
                 tokenizer.vocab_size,
-                config.classifier_hidden_sizes,
-                config.classifier_activation,
+                config.ctclm_classifier_hidden_sizes,
+                config.ctclm_classifier_activation,
             ),
         )
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)

@@ -19,8 +19,8 @@ from src.util.nn_helper import calc_seq_len, compute_ctc_loss, create_fully_conn
 
 
 class B2TMambaArgsModel(B2TArgsModel):
-    d_model: int = 1024  # 2560
-    n_layer: int = 32
+    mamba_d_model: int = 1024  # 2560
+    mamba_n_layer: int = 32
     rms_norm: bool = True
     residual_in_fp32: bool = True
     fused_add_norm: bool = True
@@ -36,8 +36,8 @@ class MambaLMHeadModel(B2TModel, GenerationMixin):
         self, config: B2TMambaArgsModel, tokenizer: PreTrainedTokenizer
     ) -> None:
         self.config = config
-        d_model = config.d_model
-        n_layer = config.n_layer
+        d_model = config.mamba_d_model
+        n_layer = config.mamba_n_layer
         in_size = 256
 
         out_size = tokenizer.vocab_size

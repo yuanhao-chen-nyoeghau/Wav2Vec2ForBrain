@@ -19,11 +19,11 @@ from src.model.b2tmodel import B2TModel, ModelOutput
 
 
 class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
-    nhead: int = 8
-    num_layers: int = 6
-    classifier_hidden_sizes: list[int] = []
-    classifier_activation: ACTIVATION_FUNCTION = "gelu"
-    d_model: int = 128
+    ctclm_nhead: int = 8
+    ctclm_num_layers: int = 6
+    ctclm_classifier_hidden_sizes: list[int] = []
+    ctclm_classifier_activation: ACTIVATION_FUNCTION = "gelu"
+    ctclm_d_model: int = 128
 
 
 class CtcLmExperiment(Experiment):
