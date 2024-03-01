@@ -154,7 +154,11 @@ class TrainHistory(NamedTuple):
             )
 
         # Creating a figure and subplots
-        fig, axs = plt.subplots(nrows=len(metric_keys), ncols=1)
+        fig, axs = plt.subplots(
+            nrows=len(metric_keys), ncols=1, figsize=(10, 5 * len(metric_keys))
+        )
+        num_epochs = len(self.epochs)
+
         for i, metric_key in enumerate(metric_keys):
             train_averages = [epoch.train_losses.get_average() for epoch in self.epochs]
             val_averages = [epoch.val_losses.get_average() for epoch in self.epochs]
@@ -177,14 +181,15 @@ class TrainHistory(NamedTuple):
                 val_losses,
                 label=f"{metric_key} (validation)",
                 linestyle="-",
-                marker="o",
+                marker=".",
             )
+            ax.grid()
             ax.set_xlabel("Epochs")
             ax.set_ylabel(metric_key)
             ax.set_title(f"Train and Validation {metric_key} history")
             ax.legend()
-        num_epochs = len(self.epochs)
-        plt.xticks(list(range(num_epochs)), [str(i) for i in range(1, num_epochs + 1)])
+            x_ticks = list(range(0, num_epochs, max(1, num_epochs // 10)))
+            ax.set_xticks(x_ticks, [str(i) for i in x_ticks])
 
         plt.tight_layout()
         plt.savefig(out_path)

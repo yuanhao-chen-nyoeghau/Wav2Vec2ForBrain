@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: run.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -14,7 +14,7 @@
         },
         {
             "name": "run.py audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -25,7 +25,7 @@
         },
         {
             "name": "run.py b2t_audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -36,7 +36,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -57,7 +57,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder finetuning",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -79,7 +79,7 @@
         },
         {
             "name": "run.py onehot_index",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -99,7 +99,7 @@
         },
         {
             "name": "run.py direct_cnn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -120,7 +120,7 @@
         },
         {
             "name": "run.py 4_channel_cnn_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -131,7 +131,7 @@
         },
         {
             "name": "run.py gru overfit",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -151,7 +151,7 @@
         },
         {
             "name": "run.py gru",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -171,7 +171,7 @@
         },
         {
             "name": "run.py gru trafo",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -194,5 +194,52 @@
                 "--from_checkpoint=/hpi/fs00/scratch/leon.hermann/b2t/cache/experiment_results/b2t_gru+trafo_experiment/2024-02-17_13#29#27/model.pt"
             ]
         },
+        {
+            "name": "run.py mamba only test good model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_mamba",
+                "--preprocessing=seperate_zscoring",
+                "--batch_size=2",
+                "--predict_on_train=True",
+                "--n_layer=64",
+                "--learning_rate=0.000015",
+                "--return_best_model=true",
+                "--epochs=100",
+                "--d_model=256",
+                "--rms_norm=true",
+                "--feature_extractor_activation=sigmoid",
+                "--scheduler_step_size=20",
+                "--scheduler_gamma=0.9",
+                "--from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/best/2024-02-08_06#06#45/model.pt",
+                "--input_dropout=0.5",
+                "--only_test=true",
+                "--visualize_predictions_n_batches=4",
+                "--limit_samples=8",
+                "--predict_on_train=false"
+            ]
+        },
+        {
+            "name": "run.py ctc lm overfit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=ctc_lm",
+                "--batch_size=1",
+                "--limit_samples=1",
+                "--epochs=100",
+                "--learning_rate=0.0000001",
+                "--scheduler_gamma=1",
+                "--num_layers=32",
+                "--classifier_hidden_sizes=[256]"
+            ]
+        }
     ]
 }

@@ -1,4 +1,4 @@
-from unicodedata import bidirectional
+from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.base_args import (
     B2TArgsModel,
@@ -11,8 +11,8 @@ from torch import nn
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from math import isnan
 from torch.nn.functional import log_softmax
-from typing import Literal
-from torch.nn import Linear
+
+from src.util.nn_helper import create_fully_connected
 
 
 def calc_seq_len(index_seq: torch.Tensor):
@@ -31,7 +31,7 @@ class B2TGruArgsModel(B2TArgsModel):
     dropout: float = 0.0
     learnable_inital_state: bool = False
     classifier_hidden_sizes: list[int] = [256, 128, 64]
-    classifier_activation: Literal["gelu"] = "gelu"
+    classifier_activation: ACTIVATION_FUNCTION = "gelu"
 
 
 class GRUModel(B2TModel):
@@ -61,28 +61,13 @@ class GRUModel(B2TModel):
             bidirectional=config.bidirectional,
             batch_first=True,
         )
+        self.classifier = create_fully_connected(
+            config.hidden_size * self.num_directions,
+            tokenizer.vocab_size,
+            config.classifier_hidden_sizes,
+            config.classifier_activation,
+        )
 
-        classifier_layers = []
-        for i in range(-1, len(config.classifier_hidden_sizes)):
-            is_last = i + 1 == len(config.classifier_hidden_sizes)
-            is_first = i == -1
-
-            in_size = (
-                config.hidden_size * self.num_directions
-                if is_first
-                else config.classifier_hidden_sizes[i]
-            )
-            out_size = (
-                tokenizer.vocab_size
-                if is_last
-                else config.classifier_hidden_sizes[i + 1]
-            )
-
-            classifier_layers.append(Linear(in_size, out_size))
-            if not is_last:
-                classifier_layers.append(nn.GELU())
-
-        self.classifier = nn.Sequential(*classifier_layers)
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(

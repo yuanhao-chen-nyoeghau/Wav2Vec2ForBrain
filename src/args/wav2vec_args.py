@@ -39,31 +39,34 @@ class AudioWav2VecArgsModel(BaseExperimentArgsModel):
     remove_punctuation: bool = True
 
 
+ACTIVATION_FUNCTION = Literal[
+    "gelu",
+    "gelu_10",
+    "gelu_fast",
+    "gelu_new",
+    "gelu_python",
+    "gelu_pytorch_tanh",
+    "gelu_accurate",
+    "laplace",
+    "linear",
+    "mish",
+    "quick_gelu",
+    "relu",
+    "relu2",
+    "relu6",
+    "sigmoid",
+    "silu",
+    "swish",
+    "tanh",
+]
+
+
 class B2TWav2VecCustomEncoderArgsModel(B2TWav2VecArgsModel):
     mode: Literal["pretraining", "finetuning"] = "pretraining"
     conv_bias: bool = True
     conv_stride: list[int] = [1, 1, 1, 1]  # [5, 2, 2, 2, 2, 2, 2]
     conv_kernel: list[int] = [5, 3, 3, 3]  # [10, 3, 3, 3, 3, 2, 2]
     conv_dim: list[int] = [512, 512, 512, 512]  # [512, 512, 512, 512, 512, 512, 512]
-    feat_extract_activation: Literal[
-        "gelu",
-        "gelu_10",
-        "gelu_fast",
-        "gelu_new",
-        "gelu_python",
-        "gelu_pytorch_tanh",
-        "gelu_accurate",
-        "laplace",
-        "linear",
-        "mish",
-        "quick_gelu",
-        "relu",
-        "relu2",
-        "relu6",
-        "sigmoid",
-        "silu",
-        "swish",
-        "tanh",
-    ] = "gelu"
+    feat_extract_activation: ACTIVATION_FUNCTION = "gelu"
     feat_extract_norm: Literal["group", "layer"] = "group"
     num_feat_extract_layers: int = 4  # 7

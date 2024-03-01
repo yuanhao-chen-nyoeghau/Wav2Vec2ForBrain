@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod, abstractclassmethod, ABCMeta
 import numpy as np
+from git import Optional
 from torch.utils.data import Dataset
 from pydantic import BaseModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel, ModelOutput
-from typing import Literal, Type, cast, Any
+from typing import Callable, Literal, Type, cast, Any
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
 import wandb
@@ -126,11 +127,9 @@ class Experiment(metaclass=ABCMeta):
         history.plot(os.path.join(self.results_dir, "history.png"))
 
     def run_real_world_test(self, model: B2TModel):
+        self._predict_and_store(model, self.dataloader_test, "test")
         if self.base_config.predict_on_train == True:
-            self._predict_and_store(
-                model, self.dataloader_train, "train_prediction.json"
-            )
-        self._predict_and_store(model, self.dataloader_test, "test_prediction.json")
+            self._predict_and_store(model, self.dataloader_train, "train")
 
     @abstractmethod
     def get_name(self) -> str:
@@ -166,13 +165,43 @@ class Experiment(metaclass=ABCMeta):
         )
 
     def _predict_and_store(
-        self, model: B2TModel, dataloader: DataLoader, out_file: str
+        self, model: B2TModel, dataloader: DataLoader, out_file_prefix: str
     ):
-        prediction = self._predict(model, dataloader)
-        with open(os.path.join(self.results_dir, out_file), "w") as f:
+        def handle_batch(
+            batch_id: int,
+            inputs: torch.Tensor,
+            outputs: ModelOutput,
+            targets: list[str],
+        ):
+            if batch_id >= self.base_config.visualize_predictions_n_batches:
+                return
+            out_dir = os.path.join(self.results_dir, f"{out_file_prefix}_predictions")
+            os.makedirs(out_dir, exist_ok=True)
+            print(
+                f"\nVisualizing prediction {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {out_file_prefix}..."
+            )
+            self.visualize_predictions(
+                inputs,
+                outputs,
+                targets,
+                os.path.join(out_dir, f"batch_{batch_id}.png"),
+                batch_id,
+            )
+
+        prediction = self._predict(model, dataloader, handle_batch)
+        with open(
+            os.path.join(self.results_dir, f"{out_file_prefix}_predictions.json"), "w"
+        ) as f:
             json.dump(prediction, f, indent=5)
 
-    def _predict(self, model: B2TModel, dataloader: DataLoader):
+    def _predict(
+        self,
+        model: B2TModel,
+        dataloader: DataLoader,
+        handle_prediction_batch: Optional[
+            Callable[[int, torch.Tensor, ModelOutput, list[str]], Any]
+        ] = None,
+    ):
         result = []
         for i, data in enumerate(dataloader):
             inputs, labels = data
@@ -183,15 +212,21 @@ class Experiment(metaclass=ABCMeta):
                     print("Skipping _predict because outputs don't have logits")
                     return []
                 predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
+
                 predicted = self.tokenizer.batch_decode(predicted_ids)
 
-                result_dict = {
-                    "predicted": predicted,
-                    "label": self.tokenizer.batch_decode(
-                        labels.cpu().numpy(), group_tokens=False
-                    ),
-                }
+                targets = self.tokenizer.batch_decode(
+                    labels.cpu().numpy(), group_tokens=False
+                )
+                if handle_prediction_batch is not None:
+                    handle_prediction_batch(i, inputs, outputs, targets)
 
+                batch_predictions = []
+                batch_result = {
+                    "metrics": outputs.metrics,
+                    "batch_id": i,
+                    "predictions": batch_predictions,
+                }
                 if self.base_config.use_prefix_beam_search:
                     beam_search_strings = self._run_beam_search_for_batch(
                         batch_ctc=torch.nn.functional.softmax(outputs.logits, dim=-1)
@@ -199,10 +234,25 @@ class Experiment(metaclass=ABCMeta):
                         .cpu()
                         .numpy()
                     )
-                    result_dict.update(
-                        {"beam_search_on_predicted": beam_search_strings}
-                    )
-                result.append(result_dict)
+                    combined = zip(predicted, beam_search_strings, targets)
+                    for prediction, beam_search_string, target in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "beam      ": beam_search_string,
+                                "target    ": target,
+                            }
+                        )
+                else:
+                    combined = zip(predicted, targets)
+                    for prediction, target in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "target    ": target,
+                            }
+                        )
+                result.append(batch_result)
             print(
                 f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
                 end="",
@@ -237,4 +287,87 @@ class Experiment(metaclass=ABCMeta):
 
     def create_optimizer(self) -> Optimizer:
         optim_cls: Any = self._get_optimizer_cls()
-        return optim_cls(self.model.parameters(), lr=self.base_config.learning_rate)
+        return optim_cls(
+            self.model.parameters(),
+            lr=self.base_config.learning_rate,
+            weight_decay=self.base_config.weight_decay,
+        )
+
+    def visualize_predictions(
+        self,
+        inputs: torch.Tensor,
+        output: ModelOutput,
+        target_batch: list[str],
+        out_path: str,
+        batch_id: int,
+    ):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+
+        # Assuming `predictions` is your model's output with shape (seq_len, vocab_size)
+        # And `vocab` is your vocabulary list with the characters
+
+        predictions = output.logits.softmax(-1).cpu().numpy()
+        predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
+        predicted_str = self.tokenizer.batch_decode(predicted_ids)
+
+        batch_size, seq_len, vocab_size = predictions.shape
+        vocab = self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )
+
+        px = 1 / plt.rcParams["figure.dpi"]
+        fig, _axs = plt.subplots(
+            nrows=min(batch_size, 32),
+            figsize=(
+                seq_len * 18 * px,
+                ((vocab_size + 1) * 1.5) * batch_size * 18 * px,
+            ),
+        )  # Adjust figsize as needed
+        norm = Normalize(
+            vmin=0, vmax=1
+        )  # Normalize the color scale to the probability values
+        axs = _axs if batch_size > 1 else [_axs]
+        for sample_index, ax in enumerate(axs):
+            # Create a table
+            table_data = []
+            for row in range(vocab_size):
+                table_row = []
+                for col in range(seq_len):
+                    table_row.append(f"{vocab[row]}")
+                table_data.append(table_row)
+
+            # Create the table
+            table = ax.table(
+                cellText=table_data,
+                cellLoc="center",
+                loc="center",
+                cellColours=plt.cm.Blues(norm(predictions[sample_index].T)),  # type: ignore
+            )
+
+            # Highlighting cells with the highest probability in each column
+            for i in range(seq_len):
+                col_vals = predictions[sample_index][i, :]
+                max_val_index = np.argmax(
+                    col_vals
+                )  # Find the index of the max probability in the column
+                # Set properties for the cell with the highest probability
+                table[max_val_index.item(), i].set_edgecolor(
+                    "red"
+                )  # Adjust for 1-based indexing in table
+                table[max_val_index.item(), i].set_linewidth(2)  # Make the border bold
+
+            # Update table properties
+            table.auto_set_font_size(False)
+            table.set_fontsize(8)  # Adjust font size as needed
+            # ax.axis("off")  # Hide the axis
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_xlabel(
+                f"Target: {target_batch[sample_index]}\nPrediction: {predicted_str[sample_index]}"
+            )
+
+        plt.title(f"Displaying {len(axs)}/{batch_size} samples")
+        plt.tight_layout()
+        plt.savefig(out_path)
