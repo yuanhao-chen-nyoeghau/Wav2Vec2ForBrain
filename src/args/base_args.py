@@ -30,6 +30,7 @@ class CTCTextDatasetArgsModel(BaseModel):
     noise_std: float = 2
     correct_as_second_prob = 0.2
     random_second_id_in_blank_prob: float = 0.1
+    cache_generated_samples: bool = False
 
 
 class BaseExperimentArgsModel(BaseModel):
@@ -53,6 +54,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_gru",
         "b2t_mamba",
         "ctc_lm",
+        "b2t_ctc_lm_mamba_finetuning",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"

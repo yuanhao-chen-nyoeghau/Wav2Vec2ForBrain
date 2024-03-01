@@ -197,6 +197,24 @@
                 "--limit_samples=8",
                 "--predict_on_train=false"
             ]
+        },
+        {
+            "name": "run.py ctc lm overfit",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=ctc_lm",
+                "--batch_size=1",
+                "--limit_samples=1",
+                "--epochs=100",
+                "--learning_rate=0.0000001",
+                "--scheduler_gamma=1",
+                "--num_layers=32",
+                "--classifier_hidden_sizes=[256]"
+            ]
         }
     ]
 }

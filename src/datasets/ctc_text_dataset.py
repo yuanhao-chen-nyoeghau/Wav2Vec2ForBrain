@@ -23,6 +23,8 @@ class CTCTextDataset(Dataset):
         self.yaml_config = yaml_config
         self.tokenizer = tokenizer
 
+        self.cache: dict[int, tuple[torch.Tensor, str]] = {}
+
         base_dir = os.path.join(yaml_config.cache_dir, "generics_kb_best")
         cache_dir = os.path.join(base_dir, "cache")
         data_dir = os.path.join(base_dir, "data")
@@ -60,9 +62,15 @@ class CTCTextDataset(Dataset):
         )
 
     def __getitem__(self, index) -> tuple[torch.Tensor, str]:
+        if self.cache.get(index) is not None:
+            return self.cache[index]
         sentence = self.sentences[index].upper()
+        sentence = f"<s>{sentence}</s>"
         input_ids = self.tokenizer.encode(sentence, return_tensors="pt").squeeze(0)  # type: ignore
         prob_seq = self.convert_ids_to_prob_seq(input_ids)
+        if self.config.cache_generated_samples:
+            self.cache[index] = prob_seq, sentence
+
         return prob_seq, sentence
 
     def convert_ids_to_prob_seq(
