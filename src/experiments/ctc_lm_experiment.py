@@ -136,7 +136,6 @@ class CtcLmExperiment(Experiment):
                 )
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, inputs, outputs, targets)
-                combined = zip(predicted, targets, inputs_decoded)
                 batch_predictions = []
                 batch_result = {
                     "metrics": outputs.metrics,
@@ -144,14 +143,35 @@ class CtcLmExperiment(Experiment):
                     "predictions": batch_predictions,
                 }
 
-                for prediction, target, input in combined:
-                    batch_predictions.append(
-                        {
-                            "prediction": prediction,
-                            "target    ": target,
-                            "input": input,
-                        }
+                if self.base_config.use_prefix_beam_search:
+                    beam_search_strings = self._run_beam_search_for_batch(
+                        batch_ctc=torch.nn.functional.softmax(outputs.logits, dim=-1)
+                        .detach()
+                        .cpu()
+                        .numpy()
                     )
+                    combined = zip(
+                        predicted, beam_search_strings, targets, inputs_decoded
+                    )
+                    for prediction, beam_search_string, target, input in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "beam      ": beam_search_string,
+                                "target    ": target,
+                                "input     ": input,
+                            }
+                        )
+                else:
+                    combined = zip(predicted, targets, inputs_decoded)
+                    for prediction, target, input in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "target    ": target,
+                                "input     ": input,
+                            }
+                        )
                 result.append(batch_result)
             print(
                 f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",

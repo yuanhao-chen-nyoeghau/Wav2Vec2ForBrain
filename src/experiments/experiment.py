@@ -74,7 +74,7 @@ class Experiment(metaclass=ABCMeta):
 
             print("")
         if self.base_config.use_prefix_beam_search:
-            self.beam_search_lm = transformers.GPT2LMHeadModel.from_pretrained(
+            self.beam_search_lm = transformers.AutoModelForCausalLM.from_pretrained(
                 self.base_config.beam_search_language_model
             )
             self.beam_search_tokenizer = transformers.AutoTokenizer.from_pretrained(

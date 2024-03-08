@@ -20,12 +20,7 @@ def translate_string(
     special_tokens_output = other_tokenizer.special_tokens_map_extended
 
     mapping: dict[str, str] = {
-        str(special_tokens_input[token]): (
-            str(special_tokens_output[token])
-            if token in special_tokens_output.keys()
-            else ""
-        )
-        for token in special_tokens_input.keys()
+        str(special_tokens_input[token]): ("") for token in special_tokens_input.keys()
     }
     for key, val in mapping.items():
         input_string = input_string.replace(key, val)
@@ -44,9 +39,9 @@ def prefix_beam_search(
     lm_tokenizer: (
         transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast
     ),
-    k=25,
-    alpha=0.70,
-    beta=5,
+    k=10,
+    alpha=1,
+    beta=20,
     prune=0.001,
 ):
     """
@@ -128,22 +123,41 @@ def prefix_beam_search(
                         )
 
                         # Calculate probability that next_word comes after the given prefix
-                        inputs = lm_tokenizer(translated_string, return_tensors="pt")
-                        output = lm(**inputs)
-                        output_probs = torch.nn.functional.softmax(
-                            output.logits, dim=-1
+                        prefix = " ".join(translated_string.split(" ")[:-1])
+                        inputs = lm_tokenizer(
+                            prefix,
+                            return_tensors="pt",
                         )
-                        sentence_prob = 0.0
-                        for i in range(output_probs.shape[1]):
-                            token_id = int(inputs.input_ids[0, i].item())
-                            token_prob = output_probs[0, i, token_id].item()
-                            sentence_prob = sentence_prob + token_prob
-                        # next_token_probs = output_probs[0, -1, :]
-                        # lm_prob = next_token_probs[
-                        #     int(inputs.input_ids[0, -1].item())
-                        # ].item()
-                        lm_prob = sentence_prob / output_probs.shape[1]
-                        lm_prob = lm_prob**alpha
+                        next_token = translated_string.split(" ")[-1]
+                        next_token_ids = lm_tokenizer(next_token).input_ids
+                        if inputs.input_ids.shape[1] > 0:
+                            output = lm.generate(
+                                **inputs,
+                                max_new_tokens=len(next_token_ids),
+                                num_beams=1,
+                                output_scores=True,
+                                return_dict_in_generate=True,
+                                early_stopping=True
+                            )
+                        else:
+                            output = lm.generate(
+                                max_new_tokens=len(next_token_ids),
+                                num_beams=1,
+                                output_scores=True,
+                                return_dict_in_generate=True,
+                                early_stopping=True,
+                            )
+
+                        lm_prob = 1.0
+                        for i, id in enumerate(next_token_ids):
+                            output_probs = output.scores[i].softmax(dim=-1)
+                            lm_prob = lm_prob * (
+                                output_probs[
+                                    0,
+                                    id,
+                                ].item()
+                                ** alpha
+                            )
                         Pnb[t][l_plus] += (
                             lm_prob * ctc[t][c_ix] * (Pb[t - 1][l] + Pnb[t - 1][l])
                         )
