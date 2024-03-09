@@ -5,7 +5,7 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
-from src.datasets.base_dataset import BaseDataset
+from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
 from src.datasets.tokenizer import get_tokenizer
@@ -21,6 +21,9 @@ from src.datasets.preprocessing import (
     preprocess_seperate_zscoring_2channels,
 )
 from transformers import AutoTokenizer, PreTrainedTokenizer
+from torch.nn.functional import pad
+import re
+
 
 PreprocessingFunctions: dict[
     str,
@@ -101,7 +104,7 @@ class Brain2TextDataset(BaseDataset):
             else min(len(self.transcriptions), self.config.limit_samples)
         )
 
-    def __getitem__(self, index) -> tuple[torch.Tensor, str]:
+    def __getitem__(self, index) -> Sample:
         orig_sample_rate = 50
         target_sample_rate = self.config.sample_rate
 
@@ -115,4 +118,43 @@ class Brain2TextDataset(BaseDataset):
             else sample
         )
 
-        return resampled, self.transcriptions[index]
+        return Sample(resampled, self.transcriptions[index])
+
+    def get_collate_fn(
+        self, tokenizer: PreTrainedTokenizer
+    ) -> Callable[[list[Sample]], SampleBatch]:
+        multiple_channels = (
+            self.config.preprocessing == "seperate_zscoring_2channels"
+            or self.config.preprocessing == "seperate_zscoring_4channels"
+        )
+
+        def _collate(batch: list[Sample]):
+            max_block_len = max(
+                [x.size(1 if multiple_channels else 0) for x, _ in batch]
+            )
+            padded_blocks = [
+                pad(
+                    x,
+                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
+                    mode="constant",
+                    value=0,
+                )
+                for x, _ in batch
+            ]
+
+            def process_label(label: str) -> str:
+                if self.config.remove_punctuation:
+                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
+                    label = re.sub(chars_to_ignore_regex, "", label)
+                # label = label.upper()
+                return label
+
+            batch_label_ids: torch.Tensor = tokenizer(
+                [process_label(label) for _, label in batch],
+                padding="longest",
+                return_tensors="pt",
+            ).input_ids
+
+            return SampleBatch(torch.stack(padded_blocks), batch_label_ids)
+
+        return _collate

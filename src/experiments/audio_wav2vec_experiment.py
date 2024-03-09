@@ -14,6 +14,7 @@ import re
 from torch.utils.data import Dataset
 from datasets import load_dataset, DatasetDict
 from transformers import PreTrainedTokenizer
+from torch.utils.data import DataLoader
 
 
 class AudioWav2VecExperiment(Experiment):
@@ -62,36 +63,6 @@ class AudioWav2VecExperiment(Experiment):
         )
         return model
 
-    def get_collate_fn(self):
-        def _collate(batch: list[Sample]):
-            max_audio_len = max([x.size(0) for x, _ in batch])
-            padded_audio = [
-                pad(
-                    x,
-                    (0, max_audio_len - x.size(0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: torch.Tensor = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return SampleBatch(torch.stack(padded_audio), batch_label_ids)
-
-        return _collate
-
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "wav2vec2featureextractor":
@@ -109,10 +80,18 @@ class AudioWav2VecExperiment(Experiment):
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
-    def _create_dataset(
-        self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
         return AudioDataset(
             hugg_dataset=cast(DatasetDict, self._hugg_dataset),
             split=split,
+            config=self.config,
+        )
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+        return DataLoader(
+            self._create_dataset(split),
+            batch_size=self.base_config.batch_size,
+            shuffle=True,
+            collate_fn=ds.get_collate_fn(self.tokenizer),
         )

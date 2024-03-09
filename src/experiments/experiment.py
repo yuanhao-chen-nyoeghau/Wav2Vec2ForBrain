@@ -127,9 +127,6 @@ class Experiment(metaclass=ABCMeta):
     def get_name(self) -> str:
         pass
 
-    def get_collate_fn(self) -> Callable[[list[Sample]], SampleBatch]:
-        return default_collate
-
     @abstractmethod
     def _create_dataset(
         self, split: Literal["train", "val", "test"] = "train"
@@ -145,11 +142,13 @@ class Experiment(metaclass=ABCMeta):
         raise NotImplementedError()
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+
         return DataLoader(
-            self._create_dataset(split),
+            ds,
             batch_size=self.base_config.batch_size,
             shuffle=True,
-            collate_fn=self.get_collate_fn(),
+            collate_fn=ds.get_collate_fn(),
         )
 
     def handle_evaluation_prediction_batch(

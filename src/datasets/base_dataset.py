@@ -25,8 +25,8 @@ class BaseDataset(Dataset):
             "This method should be overridden in a subclass of BaseDataset"
         )
 
-    @classmethod
-    def get_collate_fn(cls) -> Callable[[list[Sample]], SampleBatch]:
+    @abstractmethod
+    def get_collate_fn(self) -> Callable[[list[Sample]], SampleBatch]:
         raise NotImplementedError(
             "This method should be overridden in a subclass of BaseDataset"
         )

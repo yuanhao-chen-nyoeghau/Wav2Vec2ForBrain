@@ -6,7 +6,7 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
-from src.datasets.base_dataset import BaseDataset, Sample
+from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
@@ -17,6 +17,10 @@ from src.datasets.preprocessing import (
 from tqdm import tqdm
 import torch.nn.functional as F
 from math import ceil
+from torch.nn.functional import pad
+import re
+from transformers import AutoTokenizer, PreTrainedTokenizer
+
 
 PreprocessingFunctions: dict[
     str,
@@ -211,3 +215,42 @@ class B2TAudioDataset(BaseDataset):
 
     def __getitem__(self, index) -> Sample:
         return Sample(self.soundwaves[index], self.transcriptions[index])
+
+    def get_collate_fn(self, tokenizer: PreTrainedTokenizer):
+        def _collate(batch: list[Sample]):
+            max_audio_len = max([x.size(0) for x, _ in batch])
+            padded_audio = [
+                pad(
+                    x,
+                    (
+                        (0, max_audio_len - x.size(0))
+                        if self.config.mean_reduction_data
+                        else (
+                            0,
+                            0,
+                            0,
+                            max_audio_len - x.size(0),
+                        )
+                    ),
+                    mode="constant",
+                    value=0,
+                )
+                for x, _ in batch
+            ]
+
+            def process_label(label: str) -> str:
+                if self.config.remove_punctuation:
+                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
+                    label = re.sub(chars_to_ignore_regex, "", label)
+                # label = label.upper()
+                return label
+
+            batch_label_ids: torch.Tensor = tokenizer(
+                [process_label(label) for _, label in batch],
+                padding="longest",
+                return_tensors="pt",
+            ).input_ids
+            batched_inputs = torch.stack(padded_audio)
+            return SampleBatch(batched_inputs, batch_label_ids)
+
+        return _collate

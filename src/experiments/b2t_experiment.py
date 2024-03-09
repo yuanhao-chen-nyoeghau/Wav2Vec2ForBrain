@@ -13,6 +13,7 @@ from torch.nn.functional import pad
 import re
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
+from torch.utils.data import DataLoader
 
 
 class B2TExperiment(Experiment):
@@ -43,40 +44,6 @@ class B2TExperiment(Experiment):
     def _create_model(self):
         raise NotImplementedError()
 
-    def get_collate_fn(self):
-        multiple_channels = self.config.preprocessing == "seperate_zscoring_2channels"
-
-        def _collate(batch: list[Sample]):
-            max_block_len = max(
-                [x.size(1 if multiple_channels else 0) for x, _ in batch]
-            )
-            padded_blocks = [
-                pad(
-                    x,
-                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: torch.Tensor = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return SampleBatch(torch.stack(padded_blocks), batch_label_ids)
-
-        return _collate
-
     def decode_predictions(
         self, predictions: ModelOutput, sample: SampleBatch
     ) -> DecodedPredictionBatch:
@@ -96,13 +63,20 @@ class B2TExperiment(Experiment):
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
-    def _create_dataset(
-        self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
         return Brain2TextDataset(
             config=self.config,
             yaml_config=self.yaml_config,
             split=split,
+        )
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+        return DataLoader(
+            self._create_dataset(split),
+            batch_size=self.base_config.batch_size,
+            shuffle=True,
+            collate_fn=ds.get_collate_fn(self.tokenizer),
         )
 
     def visualize_predictions(

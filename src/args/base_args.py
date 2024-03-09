@@ -16,6 +16,7 @@ class B2TDatasetArgsModel(BaseModel):
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
+    remove_punctuation: bool = True
 
 
 class CTCTextDatasetArgsModel(BaseModel):
@@ -31,6 +32,7 @@ class CTCTextDatasetArgsModel(BaseModel):
     correct_as_second_prob = 0.2
     random_second_id_in_blank_prob: float = 0.1
     cache_generated_samples: bool = False
+    remove_punctuation: bool = True
 
 
 class BaseExperimentArgsModel(BaseModel):
@@ -77,7 +79,6 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
-    remove_punctuation: bool = True
 
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0

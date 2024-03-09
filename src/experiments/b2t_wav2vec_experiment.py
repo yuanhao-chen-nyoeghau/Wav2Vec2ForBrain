@@ -55,43 +55,6 @@ class B2TWav2VecExperiment(Experiment):
         )
         return model
 
-    def get_collate_fn(self):
-        multiple_channels = (
-            self.config.preprocessing == "seperate_zscoring_2channels"
-            or self.config.preprocessing == "seperate_zscoring_4channels"
-        )
-
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max(
-                [x.size(1 if multiple_channels else 0) for x, _ in batch]
-            )
-            padded_blocks = [
-                pad(
-                    x,
-                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: list[list[int]] = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return torch.stack(padded_blocks), batch_label_ids
-
-        return _collate
-
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "wav2vec2featureextractor_ours":

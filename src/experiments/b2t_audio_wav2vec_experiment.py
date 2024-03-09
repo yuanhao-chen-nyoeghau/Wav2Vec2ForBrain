@@ -15,6 +15,7 @@ import re
 from torch.utils.data import Dataset
 from src.args.base_args import B2TDatasetArgsModel
 from transformers import PreTrainedTokenizer
+from torch.utils.data import DataLoader
 
 
 class B2TAudioWav2VecExperiment(Experiment):
@@ -53,45 +54,6 @@ class B2TAudioWav2VecExperiment(Experiment):
         model = B2TAudioWav2VecModel(self.config, self.yaml_config, self.tokenizer)
         return model
 
-    def get_collate_fn(self):
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_audio_len = max([x.size(0) for x, _ in batch])
-            padded_audio = [
-                pad(
-                    x,
-                    (
-                        (0, max_audio_len - x.size(0))
-                        if self.ds_config.mean_reduction_data
-                        else (
-                            0,
-                            0,
-                            0,
-                            max_audio_len - x.size(0),
-                        )
-                    ),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: list[list[int]] = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-            batched_inputs = torch.stack(padded_audio)
-            return batched_inputs, batch_label_ids
-
-        return _collate
-
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "wav2vec2featureextractor":
@@ -110,11 +72,18 @@ class B2TAudioWav2VecExperiment(Experiment):
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
-    def _create_dataset(
-        self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
         return B2TAudioDataset(
             config=self.ds_config,
             yaml_config=self.yaml_config,
             split=split,
+        )
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+        return DataLoader(
+            self._create_dataset(split),
+            batch_size=self.base_config.batch_size,
+            shuffle=True,
+            collate_fn=ds.get_collate_fn(self.tokenizer),
         )
