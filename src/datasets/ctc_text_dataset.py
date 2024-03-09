@@ -2,6 +2,7 @@ from typing import Literal, Optional, cast
 from torch.utils.data import Dataset
 import os
 import torch
+from src.datasets.base_dataset import BaseDataset
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import CTCTextDatasetArgsModel
 from transformers import PreTrainedTokenizer

@@ -1,4 +1,9 @@
-from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
+from experiments.b2t_experiment import B2TExperiment
+from src.args.base_args import (
+    B2TArgsModel,
+    B2TDatasetArgsModel,
+    BaseExperimentArgsModel,
+)
 from src.model.b2tmodel import B2TModel, ModelOutput
 from torch.optim.optimizer import Optimizer
 from src.datasets.brain2text import Brain2TextDataset
@@ -72,11 +77,7 @@ class FCModel(B2TModel):
         return ModelOutput(out, {"ctc_loss": loss.item()}, loss)
 
 
-class OneHotArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    pass
-
-
-class OneHotIndexExperiment(Experiment):
+class OneHotIndexExperiment(B2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
@@ -87,7 +88,7 @@ class OneHotIndexExperiment(Experiment):
 
     @staticmethod
     def get_args_model():
-        return OneHotArgsModel
+        return B2TArgsModel
 
     def _create_model(self):
         assert (

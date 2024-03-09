@@ -6,6 +6,7 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
+from src.datasets.base_dataset import BaseDataset, Sample
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
@@ -104,7 +105,7 @@ def b2t_audio_transformation(
     return res_signal
 
 
-class B2TAudioDataset(Dataset):
+class B2TAudioDataset(BaseDataset):
     def __init__(
         self,
         config: B2TAudioDatasetArgsModel,
@@ -208,5 +209,5 @@ class B2TAudioDataset(Dataset):
             else self.config.limit_samples
         )
 
-    def __getitem__(self, index) -> tuple[torch.Tensor, str]:
-        return self.soundwaves[index], self.transcriptions[index]
+    def __getitem__(self, index) -> Sample:
+        return Sample(self.soundwaves[index], self.transcriptions[index])

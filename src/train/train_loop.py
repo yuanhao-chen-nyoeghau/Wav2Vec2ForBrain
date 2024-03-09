@@ -1,3 +1,5 @@
+from datasets.base_dataset import SampleBatch
+from model.b2tmodel import ModelOutput
 from src.experiments.experiment import Experiment
 from torch.utils.data import DataLoader
 import torch
@@ -47,15 +49,10 @@ class Trainer:
             end="",
         )
 
-    def _calculate_wer(
-        self, predicted_logits: torch.Tensor, labels: torch.Tensor
-    ) -> float:
-        predicted_ids = predicted_logits.argmax(dim=-1).cpu().numpy()
-        predicted_strings = self.experiment.tokenizer.batch_decode(
-            predicted_ids, group_tokens=True
-        )
-        label_strings = self.experiment.tokenizer.batch_decode(
-            labels.cpu().numpy(), group_tokens=False
+    def _calculate_wer(self, output: ModelOutput, sample_batch: SampleBatch) -> float:
+
+        predicted_strings, label_strings = self.experiment.decode_predictions(
+            output, sample_batch
         )
 
         # remove characters after EOS token
@@ -83,7 +80,10 @@ class Trainer:
         self.model.train()
 
         for i, data in enumerate(self.dataloader_train):
-            inputs, labels = data
+
+            data = cast(SampleBatch, data)
+
+            inputs, labels, *_ = data
             self.optimizer.zero_grad()
 
             # Make predictions for this batch
@@ -91,16 +91,13 @@ class Trainer:
                 # calculate gradient for whole model (but only optimize parts)
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
-            # Compute the loss and its gradients
             loss = cast(torch.Tensor, outputs.loss)
             loss.backward()
 
             # Adjust learning weights
             self.optimizer.step()
 
-            outputs.metrics["word_error_rate"] = self._calculate_wer(
-                predicted_logits=outputs.logits, labels=labels
-            )
+            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, data)
             losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
             if (
                 i % self.config.log_every_n_batches
@@ -114,14 +111,13 @@ class Trainer:
         self.model.eval()
 
         for i, data in enumerate(dataloader):
+            data = cast(SampleBatch, data)
             inputs, labels = data
 
             with torch.no_grad():
                 outputs = self.model.forward(inputs.cuda(), labels.cuda())
 
-            outputs.metrics["word_error_rate"] = self._calculate_wer(
-                predicted_logits=outputs.logits, labels=labels
-            )
+            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, data)
             losses.add_batch_metric(
                 MetricEntry(
                     outputs.metrics,

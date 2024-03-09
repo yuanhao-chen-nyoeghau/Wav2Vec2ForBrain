@@ -24,6 +24,10 @@ class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
     ctclm_classifier_hidden_sizes: list[int] = []
     ctclm_classifier_activation: ACTIVATION_FUNCTION = "gelu"
     ctclm_d_model: int = 128
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
 
 
 class CtcLmExperiment(Experiment):

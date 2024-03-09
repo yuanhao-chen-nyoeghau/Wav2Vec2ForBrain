@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
+from src.datasets.base_dataset import BaseDataset
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
 from src.datasets.tokenizer import get_tokenizer
@@ -36,7 +37,7 @@ PreprocessingFunctions: dict[
 }
 
 
-class Brain2TextDataset(Dataset):
+class Brain2TextDataset(BaseDataset):
     def __init__(
         self,
         config: B2TDatasetArgsModel,

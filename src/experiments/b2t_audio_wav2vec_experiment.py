@@ -1,25 +1,27 @@
 import os
 from torch.optim.optimizer import Optimizer
+from experiments.b2t_experiment import B2TExperiment
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel, B2TAudioWav2VecArgsModel
 from src.model.b2t_audio_wav2vec_model import B2TAudioWav2VecModel
 from src.datasets.b2t_audio import B2TAudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from transformers import AutoTokenizer
 import torch
 from torch.nn.functional import pad
 import re
 from torch.utils.data import Dataset
 from src.args.base_args import B2TDatasetArgsModel
+from transformers import PreTrainedTokenizer
 
 
 class B2TAudioWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = B2TAudioWav2VecArgsModel(**config)
         self.ds_config = B2TAudioDatasetArgsModel(**config)
-
+        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
         self.model: B2TAudioWav2VecModel = self.model
 
@@ -57,13 +59,15 @@ class B2TAudioWav2VecExperiment(Experiment):
             padded_audio = [
                 pad(
                     x,
-                    (0, max_audio_len - x.size(0))
-                    if self.ds_config.mean_reduction_data
-                    else (
-                        0,
-                        0,
-                        0,
-                        max_audio_len - x.size(0),
+                    (
+                        (0, max_audio_len - x.size(0))
+                        if self.ds_config.mean_reduction_data
+                        else (
+                            0,
+                            0,
+                            0,
+                            max_audio_len - x.size(0),
+                        )
                     ),
                     mode="constant",
                     value=0,

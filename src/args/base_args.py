@@ -78,14 +78,14 @@ class BaseExperimentArgsModel(BaseModel):
         False, description="Run prediction on train set after model training"
     )
     remove_punctuation: bool = True
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
-        "facebook/wav2vec2-base-100h"
-    )
+
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    pass
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )

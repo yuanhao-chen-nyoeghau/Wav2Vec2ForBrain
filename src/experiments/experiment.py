@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod, abstractclassmethod, ABCMeta
+from attr import dataclass
 from git import Optional
 from torch.utils.data import Dataset
 from pydantic import BaseModel
+from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
 from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel, ModelOutput
-from typing import Callable, Literal, Type, cast, Any
+from typing import Callable, Literal, Type, cast, Any, NamedTuple
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
 import wandb
@@ -26,12 +28,15 @@ Optimizers: dict[str, Type[Optimizer]] = {
 }
 
 
+class DecodedPredictionBatch(NamedTuple):
+    predictions: list[str]
+    targets: list[str]
+
+
 class Experiment(metaclass=ABCMeta):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.base_config = BaseExperimentArgsModel(**config)
         self.yaml_config = yamlConfig
-
-        self.tokenizer = self._create_tokenizer()
 
         self.dataloader_train = self._create_dataloader(split="train")
         self.dataloader_val = self._create_dataloader(split="val")
@@ -122,18 +127,14 @@ class Experiment(metaclass=ABCMeta):
     def get_name(self) -> str:
         pass
 
-    def get_collate_fn(self):
+    def get_collate_fn(self) -> Callable[[list[Sample]], SampleBatch]:
         return default_collate
 
     @abstractmethod
     def _create_dataset(
         self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    ) -> BaseDataset:
         raise NotImplementedError("Implement _create_dataset in subclass")
-
-    @abstractmethod
-    def _create_tokenizer(self) -> PreTrainedTokenizer:
-        pass
 
     @abstractmethod
     def _create_model(self) -> B2TModel:
@@ -151,35 +152,32 @@ class Experiment(metaclass=ABCMeta):
             collate_fn=self.get_collate_fn(),
         )
 
+    def handle_evaluation_prediction_batch(
+        self,
+        batch_id: int,
+        inputs: torch.Tensor,
+        outputs: ModelOutput,
+        targets: list[str],
+        out_file_prefix: str,
+    ):
+        pass
+
     def _predict_and_store(
         self, model: B2TModel, dataloader: DataLoader, out_file_prefix: str
     ):
-        def handle_batch(
-            batch_id: int,
-            inputs: torch.Tensor,
-            outputs: ModelOutput,
-            targets: list[str],
-        ):
-            if batch_id >= self.base_config.visualize_predictions_n_batches:
-                return
-            out_dir = os.path.join(self.results_dir, f"{out_file_prefix}_predictions")
-            os.makedirs(out_dir, exist_ok=True)
-            print(
-                f"\nVisualizing prediction {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {out_file_prefix}..."
-            )
-            self.visualize_predictions(
-                inputs,
-                outputs,
-                targets,
-                os.path.join(out_dir, f"batch_{batch_id}.png"),
-                batch_id,
-            )
-
-        prediction = self._predict(model, dataloader, handle_batch)
+        prediction = self._predict(
+            model, dataloader, lambda *args: self.handle_evaluation_prediction_batch(*args, out_file_prefix)  # type: ignore
+        )
         with open(
             os.path.join(self.results_dir, f"{out_file_prefix}_predictions.json"), "w"
         ) as f:
             json.dump(prediction, f, indent=5)
+
+    @abstractmethod
+    def decode_predictions(
+        self, predictions: ModelOutput, sample: SampleBatch
+    ) -> DecodedPredictionBatch:
+        raise NotImplementedError("Implement decode_predictions in subclass")
 
     def _predict(
         self,
@@ -191,19 +189,18 @@ class Experiment(metaclass=ABCMeta):
     ):
         result = []
         for i, data in enumerate(dataloader):
-            inputs, labels = data
+            inputs, labels = cast(SampleBatch, data)
 
             with torch.no_grad():
                 outputs = model.forward(inputs.cuda(), labels.cuda())
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
                     return []
-                predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
 
-                predicted = self.tokenizer.batch_decode(predicted_ids)
-                targets = self.tokenizer.batch_decode(
-                    labels.cpu().numpy(), group_tokens=False
-                )
+                decoded = self.decode_predictions(outputs, data)
+                predicted = decoded.predictions
+                targets = decoded.targets
+
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, inputs, outputs, targets)
                 combined = zip(predicted, targets)
@@ -243,82 +240,3 @@ class Experiment(metaclass=ABCMeta):
             lr=self.base_config.learning_rate,
             weight_decay=self.base_config.weight_decay,
         )
-
-    def visualize_predictions(
-        self,
-        inputs: torch.Tensor,
-        output: ModelOutput,
-        target_batch: list[str],
-        out_path: str,
-        batch_id: int,
-    ):
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from matplotlib.colors import Normalize
-
-        # Assuming `predictions` is your model's output with shape (seq_len, vocab_size)
-        # And `vocab` is your vocabulary list with the characters
-
-        predictions = output.logits.softmax(-1).cpu().numpy()
-        predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
-        predicted_str = self.tokenizer.batch_decode(predicted_ids)
-
-        batch_size, seq_len, vocab_size = predictions.shape
-        vocab = self.tokenizer.convert_ids_to_tokens(
-            list(range(self.tokenizer.vocab_size))
-        )
-
-        px = 1 / plt.rcParams["figure.dpi"]
-        fig, _axs = plt.subplots(
-            nrows=min(batch_size, 32),
-            figsize=(
-                seq_len * 18 * px,
-                ((vocab_size + 1) * 1.5) * batch_size * 18 * px,
-            ),
-        )  # Adjust figsize as needed
-        norm = Normalize(
-            vmin=0, vmax=1
-        )  # Normalize the color scale to the probability values
-        axs = _axs if batch_size > 1 else [_axs]
-        for sample_index, ax in enumerate(axs):
-            # Create a table
-            table_data = []
-            for row in range(vocab_size):
-                table_row = []
-                for col in range(seq_len):
-                    table_row.append(f"{vocab[row]}")
-                table_data.append(table_row)
-
-            # Create the table
-            table = ax.table(
-                cellText=table_data,
-                cellLoc="center",
-                loc="center",
-                cellColours=plt.cm.Blues(norm(predictions[sample_index].T)),  # type: ignore
-            )
-
-            # Highlighting cells with the highest probability in each column
-            for i in range(seq_len):
-                col_vals = predictions[sample_index][i, :]
-                max_val_index = np.argmax(
-                    col_vals
-                )  # Find the index of the max probability in the column
-                # Set properties for the cell with the highest probability
-                table[max_val_index.item(), i].set_edgecolor(
-                    "red"
-                )  # Adjust for 1-based indexing in table
-                table[max_val_index.item(), i].set_linewidth(2)  # Make the border bold
-
-            # Update table properties
-            table.auto_set_font_size(False)
-            table.set_fontsize(8)  # Adjust font size as needed
-            # ax.axis("off")  # Hide the axis
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_xlabel(
-                f"Target: {target_batch[sample_index]}\nPrediction: {predicted_str[sample_index]}"
-            )
-
-        plt.title(f"Displaying {len(axs)}/{batch_size} samples")
-        plt.tight_layout()
-        plt.savefig(out_path)

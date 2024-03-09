@@ -1,5 +1,6 @@
 import os
 from torch.optim.optimizer import Optimizer
+from src.datasets.base_dataset import Sample, SampleBatch
 from src.datasets.audio import AudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
@@ -12,6 +13,7 @@ from torch.nn.functional import pad
 import re
 from torch.utils.data import Dataset
 from datasets import load_dataset, DatasetDict
+from transformers import PreTrainedTokenizer
 
 
 class AudioWav2VecExperiment(Experiment):
@@ -25,6 +27,7 @@ class AudioWav2VecExperiment(Experiment):
             "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
         )
         self.config = AudioWav2VecArgsModel(**config)
+        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
         self.model: AudioWav2VecModel = self.model
 
@@ -60,7 +63,7 @@ class AudioWav2VecExperiment(Experiment):
         return model
 
     def get_collate_fn(self):
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
+        def _collate(batch: list[Sample]):
             max_audio_len = max([x.size(0) for x, _ in batch])
             padded_audio = [
                 pad(
@@ -79,13 +82,13 @@ class AudioWav2VecExperiment(Experiment):
                 # label = label.upper()
                 return label
 
-            batch_label_ids: list[list[int]] = self.tokenizer(
+            batch_label_ids: torch.Tensor = self.tokenizer(
                 [process_label(label) for _, label in batch],
                 padding="longest",
                 return_tensors="pt",
             ).input_ids
 
-            return torch.stack(padded_audio), batch_label_ids
+            return SampleBatch(torch.stack(padded_audio), batch_label_ids)
 
         return _collate
 

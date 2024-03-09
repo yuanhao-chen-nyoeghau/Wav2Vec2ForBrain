@@ -2,7 +2,7 @@ from torch.optim.optimizer import Optimizer
 from src.datasets.brain2text import Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from src.args.wav2vec_args import B2TWav2VecArgsModel
 from transformers import AutoTokenizer
 from src.model.b2t_wav2vec_model import B2TWav2Vec
@@ -10,11 +10,13 @@ import torch
 from torch.nn.functional import pad
 import re
 from torch.utils.data import Dataset
+from transformers import PreTrainedTokenizer
 
 
 class B2TWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
+        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
         self.model: B2TWav2Vec = self.model
 
