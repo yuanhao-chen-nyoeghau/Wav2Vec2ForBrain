@@ -57,6 +57,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_mamba",
         "ctc_lm",
         "b2t_ctc_lm_mamba_finetuning",
+        "b2p2t_mamba",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"

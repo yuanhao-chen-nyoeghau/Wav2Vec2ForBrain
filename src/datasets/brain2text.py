@@ -1,4 +1,4 @@
-from typing import Any, Literal, Callable
+from typing import Any, Literal, Callable, Optional
 from torch.utils.data import Dataset
 import os
 from scipy.io import loadmat
@@ -121,8 +121,12 @@ class Brain2TextDataset(BaseDataset):
         return Sample(resampled, self.transcriptions[index])
 
     def get_collate_fn(
-        self, tokenizer: PreTrainedTokenizer
+        self, tokenizer: Optional[PreTrainedTokenizer]
     ) -> Callable[[list[Sample]], SampleBatch]:
+        if tokenizer is None:
+            raise ValueError(
+                "Tokenizer must be provided for this implementation of collate function."
+            )
         multiple_channels = (
             self.config.preprocessing == "seperate_zscoring_2channels"
             or self.config.preprocessing == "seperate_zscoring_4channels"

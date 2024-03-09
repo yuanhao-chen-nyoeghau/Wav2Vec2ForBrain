@@ -1,7 +1,7 @@
 from typing import Literal
 from torch.utils.data import Dataset
 from datasets import DatasetDict
-from args.wav2vec_args import AudioWav2VecArgsModel
+from src.args.wav2vec_args import AudioWav2VecArgsModel
 from src.datasets.base_dataset import Sample, SampleBatch
 from src.args.yaml_config import YamlConfigModel
 import torch

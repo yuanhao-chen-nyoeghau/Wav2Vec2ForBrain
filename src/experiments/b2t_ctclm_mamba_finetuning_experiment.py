@@ -3,7 +3,7 @@ from src.experiments.b2t_ctclm_finetuning_experiment import (
     B2tCtcLmModel,
     B2tCtcLmFinetuningExperiment,
 )
-from src.experiments.b2t_mamba_experiment import B2TMambaArgsModel, B2TMambaModel
+from src.experiments.b2t_mamba_experiment import B2TMambaArgsModel, MambaModel
 from src.model.b2tmodel import B2TModel
 from src.args.yaml_config import YamlConfigModel
 from typing import Literal, Any
@@ -33,7 +33,7 @@ class B2tCtcLmMambaFinetuningExperiment(B2tCtcLmFinetuningExperiment):
 
     def get_b2t_model(self) -> B2TModel:
         """Get the b2t model, pretrained weights are automatically loaded if lm_checkpoint_path is set in the config"""
-        return B2TMambaModel(self.config, self.tokenizer)
+        return MambaModel(self.config, self.tokenizer.vocab_size)
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
