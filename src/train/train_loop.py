@@ -55,14 +55,8 @@ class Trainer:
         predicted_strings = self.experiment.tokenizer.batch_decode(
             predicted_ids, group_tokens=True
         )
-        if self.config.experiment_type == "b2t_gru+trafo":
-            label_strings = cast(
-                B2tGruTrafoExperiment, self.experiment
-            ).wav2vec_tokenizer.batch_decode(labels.cpu().numpy(), group_tokens=False)
-        else:
-            label_strings = self.experiment.tokenizer.batch_decode(
-                labels.cpu().numpy(), group_tokens=False
-            )
+
+        label_strings = self.experiment.batch_decode(labels)
 
         # remove characters after EOS token
         def cut_after_eos_token(string: str):

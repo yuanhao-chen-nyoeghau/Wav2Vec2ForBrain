@@ -7,7 +7,7 @@ from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel, ModelOutput
-from typing import Callable, Literal, Type, cast, Any
+from typing import Callable, Literal, Self, Type, cast, Any
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
 import wandb
@@ -371,3 +371,6 @@ class Experiment(metaclass=ABCMeta):
         plt.title(f"Displaying {len(axs)}/{batch_size} samples")
         plt.tight_layout()
         plt.savefig(out_path)
+
+    def batch_decode(self, batch: torch.Tensor):
+        return self.tokenizer.batch_decode(batch.cpu().numpy(), group_tokens=False)

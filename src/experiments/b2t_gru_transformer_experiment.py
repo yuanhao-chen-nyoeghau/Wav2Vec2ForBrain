@@ -188,7 +188,7 @@ class B2tGruTrafoExperiment(B2TExperiment):
             use_fast=self.config.use_fast_tokenizer,
         )
         super().__init__(config, yamlConfig)
-        self.model: B2TModel = self.model
+        self.model: GRUTrafoModel = self.model
 
         assert (
             self.config.preprocessing == "seperate_zscoring"
@@ -202,7 +202,7 @@ class B2tGruTrafoExperiment(B2TExperiment):
             return self.model.rnn.parameters()
         elif self.config.training_task == "trafo":
             return [
-                {"params": self.model.trafo.parameters()},
+                {"params": self.model.lm.parameters()},
                 {"params": self.model.classifier_head.parameters()},
             ]
         else:
@@ -288,3 +288,8 @@ class B2tGruTrafoExperiment(B2TExperiment):
                 end="",
             )
         return result
+
+    def batch_decode(self, batch: torch.Tensor):
+        return self.wav2vec_tokenizer.batch_decode(
+            batch.cpu().numpy(), group_tokens=False
+        )
