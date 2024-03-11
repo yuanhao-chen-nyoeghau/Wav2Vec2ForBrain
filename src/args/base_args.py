@@ -52,6 +52,7 @@ class BaseExperimentArgsModel(BaseModel):
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
+        "b2t_gru+trafo",
         "b2t_mamba",
         "ctc_lm",
         "b2t_ctc_lm_mamba_finetuning",
@@ -85,6 +86,9 @@ class BaseExperimentArgsModel(BaseModel):
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1
+    use_fast_tokenizer: bool = False
+    use_prefix_beam_search: bool = True
+    beam_search_language_model: str = "openai-community/gpt2"
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):

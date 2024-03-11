@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod, abstractclassmethod, ABCMeta
+import numpy as np
 from git import Optional
 from torch.utils.data import Dataset
 from pydantic import BaseModel
@@ -6,7 +7,7 @@ from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import BaseExperimentArgsModel
 from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel, ModelOutput
-from typing import Callable, Literal, Type, cast, Any
+from typing import Callable, Literal, Self, Type, cast, Any
 from torch.nn.modules.loss import _Loss
 from src.args.yaml_config import YamlConfigModel
 import wandb
@@ -19,6 +20,9 @@ from datetime import datetime
 from torch.optim.optimizer import Optimizer
 from src.train.history import TrainHistory
 import sys
+import transformers
+
+from train.prefix_beam_search import prefix_beam_search
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -69,6 +73,15 @@ class Experiment(metaclass=ABCMeta):
                     print("Failed to load history from checkpoint")
 
             print("")
+        if self.base_config.use_prefix_beam_search:
+            self.beam_search_lm = transformers.AutoModelForCausalLM.from_pretrained(
+                self.base_config.beam_search_language_model
+            )
+            self.beam_search_tokenizer = transformers.AutoTokenizer.from_pretrained(
+                self.base_config.beam_search_language_model,
+                cache_dir=self.yaml_config.cache_dir,
+                use_fast=self.base_config.use_fast_tokenizer,
+            )
 
     def run(self):
         from src.train.train_loop import Trainer
@@ -201,32 +214,68 @@ class Experiment(metaclass=ABCMeta):
                 predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
 
                 predicted = self.tokenizer.batch_decode(predicted_ids)
+
                 targets = self.tokenizer.batch_decode(
                     labels.cpu().numpy(), group_tokens=False
                 )
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, inputs, outputs, targets)
-                combined = zip(predicted, targets)
+
                 batch_predictions = []
                 batch_result = {
                     "metrics": outputs.metrics,
                     "batch_id": i,
                     "predictions": batch_predictions,
                 }
-
-                for prediction, target in combined:
-                    batch_predictions.append(
-                        {
-                            "prediction": prediction,
-                            "target    ": target,
-                        }
+                if self.base_config.use_prefix_beam_search:
+                    beam_search_strings = self._run_beam_search_for_batch(
+                        batch_ctc=torch.nn.functional.softmax(outputs.logits, dim=-1)
+                        .detach()
+                        .cpu()
+                        .numpy()
                     )
+                    combined = zip(predicted, beam_search_strings, targets)
+                    for prediction, beam_search_string, target in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "beam      ": beam_search_string,
+                                "target    ": target,
+                            }
+                        )
+                else:
+                    combined = zip(predicted, targets)
+                    for prediction, target in combined:
+                        batch_predictions.append(
+                            {
+                                "prediction": prediction,
+                                "target    ": target,
+                            }
+                        )
                 result.append(batch_result)
             print(
                 f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
                 end="",
             )
         return result
+
+    def _run_beam_search_for_batch(self, batch_ctc: np.ndarray) -> list[str]:
+        beam_search_strings = []
+        for i in range(self.base_config.batch_size):
+            sentence_ctc = batch_ctc[i, :, :]
+            output_string = (
+                "<s>"
+                + prefix_beam_search(
+                    ctc=sentence_ctc,
+                    lm=self.beam_search_lm,
+                    experiment_tokenizer=self.tokenizer,
+                    lm_tokenizer=self.beam_search_tokenizer,
+                ).replace("|", " ")
+                + "</s>"
+            )
+            beam_search_strings.append(output_string)
+
+        return beam_search_strings
 
     def _get_optimizer_cls(self) -> Type[Optimizer]:
         if self.base_config.optimizer not in Optimizers:
@@ -322,3 +371,6 @@ class Experiment(metaclass=ABCMeta):
         plt.title(f"Displaying {len(axs)}/{batch_size} samples")
         plt.tight_layout()
         plt.savefig(out_path)
+
+    def batch_decode(self, batch: torch.Tensor):
+        return self.tokenizer.batch_decode(batch.cpu().numpy(), group_tokens=False)

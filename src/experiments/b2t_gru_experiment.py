@@ -8,7 +8,8 @@ from src.args.yaml_config import YamlConfigModel
 from typing import Optional
 import torch
 from torch import nn
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+from math import isnan
 from torch.nn.functional import log_softmax
 
 from src.util.nn_helper import create_fully_connected
@@ -34,7 +35,11 @@ class B2TGruArgsModel(B2TArgsModel):
 
 
 class GRUModel(B2TModel):
-    def __init__(self, config: B2TGruArgsModel, tokenizer: PreTrainedTokenizer):
+    def __init__(
+        self,
+        config: B2TGruArgsModel,
+        tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
+    ):
         super().__init__()
         self.config = config
         self.tokenizer = tokenizer

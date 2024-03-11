@@ -32,6 +32,7 @@ class B2TExperiment(Experiment):
             return AutoTokenizer.from_pretrained(
                 self.config.tokenizer_checkpoint,
                 cache_dir=self.yaml_config.cache_dir,
+                use_fast=self.config.use_fast_tokenizer,
             )
         raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
 

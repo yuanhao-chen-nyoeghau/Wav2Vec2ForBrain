@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: run.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -14,7 +14,7 @@
         },
         {
             "name": "run.py audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -25,7 +25,7 @@
         },
         {
             "name": "run.py b2t_audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -36,7 +36,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -57,7 +57,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder finetuning",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -79,7 +79,7 @@
         },
         {
             "name": "run.py onehot_index",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -99,7 +99,7 @@
         },
         {
             "name": "run.py direct_cnn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -120,7 +120,7 @@
         },
         {
             "name": "run.py 4_channel_cnn_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -131,7 +131,7 @@
         },
         {
             "name": "run.py gru overfit",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -151,7 +151,7 @@
         },
         {
             "name": "run.py gru",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -170,8 +170,33 @@
             ]
         },
         {
+            "name": "run.py gru trafo",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2t_gru+trafo",
+                "--batch_size=64",
+                "--epochs=30",
+                "--learning_rate=0.01",
+                "--dropout=0.3",
+                "--sample_rate=50",
+                "--preprocessing=seperate_zscoring",
+                "--loss_function=ctc",
+                "--predict_on_train=true",
+                "--return_best_model=true",
+                "--gradient_clipping=1",
+                "--use_fast_tokenizer=True",
+                "--language_model_mode=lm",
+                "--training_task=trafo",
+                "--from_checkpoint=/hpi/fs00/scratch/leon.hermann/b2t/cache/experiment_results/b2t_gru+trafo_experiment/2024-02-17_13#29#27/model.pt"
+            ]
+        },
+        {
             "name": "run.py mamba only test good model",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -200,7 +225,7 @@
         },
         {
             "name": "run.py ctc lm overfit",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",

@@ -1,3 +1,4 @@
+from experiments.b2t_gru_transformer_experiment import B2tGruTrafoExperiment
 from src.experiments.experiment import Experiment
 from torch.utils.data import DataLoader
 import torch
@@ -54,9 +55,8 @@ class Trainer:
         predicted_strings = self.experiment.tokenizer.batch_decode(
             predicted_ids, group_tokens=True
         )
-        label_strings = self.experiment.tokenizer.batch_decode(
-            labels.cpu().numpy(), group_tokens=False
-        )
+
+        label_strings = self.experiment.batch_decode(labels)
 
         # remove characters after EOS token
         def cut_after_eos_token(string: str):
