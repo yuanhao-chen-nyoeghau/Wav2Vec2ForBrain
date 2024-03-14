@@ -3,6 +3,7 @@ import torch
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Optional
+from src.datasets.base_dataset import SampleBatch
 
 
 @dataclass
@@ -14,7 +15,5 @@ class ModelOutput:
 
 class B2TModel(Module, ABC):
     @abstractmethod
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: SampleBatch) -> ModelOutput:
         pass

@@ -58,6 +58,7 @@ class BaseExperimentArgsModel(BaseModel):
         "ctc_lm",
         "b2t_ctc_lm_mamba_finetuning",
         "b2p2t_mamba",
+        "b2p2t_gru",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -84,6 +85,8 @@ class BaseExperimentArgsModel(BaseModel):
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1
+    whiteNoiseSD: float = 0.0
+    constantOffsetSD: float = 0.0
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):

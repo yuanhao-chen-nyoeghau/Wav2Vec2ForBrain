@@ -12,6 +12,16 @@ class SampleBatch(NamedTuple):
         torch.Tensor
     )  # Batch of tokenized targets (i.e. a batch of lists of target ids)
 
+    def cuda(self):
+        copy = self._replace(input=self.input.cuda(), target=self.target.cuda())
+        # Putting all tensors of subclass attributes to cuda
+        for key, value in self.__dict__.items():
+            if isinstance(value, torch.Tensor):
+                copy.__setattr__(key, value.cuda())
+            else:
+                copy.__setattr__(key, value)
+        return copy
+
 
 class Sample(NamedTuple):
     input: torch.Tensor

@@ -1,3 +1,4 @@
+from src.datasets.base_dataset import SampleBatch
 from src.experiments.ctc_lm_experiment import CtcLmArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Optional
@@ -32,9 +33,8 @@ class CTCLMModel(B2TModel):
         )
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: SampleBatch) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         device = x.device
         if targets is not None:

@@ -1,8 +1,7 @@
-from typing import Callable, Literal
+from typing import Callable, Literal, NamedTuple
 from attr import dataclass
 import torch
-from src.datasets.base_dataset import Sample, SampleBatch
-from src.datasets.brain2text import Brain2TextDataset
+from src.datasets.brain2text import B2tSample, B2tSampleBatch, Brain2TextDataset
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
 import re
@@ -52,147 +51,24 @@ PHONE_DEF = [
     "ZH",
 ]
 
-PHONE_DEF_SIL = [
-    "AA",
-    "AE",
-    "AH",
-    "AO",
-    "AW",
-    "AY",
-    "B",
-    "CH",
-    "D",
-    "DH",
-    "EH",
-    "ER",
-    "EY",
-    "F",
-    "G",
-    "HH",
-    "IH",
-    "IY",
-    "JH",
-    "K",
-    "L",
-    "M",
-    "N",
-    "NG",
-    "OW",
-    "OY",
-    "P",
-    "R",
-    "S",
-    "SH",
-    "T",
-    "TH",
-    "UH",
-    "UW",
-    "V",
-    "W",
-    "Y",
-    "Z",
-    "ZH",
+PHONE_DEF_SIL = PHONE_DEF + [
     "SIL",
-]
-
-CHANG_PHONE_DEF = [
-    "AA",
-    "AE",
-    "AH",
-    "AW",
-    "AY",
-    "B",
-    "D",
-    "DH",
-    "EH",
-    "ER",
-    "EY",
-    "F",
-    "G",
-    "HH",
-    "IH",
-    "IY",
-    "K",
-    "L",
-    "M",
-    "N",
-    "NG",
-    "OW",
-    "P",
-    "R",
-    "S",
-    "T",
-    "TH",
-    "UH",
-    "UW",
-    "V",
-    "W",
-    "Y",
-    "Z",
-]
-
-CONSONANT_DEF = [
-    "CH",
-    "SH",
-    "JH",
-    "R",
-    "B",
-    "M",
-    "W",
-    "V",
-    "F",
-    "P",
-    "D",
-    "N",
-    "L",
-    "S",
-    "T",
-    "Z",
-    "TH",
-    "G",
-    "Y",
-    "HH",
-    "K",
-    "NG",
-    "ZH",
-    "DH",
-]
-VOWEL_DEF = [
-    "EY",
-    "AE",
-    "AY",
-    "EH",
-    "AA",
-    "AW",
-    "IY",
-    "IH",
-    "OY",
-    "OW",
-    "AO",
-    "UH",
-    "AH",
-    "UW",
-    "ER",
 ]
 
 SIL_DEF = ["SIL"]
 
 
-@dataclass
-class PhonemeSeq:
+class PhonemeSeq(NamedTuple):
     phoneme_ids: list[int]
     phonemes: list[str]
 
-    def __iter__(self):
-        return iter((self.phoneme_ids, self.phonemes))
 
-
-class PhonemeSample(Sample):
+class PhonemeSample(B2tSample):
     transcription: str
     phonemes: list[str]
 
 
-class PhonemeSampleBatch(SampleBatch):
+class PhonemeSampleBatch(B2tSampleBatch):
     transcriptions: list[str]
     phonemes: list[list[str]]
 
@@ -203,6 +79,7 @@ def decode_predicted_phoneme_ids(ids: list[int]) -> str:
 
 class Brain2TextWPhonemesDataset(Brain2TextDataset):
     vocab_size = len(PHONE_DEF_SIL) + 1
+    vocab = ["blank"] + PHONE_DEF_SIL
 
     def __init__(
         self,
@@ -217,7 +94,7 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
             self.get_phoneme_seq(transcription) for transcription in self.transcriptions
         ]
 
-    def __getitem__(self, index) -> PhonemeSample:
+    def __getitem__(self, index: int) -> PhonemeSample:
         resampled, transcription = super().__getitem__(index)
         phoneme_ids, phonemes = self.phoneme_seqs[index]
 
@@ -225,7 +102,10 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
             chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
             transcription = re.sub(chars_to_ignore_regex, "", transcription)
 
+        day_idx = self.days[index]
+
         sample = PhonemeSample(resampled, phoneme_ids)
+        sample.day_idx = day_idx
         sample.transcription = transcription
         sample.phonemes = phonemes
         return sample
@@ -288,8 +168,13 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
                 torch.stack(padded_blocks),
                 torch.stack(padded_phoneme_ids),
             )
+            batch.day_idxs = torch.tensor([sample.day_idx for sample in samples])
             batch.transcriptions = [sample.transcription for sample in samples]
             batch.phonemes = [sample.phonemes for sample in samples]
+            batch.target_lens = torch.tensor(
+                [len(phoneme_ids) for _, phoneme_ids in samples]
+            )
+            batch.input_lens = torch.tensor([x.size(0) for x, _ in samples])
             return batch
 
         return _collate

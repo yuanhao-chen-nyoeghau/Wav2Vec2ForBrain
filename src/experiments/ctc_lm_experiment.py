@@ -1,3 +1,4 @@
+from src.datasets.base_dataset import SampleBatch
 from src.datasets.ctc_text_dataset import CTCTextDataset
 from src.experiments.experiment import Experiment
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
@@ -93,10 +94,10 @@ class CtcLmExperiment(Experiment):
     ):
         result = []
         for i, data in enumerate(dataloader):
+            data = cast(SampleBatch, data).cuda()
             inputs, labels = data
-
             with torch.no_grad():
-                outputs = model.forward(inputs.cuda(), labels.cuda())
+                outputs = model.forward(data)
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
                     return []
@@ -135,9 +136,8 @@ class CtcLmExperiment(Experiment):
 
     def visualize_predictions(
         self,
-        inputs: torch.Tensor,
+        batch: SampleBatch,
         output: ModelOutput,
-        target_batch: list[str],
         out_path: str,
         batch_id: int,
     ):
@@ -152,7 +152,10 @@ class CtcLmExperiment(Experiment):
         predictions = output.logits.softmax(-1).cpu().numpy()
         predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
         predicted_str = self.tokenizer.batch_decode(predicted_ids)
-        input_str = self.tokenizer.batch_decode(inputs.argmax(-1).cpu().numpy())
+        input_str = self.tokenizer.batch_decode(batch.input.argmax(-1).cpu().numpy())
+        target_str = self.tokenizer.batch_decode(
+            batch.target.cpu().numpy(), group_tokens=False
+        )
 
         batch_size, seq_len, vocab_size = predictions.shape
         vocab = self.tokenizer.convert_ids_to_tokens(
@@ -182,7 +185,9 @@ class CtcLmExperiment(Experiment):
                 vmin=0, vmax=1
             )  # Normalize the color scale to the probability values
             for i, ax in enumerate(axs):
-                data = inputs[sample_index] if i == 0 else predictions[sample_index]
+                data = (
+                    batch.input[sample_index] if i == 0 else predictions[sample_index]
+                )
                 str_data = (
                     input_str[sample_index] if i == 0 else predicted_str[sample_index]
                 )
@@ -226,8 +231,13 @@ class CtcLmExperiment(Experiment):
                 ax.set_title(f"Tokenized {title}: {str_data}")
 
             fig.suptitle(
-                f"Target: {target_batch[sample_index]}",
+                f"Target: {target_str[sample_index]}",
                 fontsize="large",
                 fontweight="bold",
             )
             plt.savefig(sample_out_path)
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )

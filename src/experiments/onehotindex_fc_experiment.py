@@ -1,3 +1,4 @@
+from src.datasets.brain2text import B2tSampleBatch
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.base_args import (
     B2TArgsModel,
@@ -28,9 +29,8 @@ class FCModel(B2TModel):
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
         self.tokenizer = tokenizer
 
-    def forward(
-        self, _x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, _batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = _batch
         assert targets is not None, "Targets must be set"
         device = targets.device
         seq_len = targets.shape[-1]

@@ -1,131 +1,13 @@
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from typing import cast
+from src.args.base_args import B2TArgsModel
+from src.model.gru_model import GRUModel, GruArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
-from src.args.base_args import (
-    B2TArgsModel,
-)
-from src.model.b2tmodel import B2TModel, ModelOutput
+from src.model.b2tmodel import B2TModel
 from src.args.yaml_config import YamlConfigModel
-from typing import Optional
-import torch
-from torch import nn
-from transformers import PreTrainedTokenizer
-from torch.nn.functional import log_softmax
-
-from src.util.nn_helper import create_fully_connected
 
 
-def calc_seq_len(index_seq: torch.Tensor):
-    for i in range(len(index_seq)):
-        j = len(index_seq) - 1 - i
-        if index_seq[j].item() > 0:
-            return j + 1
-    return 0
-
-
-class B2TGruArgsModel(B2TArgsModel):
-    hidden_size: int = 256
-    bidirectional: bool = True
-    num_gru_layers: int = 2
-    bias: bool = True
-    dropout: float = 0.0
-    learnable_inital_state: bool = False
-    classifier_hidden_sizes: list[int] = [256, 128, 64]
-    classifier_activation: ACTIVATION_FUNCTION = "gelu"
-
-
-class GRUModel(B2TModel):
-    def __init__(self, config: B2TGruArgsModel, tokenizer: PreTrainedTokenizer):
-        super().__init__()
-        self.config = config
-        self.tokenizer = tokenizer
-        self.num_directions = 2 if config.bidirectional else 1
-
-        self.hidden_start = nn.Parameter(
-            torch.randn(
-                self.num_directions * config.num_gru_layers,
-                config.hidden_size,
-                requires_grad=True,
-            )
-        )
-        self.gru = torch.nn.GRU(
-            256,
-            config.hidden_size,
-            config.num_gru_layers,
-            dropout=config.dropout,
-            bias=config.bias,
-            bidirectional=config.bidirectional,
-            batch_first=True,
-        )
-        self.classifier = create_fully_connected(
-            config.hidden_size * self.num_directions,
-            tokenizer.vocab_size,
-            config.classifier_hidden_sizes,
-            config.classifier_activation,
-        )
-
-        self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
-
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
-        assert targets is not None, "Targets must be set"
-        device = targets.device
-        if targets is not None:
-            targets = torch.where(
-                targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
-            )
-
-        target_lens = torch.tensor([calc_seq_len(seq) for seq in targets])
-
-        # TODO: look into: The input can also be a packed variable length sequence.
-        # See torch.nn.utils.rnn.pack_padded_sequence() or torch.nn.utils.rnn.pack_sequence() for details.
-
-        # TODO: make hidden start only for one sample and repeat times batch size here
-        out, h_out = (
-            self.gru(
-                x, self.hidden_start.unsqueeze(1).repeat(1, self.config.batch_size, 1)
-            )
-            if self.config.learnable_inital_state
-            else self.gru(x)
-        )
-
-        # out shape: (batch_size, seq_len, hidden_size * num_directions)
-        out = self.classifier(out)
-
-        # out shape: (batch_size, seq_len, vocab_size)
-
-        out = log_softmax(out, -1)
-
-        # non padded mask
-        mask = x != 0
-        # seq lens without padding
-        # mask shape: (batch_size, seq_len, 256)
-        in_seq_lens = mask.any(-1)
-        # in_seq_lens shape: (batch_size, seq_len)
-        in_seq_lens = in_seq_lens.sum(-1)
-        # in_seq_lens shape: (batch_size)
-        in_seq_lens = in_seq_lens.clamp(max=out.shape[1])
-
-        out = out.transpose(0, 1)
-        # out shape: (seq_len, batch_size, vocab_size)
-
-        ctc_loss = self.loss(
-            out,
-            targets,
-            in_seq_lens.to(device),
-            target_lens.to(device),
-        )
-
-        if ctc_loss.item() < 0:
-            print(
-                f"\nWarning: loss is negative, this might be due to prediction lens ({in_seq_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
-            )
-
-        return ModelOutput(
-            out.transpose(0, 1),
-            {"ctc_loss": ctc_loss.item()},
-            ctc_loss,
-        )
+class B2tGruArgsModel(GruArgsModel, B2TArgsModel):
+    pass
 
 
 class B2tGruExperiment(B2TExperiment):
@@ -143,7 +25,7 @@ class B2tGruExperiment(B2TExperiment):
 
     @staticmethod
     def get_args_model():
-        return B2TGruArgsModel
+        return B2tGruArgsModel
 
     def _create_model(self):
         assert (
@@ -154,5 +36,9 @@ class B2tGruExperiment(B2TExperiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = GRUModel(self.config, self.tokenizer)
+        model = GRUModel(
+            self.config,
+            self.tokenizer.vocab_size,
+            cast(int, self.tokenizer.pad_token_id),
+        )
         return model

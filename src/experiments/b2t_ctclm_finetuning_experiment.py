@@ -1,3 +1,5 @@
+from src.datasets.base_dataset import SampleBatch
+from src.datasets.brain2text import B2tSampleBatch
 from src.model.ctc_lm_model import CTCLMModel
 from src.experiments.ctc_lm_experiment import CtcLmArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
@@ -37,17 +39,16 @@ class B2tCtcLmModel(B2TModel):
         self.tokenizer = tokenizer
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         if targets is not None:
             targets = torch.where(
                 targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
             )
 
-        b2t_out = self.b2t_model.forward(x, targets)
-        lm_out = self.lm_model.forward(b2t_out.logits.softmax(-1), targets)
+        b2t_out = self.b2t_model.forward(batch)
+        lm_out = self.lm_model.forward(SampleBatch(b2t_out.logits.softmax(-1), targets))
         return lm_out
 
 

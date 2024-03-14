@@ -1,3 +1,4 @@
+from src.datasets.base_dataset import SampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC
 from transformers.modeling_outputs import CausalLMOutput
@@ -30,9 +31,8 @@ class AudioWav2VecModel(B2TModel):
         print("config", self.wav2vec2.config)
         self.tokenizer = tokenizer
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: SampleBatch) -> ModelOutput:
+        x, targets = batch
         assert (
             len(x.size()) == 1 or len(x.size()) == 2
         ), "x must be 1D shape: (, audio_data) or 3D shape: (batch_size, audio_data)"

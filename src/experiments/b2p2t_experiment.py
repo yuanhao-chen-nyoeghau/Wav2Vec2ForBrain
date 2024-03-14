@@ -73,3 +73,6 @@ class B2P2TExperiment(Experiment):
             shuffle=True,
             collate_fn=ds.get_collate_fn(),
         )
+
+    def get_vocab(self) -> list[str]:
+        return Brain2TextWPhonemesDataset.vocab

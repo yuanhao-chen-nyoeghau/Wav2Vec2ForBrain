@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: run.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -14,7 +14,7 @@
         },
         {
             "name": "run.py audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -25,7 +25,7 @@
         },
         {
             "name": "run.py b2t_audio_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -36,7 +36,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -57,7 +57,7 @@
         },
         {
             "name": "run.py b2t_custom_encoder finetuning",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -79,7 +79,7 @@
         },
         {
             "name": "run.py onehot_index",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -99,7 +99,7 @@
         },
         {
             "name": "run.py direct_cnn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -120,7 +120,7 @@
         },
         {
             "name": "run.py 4_channel_cnn_wav2vec",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -131,7 +131,7 @@
         },
         {
             "name": "run.py gru overfit",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -151,7 +151,7 @@
         },
         {
             "name": "run.py gru",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -171,7 +171,7 @@
         },
         {
             "name": "run.py mamba only test good model",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -200,7 +200,7 @@
         },
         {
             "name": "run.py ctc lm overfit",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
@@ -214,6 +214,35 @@
                 "--scheduler_gamma=1",
                 "--num_layers=32",
                 "--classifier_hidden_sizes=[256]"
+            ]
+        },
+        {
+            "name": "run.py b2p2t_gru",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2p2t_gru",
+                "--preprocessing=seperate_zscoring",
+                "--batch_size=64",
+                "--predict_on_train=True",
+                "--learning_rate=0.02",
+                "--return_best_model=true",
+                "--epochs=64",
+                "--scheduler_step_size=10",
+                "--scheduler_gamma=1",
+                "--dropout=0.4",
+                "--weight_decay=1e-5",
+                "--hidden_size=1024",
+                "--num_gru_layers=5",
+                "--whiteNoiseSD=0.8",
+                "--constantOffsetSD=0.2",
+                "--gaussian_smooth_width=2",
+                "--unfolder_stride_len=4",
+                "--unfolder_kernel_len=32",
+                "--bidirectional=true"
             ]
         }
     ]

@@ -6,7 +6,7 @@ from src.args.base_args import (
 )
 from src.model.b2tmodel import B2TModel, ModelOutput
 from torch.optim.optimizer import Optimizer
-from src.datasets.brain2text import Brain2TextDataset
+from src.datasets.brain2text import B2tSampleBatch, Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, Optional, cast
@@ -72,9 +72,8 @@ class CNNModel(B2TModel):
 
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         device = targets.device
 
@@ -168,3 +167,8 @@ class CNNExperiment(B2TExperiment):
         )
         model = CNNModel(self.config, self.tokenizer)
         return model
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )

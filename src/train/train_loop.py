@@ -79,17 +79,33 @@ class Trainer:
         losses = SingleEpochHistory()
         self.model.train()
 
-        for i, data in enumerate(self.dataloader_train):
+        for i, batch in enumerate(self.dataloader_train):
+            batch = cast(SampleBatch, batch).cuda()
 
-            data = cast(SampleBatch, data)
-
-            inputs, labels, *_ = data
             self.optimizer.zero_grad()
+
+            if self.config.whiteNoiseSD > 0:
+                input, _ = batch
+                noised_input = input + (
+                    torch.randn(input.shape, device=input.device)
+                    * self.config.whiteNoiseSD
+                )
+                batch._replace(input=noised_input)
+
+            if self.config.constantOffsetSD > 0:
+                input, _ = batch
+                offset_input = input + (
+                    torch.randn(
+                        [input.shape[0], 1, input.shape[2]], device=input.device
+                    )
+                    * self.config.constantOffsetSD
+                )
+                batch._replace(input=offset_input)
 
             # Make predictions for this batch
             with torch.enable_grad():
                 # calculate gradient for whole model (but only optimize parts)
-                outputs = self.model.forward(inputs.cuda(), labels.cuda())
+                outputs = self.model.forward(batch)
 
             loss = cast(torch.Tensor, outputs.loss)
             loss.backward()
@@ -97,7 +113,7 @@ class Trainer:
             # Adjust learning weights
             self.optimizer.step()
 
-            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, data)
+            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, batch)
             losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
             if (
                 i % self.config.log_every_n_batches
@@ -110,14 +126,13 @@ class Trainer:
         losses = SingleEpochHistory()
         self.model.eval()
 
-        for i, data in enumerate(dataloader):
-            data = cast(SampleBatch, data)
-            inputs, labels = data
+        for i, batch in enumerate(dataloader):
+            batch = cast(SampleBatch, batch).cuda()
 
             with torch.no_grad():
-                outputs = self.model.forward(inputs.cuda(), labels.cuda())
+                outputs = self.model.forward(batch)
 
-            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, data)
+            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, batch)
             losses.add_batch_metric(
                 MetricEntry(
                     outputs.metrics,

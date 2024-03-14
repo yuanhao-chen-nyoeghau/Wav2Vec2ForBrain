@@ -1,5 +1,4 @@
 from typing import Any, Literal, Callable, Optional
-from torch.utils.data import Dataset
 import os
 from scipy.io import loadmat
 from pathlib import Path
@@ -8,7 +7,6 @@ import numpy as np
 from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
-from src.datasets.tokenizer import get_tokenizer
 from src.datasets.preprocessing import (
     preprocess_competition_recommended,
     preprocess_seperate_zscoring,
@@ -20,9 +18,10 @@ from src.datasets.preprocessing import (
     resample_sample,
     preprocess_seperate_zscoring_2channels,
 )
-from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers import PreTrainedTokenizer
 from torch.nn.functional import pad
 import re
+from src.util.nn_helper import calc_seq_len
 
 
 PreprocessingFunctions: dict[
@@ -38,6 +37,44 @@ PreprocessingFunctions: dict[
     "seperate_zscoring_2channels": preprocess_seperate_zscoring_2channels,
     "seperate_zscoring_4channels": preprocess_seperate_zscoring_4channels,
 }
+
+sessionNames = [
+    "t12.2022.04.28",
+    "t12.2022.05.26",
+    "t12.2022.06.21",
+    "t12.2022.07.21",
+    "t12.2022.08.13",
+    "t12.2022.05.05",
+    "t12.2022.06.02",
+    "t12.2022.06.23",
+    "t12.2022.07.27",
+    "t12.2022.08.18",
+    "t12.2022.05.17",
+    "t12.2022.06.07",
+    "t12.2022.06.28",
+    "t12.2022.07.29",
+    "t12.2022.08.23",
+    "t12.2022.05.19",
+    "t12.2022.06.14",
+    "t12.2022.07.05",
+    "t12.2022.08.02",
+    "t12.2022.08.25",
+    "t12.2022.05.24",
+    "t12.2022.06.16",
+    "t12.2022.07.14",
+    "t12.2022.08.11",
+]
+sessionNames.sort()
+
+
+class B2tSample(Sample):
+    day_idx: int
+
+
+class B2tSampleBatch(SampleBatch):
+    day_idxs: torch.Tensor
+    input_lens: torch.Tensor
+    target_lens: torch.Tensor
 
 
 class Brain2TextDataset(BaseDataset):
@@ -61,14 +98,17 @@ class Brain2TextDataset(BaseDataset):
             raise Exception(f"{data_path} does not exist.")
 
         data_files = [
-            loadmat(data_path / fileName) for fileName in os.listdir(data_path)
+            (day_idx, loadmat(data_path / f"{filePrefix}.mat"))
+            for day_idx, filePrefix in enumerate(sessionNames)
+            if os.path.exists(data_path / f"{filePrefix}.mat")
         ]
 
         self.transcriptions: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
+        self.days: list[int] = []
         preprocess = PreprocessingFunctions[config.preprocessing]
 
-        for data_file in data_files:
+        for day_idx, data_file in data_files:
             # block-wise feature normalization
             blockNums = np.squeeze(data_file["blockIdx"])
             blockList = np.unique(blockNums)
@@ -90,8 +130,10 @@ class Brain2TextDataset(BaseDataset):
                 self.brain_data_samples.append(
                     torch.tensor(dataSample, dtype=torch.float32)
                 )
+
             for sentence in transcriptions:
                 self.transcriptions.append(f"<s>{sentence.upper()}</s>")
+                self.days.append(day_idx)
 
         assert len(self.transcriptions) == len(
             self.brain_data_samples
@@ -104,7 +146,7 @@ class Brain2TextDataset(BaseDataset):
             else min(len(self.transcriptions), self.config.limit_samples)
         )
 
-    def __getitem__(self, index) -> Sample:
+    def __getitem__(self, index: int) -> B2tSample:
         orig_sample_rate = 50
         target_sample_rate = self.config.sample_rate
 
@@ -118,11 +160,13 @@ class Brain2TextDataset(BaseDataset):
             else sample
         )
 
-        return Sample(resampled, self.transcriptions[index])
+        sample = B2tSample(resampled, self.transcriptions[index])
+        sample.day_idx = self.days[index]
+        return sample
 
     def get_collate_fn(
         self, tokenizer: Optional[PreTrainedTokenizer]
-    ) -> Callable[[list[Sample]], SampleBatch]:
+    ) -> Callable[[list[B2tSample]], B2tSampleBatch]:
         if tokenizer is None:
             raise ValueError(
                 "Tokenizer must be provided for this implementation of collate function."
@@ -132,7 +176,7 @@ class Brain2TextDataset(BaseDataset):
             or self.config.preprocessing == "seperate_zscoring_4channels"
         )
 
-        def _collate(batch: list[Sample]):
+        def _collate(batch: list[B2tSample]):
             max_block_len = max(
                 [x.size(1 if multiple_channels else 0) for x, _ in batch]
             )
@@ -159,6 +203,12 @@ class Brain2TextDataset(BaseDataset):
                 return_tensors="pt",
             ).input_ids
 
-            return SampleBatch(torch.stack(padded_blocks), batch_label_ids)
+            collated_batch = B2tSampleBatch(torch.stack(padded_blocks), batch_label_ids)
+            collated_batch.day_idxs = torch.tensor([x.day_idx for x in batch])
+            collated_batch.input_lens = torch.tensor([x.size(0) for x, _ in batch])
+            collated_batch.target_lens = torch.tensor(
+                [calc_seq_len(label_ids) for label_ids in batch_label_ids]
+            )
+            return collated_batch
 
         return _collate

@@ -5,3 +5,5 @@ brain2text.code-workspace
 *.out
 test_out/*
 slurm_out_archive/*
+run*.sh
+.env

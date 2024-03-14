@@ -79,3 +79,8 @@ class B2TAudioWav2VecExperiment(Experiment):
             shuffle=True,
             collate_fn=ds.get_collate_fn(self.tokenizer),
         )
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )
