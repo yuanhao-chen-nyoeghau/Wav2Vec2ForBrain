@@ -87,6 +87,8 @@ class BaseExperimentArgsModel(BaseModel):
     visualize_predictions_n_batches: int = 1
     whiteNoiseSD: float = 0.0
     constantOffsetSD: float = 0.0
+    seed: int = 42
+    optimizer_epsilon = 1e-8
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
