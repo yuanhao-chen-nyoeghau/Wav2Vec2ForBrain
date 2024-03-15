@@ -32,11 +32,10 @@ class MambaArgsModel(BaseModel):
 
 
 class MambaLMHeadModel(B2TModel, GenerationMixin):
-    def __init__(self, config: MambaArgsModel, vocab_size: int) -> None:
+    def __init__(self, config: MambaArgsModel, vocab_size: int, in_size: int) -> None:
         self.config = config
         d_model = config.mamba_d_model
         n_layer = config.mamba_n_layer
-        in_size = 256
 
         out_size = vocab_size
         ssm_cfg = None
@@ -104,13 +103,15 @@ class MambaLMHeadModel(B2TModel, GenerationMixin):
 
 
 class MambaModel(B2TModel):
-    def __init__(self, config: MambaArgsModel, vocab_size: int, pad_token_id=0):
+    def __init__(
+        self, config: MambaArgsModel, vocab_size: int, in_size: int, pad_token_id=0
+    ):
         super().__init__()
         self.config = config
         self.vocab_size = vocab_size
         self.pad_token_id = pad_token_id
 
-        self.model = MambaLMHeadModel(config, vocab_size)
+        self.model = MambaLMHeadModel(config, vocab_size, in_size)
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(

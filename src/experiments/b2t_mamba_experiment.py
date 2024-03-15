@@ -37,5 +37,5 @@ class B2tMambaExperiment(B2TExperiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = MambaModel(self.config, self.tokenizer.vocab_size)
+        model = MambaModel(self.config, self.tokenizer.vocab_size, 256)
         return model

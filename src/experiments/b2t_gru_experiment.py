@@ -39,6 +39,7 @@ class B2tGruExperiment(B2TExperiment):
         model = GRUModel(
             self.config,
             self.tokenizer.vocab_size,
+            256,
             cast(int, self.tokenizer.pad_token_id),
         )
         return model

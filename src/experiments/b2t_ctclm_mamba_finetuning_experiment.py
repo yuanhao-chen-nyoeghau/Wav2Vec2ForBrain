@@ -33,7 +33,7 @@ class B2tCtcLmMambaFinetuningExperiment(B2tCtcLmFinetuningExperiment):
 
     def get_b2t_model(self) -> B2TModel:
         """Get the b2t model, pretrained weights are automatically loaded if lm_checkpoint_path is set in the config"""
-        return MambaModel(self.config, self.tokenizer.vocab_size)
+        return MambaModel(self.config, self.tokenizer.vocab_size, 256)
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
