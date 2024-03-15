@@ -49,32 +49,6 @@ class Trainer:
             end="",
         )
 
-    def _calculate_wer(self, output: ModelOutput, sample_batch: SampleBatch) -> float:
-
-        predicted_strings, label_strings = self.experiment.decode_predictions(
-            output, sample_batch
-        )
-
-        # remove characters after EOS token
-        def cut_after_eos_token(string: str):
-            eos_token = "</s>"
-            index_of_eos = string.find(eos_token)
-            if index_of_eos != -1:
-                return string[: (index_of_eos + len(eos_token))]
-            else:
-                return string
-
-        predicted_strings = [
-            cut_after_eos_token(string) for string in predicted_strings
-        ]
-
-        return (
-            WordErrorRate()
-            .update(input=predicted_strings, target=label_strings)
-            .compute()
-            .item()
-        )
-
     def _train_epoch(self):
         losses = SingleEpochHistory()
         self.model.train()
@@ -112,8 +86,8 @@ class Trainer:
 
             # Adjust learning weights
             self.optimizer.step()
-
-            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, batch)
+            additional_metrics = self.experiment.evaluate_batch(batch, outputs)
+            outputs.metrics.update(additional_metrics)
             losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
             if (
                 i % self.config.log_every_n_batches
@@ -132,7 +106,8 @@ class Trainer:
             with torch.no_grad():
                 outputs = self.model.forward(batch)
 
-            outputs.metrics["word_error_rate"] = self._calculate_wer(outputs, batch)
+            additional_metrics = self.experiment.evaluate_batch(batch, outputs)
+            outputs.metrics.update(additional_metrics)
             losses.add_batch_metric(
                 MetricEntry(
                     outputs.metrics,
@@ -144,6 +119,7 @@ class Trainer:
                 == self.config.log_every_n_batches - 1
             ):
                 self._log_intermediate(i, len(dataloader), losses)
+
         return losses
 
     def train(self):

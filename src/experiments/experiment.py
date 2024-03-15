@@ -14,6 +14,9 @@ from datetime import datetime
 from torch.optim.optimizer import Optimizer
 from src.train.history import TrainHistory
 import sys
+import numpy as np
+from torcheval.metrics import WordErrorRate
+
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -29,6 +32,8 @@ class DecodedPredictionBatch(NamedTuple):
 class Experiment(metaclass=ABCMeta):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.base_config = BaseExperimentArgsModel(**config)
+        torch.manual_seed(self.base_config.seed)
+        np.random.seed(self.base_config.seed)
         self.yaml_config = yamlConfig
 
         self.dataloader_train = self._create_dataloader(split="train")
@@ -206,6 +211,7 @@ class Experiment(metaclass=ABCMeta):
                     handle_prediction_batch(i, data, outputs)
                 combined = zip(predicted, targets)
                 batch_predictions = []
+                outputs.metrics.update(self.evaluate_batch(data, outputs))
                 batch_result = {
                     "metrics": outputs.metrics,
                     "batch_id": i,
@@ -236,10 +242,12 @@ class Experiment(metaclass=ABCMeta):
 
     def create_optimizer(self) -> Optimizer:
         optim_cls: Any = self._get_optimizer_cls()
+
         return optim_cls(
             self.model.parameters(),
             lr=self.base_config.learning_rate,
             weight_decay=self.base_config.weight_decay,
+            eps=self.base_config.optimizer_epsilon,
         )
 
     @abstractmethod
@@ -323,3 +331,32 @@ class Experiment(metaclass=ABCMeta):
         plt.title(f"Displaying {nrows}/{batch_size} samples")
         plt.tight_layout()
         plt.savefig(out_path)
+
+    def evaluate_batch(
+        self, batch: SampleBatch, predictions: ModelOutput
+    ) -> dict[str, float]:
+        """Called after each batch during training and validation.
+        Can be implemented by subclasses to compute and track specific metrics.
+        Metrics in the returned dict will automatically be tracked in train history."""
+
+        predicted_strings, label_strings = self.decode_predictions(predictions, batch)
+
+        # remove characters after EOS token
+        def cut_after_eos_token(string: str):
+            eos_token = "</s>"
+            index_of_eos = string.find(eos_token)
+            if index_of_eos != -1:
+                return string[: (index_of_eos + len(eos_token))]
+            else:
+                return string
+
+        predicted_strings = [
+            cut_after_eos_token(string) for string in predicted_strings
+        ]
+
+        return {
+            "word_error_rate": WordErrorRate()
+            .update(input=predicted_strings, target=label_strings)
+            .compute()
+            .item()
+        }
