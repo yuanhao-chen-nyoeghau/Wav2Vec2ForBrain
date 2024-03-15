@@ -22,6 +22,13 @@ class SampleBatch(NamedTuple):
                 copy.__setattr__(key, value)
         return copy
 
+    def copy_and_change(self, **diff):
+        copy = self._replace(**diff)
+        for key, value in self.__dict__.items():
+            copy.__setattr__(key, value)
+
+        return copy
+
 
 class Sample(NamedTuple):
     input: torch.Tensor
