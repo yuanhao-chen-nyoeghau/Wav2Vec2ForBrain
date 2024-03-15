@@ -22,5 +22,9 @@ class B2P2TMambaExperiment(B2P2TExperiment):
     def get_args_model():
         return B2P2TMambaArgsModel
 
-    def _create_model(self):
-        return MambaModel(self.config, Brain2TextWPhonemesDataset.vocab_size)
+    def _create_neural_decoder(self):
+        return MambaModel(
+            self.config,
+            Brain2TextWPhonemesDataset.vocab_size,
+            self._get_in_size_after_preprocessing(),
+        )
