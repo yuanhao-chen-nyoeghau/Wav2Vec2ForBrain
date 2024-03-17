@@ -7,3 +7,4 @@ test_out/*
 slurm_out_archive/*
 run*.sh
 .env
+wandb/*

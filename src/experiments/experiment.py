@@ -16,7 +16,7 @@ from src.train.history import TrainHistory
 import sys
 import numpy as np
 from torcheval.metrics import WordErrorRate
-
+from wandb.sdk.wandb_run import Run
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -110,7 +110,10 @@ class Experiment(metaclass=ABCMeta):
                 model_for_testing = self.model
 
             self.run_real_world_test(model_for_testing)
-
+            
+            artifact = wandb.Artifact(name="results", type="experiment_results")
+            artifact.add_dir(self.results_dir)
+            cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
 
     def plot_results(self, history: TrainHistory):
@@ -120,6 +123,8 @@ class Experiment(metaclass=ABCMeta):
         self._predict_and_store(model, self.dataloader_test, "test")
         if self.base_config.predict_on_train == True:
             self._predict_and_store(model, self.dataloader_train, "train")
+
+        
 
     @abstractmethod
     def get_name(self) -> str:

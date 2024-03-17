@@ -10,6 +10,7 @@ import wandb
 from transformers.modeling_outputs import CausalLMOutput
 from torcheval.metrics import WordErrorRate
 import uuid
+import numpy as np
 
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 
@@ -122,6 +123,24 @@ class Trainer:
 
         return losses
 
+    def _get_wandb_metrics(self, epoch: SingleEpochHistory, prefix: str):
+        def add_prefix_to_dict_keys(d: dict, prefix: str):
+            return {f"{prefix}_{k}": v for k, v in d.items()}
+
+        loss_avg = epoch.get_average()
+        epoch_val_metrics = loss_avg.metrics
+
+        wandb_metrics = {
+            f"{prefix}_{self.config.loss_function}_loss": loss_avg.loss,
+        }
+        wandb_metrics.update(add_prefix_to_dict_keys(epoch_val_metrics, prefix))
+        return wandb_metrics
+
+    def _log_epoch_wandb(self, losses: EpochLosses):
+        metrics = self._get_wandb_metrics(losses.val_losses, "val")
+        metrics.update(self._get_wandb_metrics(losses.train_losses, "train"))
+        wandb.log(metrics)
+
     def train(self):
         history: list[EpochLosses] = (
             self.experiment.checkpoint_history.epochs
@@ -136,6 +155,13 @@ class Trainer:
         )
         os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
 
+        def get_relevant_metric(epoch_hist: SingleEpochHistory):
+            return (
+                epoch_hist.get_average().loss
+                if self.config.best_model_metric == "loss"
+                else epoch_hist.get_average().metrics[self.config.best_model_metric]
+            )
+
         for epoch in range(self.config.epochs):
             print(f"\nEpoch {epoch + 1}/{self.config.epochs}")
 
@@ -148,13 +174,11 @@ class Trainer:
                 f"train {self.config.loss_function}-loss: {train_losses.get_average().loss} "
                 f"val {self.config.loss_function}-loss: {val_losses.get_average().loss}"
             )
-            history.append(EpochLosses(train_losses, val_losses))
+            epoch_losses = EpochLosses(train_losses, val_losses)
+            history.append(epoch_losses)
+            self._log_epoch_wandb(epoch_losses)
             if self.config.return_best_model:
-                curr_epoch_val_metric = (
-                    val_losses.get_average().loss
-                    if self.config.best_model_metric == "loss"
-                    else val_losses.get_average().metrics[self.config.best_model_metric]
-                )
+                curr_epoch_val_metric = get_relevant_metric(val_losses)
 
                 is_better = (
                     curr_epoch_val_metric < best_model_val_metric
@@ -166,12 +190,24 @@ class Trainer:
                     torch.save(self.model.state_dict(), best_model_path)
                     print(f"\n\nSaving model checkpoint at {best_model_path}\n")
 
-            wandb.log(
-                {
-                    f"train_{self.config.loss_function}_loss": train_losses.get_average().loss,
-                    f"val_{self.config.loss_function}_loss": val_losses.get_average().loss,
-                }
-            )
+            if (
+                self.config.early_stopping_patience is not None
+                and len(history) >= self.config.early_stopping_patience
+            ):
+                relevant_metric_history = [
+                    get_relevant_metric(epoch_loss.val_losses) for epoch_loss in history
+                ][-self.config.early_stopping_patience :]
+
+                best_index = (
+                    np.argmin(relevant_metric_history)
+                    if self.config.minimize_best_model_metric
+                    else np.argmax(relevant_metric_history)
+                )
+                if best_index == 0:
+                    print(
+                        f"\nEarly stopping after {epoch} epochs ({self.config.early_stopping_patience} epochs without improvement in validation {self.config.best_model_metric} metrics)"
+                    )
+                    break
 
         if self.config.return_best_model:
             self.model.load_state_dict(torch.load(best_model_path))
@@ -179,6 +215,7 @@ class Trainer:
             os.rmdir(os.path.dirname(best_model_path))
             print("Loaded model with best validation loss of this experiment from disk")
         test_losses = self._evaluate_epoch(self.dataloader_test)
+        wandb.log(self._get_wandb_metrics(test_losses, "test"))
         print(
             f"\nTest loss ({self.config.loss_function}): {test_losses.get_average().loss}"
         )

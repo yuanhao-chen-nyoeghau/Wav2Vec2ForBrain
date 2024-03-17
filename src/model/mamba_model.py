@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from src.datasets.brain2text import B2tSampleBatch
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.base_args import (
@@ -115,8 +116,9 @@ class MambaModel(B2TModel):
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
+        self, batch: B2tSampleBatch
     ) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         device = targets.device
         if targets is not None:

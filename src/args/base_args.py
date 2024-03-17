@@ -89,6 +89,10 @@ class BaseExperimentArgsModel(BaseModel):
     constantOffsetSD: float = 0.0
     seed: int = 42
     optimizer_epsilon = 1e-8
+    early_stopping_patience: Optional[int] = Field(
+        None,
+        description="Number of epochs n to consider for early stopping. Once all n-1 last epochs did not improve compared to the -nth epoch, training is stopped.   If None, early stopping is disabled",
+    )
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
