@@ -1,4 +1,4 @@
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.base_args import (
     B2TArgsModel,

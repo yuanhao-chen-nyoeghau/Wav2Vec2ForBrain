@@ -4,6 +4,7 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
+from src.datasets.batch_types import B2tSampleBatch
 from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
@@ -70,11 +71,6 @@ sessionNames.sort()
 class B2tSample(Sample):
     day_idx: int
 
-
-class B2tSampleBatch(SampleBatch):
-    day_idxs: torch.Tensor
-    input_lens: torch.Tensor
-    target_lens: torch.Tensor
 
 
 class Brain2TextDataset(BaseDataset):

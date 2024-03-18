@@ -2,9 +2,10 @@ from pydantic import BaseModel
 from torch.optim.optimizer import Optimizer
 from src.datasets.brain2text_w_phonemes import (
     Brain2TextWPhonemesDataset,
-    PhonemeSampleBatch,
     decode_predicted_phoneme_ids,
 )
+from src.datasets.batch_types import PhonemeSampleBatch
+
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.base_args import (
     B2TArgsModel,
@@ -19,7 +20,7 @@ from torch.utils.data import DataLoader
 import torch
 from torch import nn
 from pydantic import BaseModel
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Literal, cast

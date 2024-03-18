@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
 import torch

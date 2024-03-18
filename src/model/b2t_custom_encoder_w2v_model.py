@@ -1,4 +1,4 @@
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC, Wav2Vec2ForPreTraining
 from transformers.modeling_outputs import CausalLMOutput

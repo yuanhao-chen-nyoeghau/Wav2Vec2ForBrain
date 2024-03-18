@@ -1,5 +1,4 @@
-from src.datasets.base_dataset import SampleBatch
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import SampleBatch, B2tSampleBatch
 from src.model.ctc_lm_model import CTCLMModel
 from src.experiments.ctc_lm_experiment import CtcLmArgsModel
 from src.experiments.b2t_experiment import B2TExperiment

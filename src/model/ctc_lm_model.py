@@ -1,4 +1,4 @@
-from src.datasets.base_dataset import SampleBatch
+from src.datasets.batch_types import SampleBatch
 from src.experiments.ctc_lm_experiment import CtcLmArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Optional

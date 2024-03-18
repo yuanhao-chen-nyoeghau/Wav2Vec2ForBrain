@@ -1,4 +1,4 @@
-from src.datasets.base_dataset import SampleBatch
+from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC
 from transformers.modeling_outputs import CausalLMOutput

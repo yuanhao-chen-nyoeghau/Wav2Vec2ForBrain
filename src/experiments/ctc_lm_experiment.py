@@ -1,4 +1,4 @@
-from src.datasets.base_dataset import SampleBatch
+from src.datasets.batch_types import SampleBatch
 from src.datasets.ctc_text_dataset import CTCTextDataset
 from src.experiments.experiment import Experiment
 from src.args.wav2vec_args import ACTIVATION_FUNCTION

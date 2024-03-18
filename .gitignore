@@ -8,3 +8,5 @@ slurm_out_archive/*
 run*.sh
 .env
 wandb/*
+speechBCI/**
+neural_seq_decoder/*

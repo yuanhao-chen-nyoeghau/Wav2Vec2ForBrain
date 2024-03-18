@@ -1,6 +1,6 @@
 from typing import Optional, cast, Tuple
 from torch import Tensor, conv2d
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.args.b2t_resnet_args import B2TWav2VecResnetArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.yaml_config import YamlConfigModel

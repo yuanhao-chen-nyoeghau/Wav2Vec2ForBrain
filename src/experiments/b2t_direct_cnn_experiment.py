@@ -6,7 +6,7 @@ from src.args.base_args import (
 )
 from src.model.b2tmodel import B2TModel, ModelOutput
 from torch.optim.optimizer import Optimizer
-from src.datasets.brain2text import B2tSampleBatch, Brain2TextDataset
+from src.datasets.batch_types import B2tSampleBatch
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, Optional, cast

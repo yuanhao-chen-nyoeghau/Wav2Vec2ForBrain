@@ -3,7 +3,7 @@ import torch
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Optional
-from src.datasets.base_dataset import SampleBatch
+from src.datasets.batch_types import SampleBatch
 
 
 @dataclass

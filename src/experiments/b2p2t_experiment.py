@@ -1,10 +1,11 @@
+from src.decoding.postprocess import LLMOutput
 from src.model.b2p2t_model import B2P2TModel
 from src.model.b2p2t_model import B2P2TModelArgsModel
 from src.datasets.brain2text_w_phonemes import (
     Brain2TextWPhonemesDataset,
-    PhonemeSampleBatch,
     decode_predicted_phoneme_ids,
 )
+from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.base_args import (
     B2TDatasetArgsModel,
@@ -19,6 +20,11 @@ from abc import abstractmethod
 import torch
 import numpy as np
 from edit_distance import SequenceMatcher
+import pickle
+import uuid
+import os
+import subprocess
+from shutil import rmtree
 
 
 class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
@@ -48,13 +54,36 @@ class B2P2TExperiment(Experiment):
         self, predictions: ModelOutput, sample: PhonemeSampleBatch
     ) -> DecodedPredictionBatch:
         predicted_ids = predictions.logits.argmax(dim=-1).cpu().numpy()
+        # tuple[PhonemeSampleBatch, ModelOutput]
+        temp_dir = f"temp/{uuid.uuid4()}"
+        os.makedirs(temp_dir, exist_ok=True)
 
-        # phoneme_ids = sample.target
+        filename = "1.pkl"
+        with open(f"{temp_dir}/{filename}", "wb") as handle:
+            pickle.dump((sample, predictions), handle)
 
+        # execute: conda run -n ${CONDA_ENV_NAME} python script.py
+        result = subprocess.run(
+            [
+                "conda",
+                "run",
+                "-n",
+                "lm_decoder",
+                "python",
+                "src/decoding/postprocess.py",
+                "--data_dir",
+                temp_dir,
+            ]
+        )
+        if result.returncode != 0:
+            raise Exception(f"Error running postprocess.py: {result.stderr}")
+        out_file = os.path.join(temp_dir, "out", filename)
+        with open(out_file, "rb") as handle:
+            batch: LLMOutput = pickle.load(handle)
+
+        rmtree(temp_dir)
         # TODO: decode phonemes to strings
-        predicted_strings = [
-            decode_predicted_phoneme_ids(sample) for sample in predicted_ids
-        ]
+        predicted_strings = batch.decoded_transcripts
 
         label_strings = sample.transcriptions
         return DecodedPredictionBatch(predicted_strings, label_strings)

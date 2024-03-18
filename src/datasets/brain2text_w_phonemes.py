@@ -1,9 +1,8 @@
 from typing import Callable, Literal, NamedTuple
 from attr import dataclass
 import torch
-from src.datasets.brain2text import B2tSample, B2tSampleBatch, Brain2TextDataset
-from src.args.yaml_config import YamlConfigModel
-from src.args.base_args import B2TDatasetArgsModel
+from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.brain2text import B2tSample, Brain2TextDataset
 import re
 from g2p_en import G2p
 from torch.nn.functional import pad
@@ -68,11 +67,6 @@ class PhonemeSample(B2tSample):
     phonemes: list[str]
 
 
-class PhonemeSampleBatch(B2tSampleBatch):
-    transcriptions: list[str]
-    phonemes: list[list[str]]
-
-
 def decode_predicted_phoneme_ids(ids: list[int]) -> str:
     return " ".join([PHONE_DEF_SIL[i - 1] for i in ids if i > 0])
 
@@ -80,6 +74,8 @@ def decode_predicted_phoneme_ids(ids: list[int]) -> str:
 class Brain2TextWPhonemesDataset(Brain2TextDataset):
     vocab_size = len(PHONE_DEF_SIL) + 1
     vocab = ["blank"] + PHONE_DEF_SIL
+    from src.args.base_args import B2TDatasetArgsModel
+    from src.args.yaml_config import YamlConfigModel
 
     def __init__(
         self,

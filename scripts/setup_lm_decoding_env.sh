@@ -1,5 +1,9 @@
+# Create conda env
+#conda create -n lm_decoder python=3.9 conda-forge::gcc
+#conda activate lm_decoder
+
 # Clone repos
-git clone https://github.com/cffan/neural_seq_decoder.git
+#git clone https://github.com/cffan/neural_seq_decoder.git
 git clone https://github.com/fwillett/speechBCI.git
 
 # Install NeuralDecoder
@@ -19,6 +23,3 @@ make -j8
 cd ..
 python setup.py install
 
-# Install NeuralDecoder of neural_seq_decoder
-cd ../../../../neural_seq_decoder
-python -m pip install -e .

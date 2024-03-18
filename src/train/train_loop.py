@@ -1,4 +1,4 @@
-from src.datasets.base_dataset import SampleBatch
+from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.experiments.experiment import Experiment
 from torch.utils.data import DataLoader

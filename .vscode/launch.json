@@ -244,6 +244,22 @@
                 "--unfolder_kernel_len=32",
                 "--bidirectional=true"
             ]
+        },
+        {
+            "name": "decoding/preprocess.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/decoding/postprocess.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python"
+            },
+            "justMyCode": true,
+            "args": [
+                "--data_dir",
+                "/hpi/fs00/home/tobias.fiedler/brain2text/temp/6d752d4e-cbf5-4355-be80-ca1f06b89df4"
+            ]
         }
-    ]
+    ],
 }

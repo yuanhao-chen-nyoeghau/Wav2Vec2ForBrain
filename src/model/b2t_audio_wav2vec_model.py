@@ -1,4 +1,4 @@
-from src.datasets.brain2text import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.wav2vec_multi_wave_input import (
     MultiWaveInputWav2VecCTC,
 )
