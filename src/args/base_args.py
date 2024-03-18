@@ -54,6 +54,7 @@ class BaseExperimentArgsModel(BaseModel):
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
+        "mvts_transformer",
         "b2t_mamba",
         "ctc_lm",
         "b2t_ctc_lm_mamba_finetuning",
