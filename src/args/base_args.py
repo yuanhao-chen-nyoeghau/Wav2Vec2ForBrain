@@ -51,7 +51,7 @@ class BaseExperimentArgsModel(BaseModel):
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
-        "mvts_transformer"
+        "mvts_transformer",
         "b2t_mamba",
         "ctc_lm",
     ] = Field("b2t_wav2vec_sharedaggregation")
