@@ -1,18 +1,7 @@
+from typing import Literal, Type, Optional
 import torch
 import torch.nn.functional as F
-from torch import nn, Tensor
-import torch.optim as optim
-import torch.utils.data as data
-from typing import Optional, Any, Type, List, Tuple
-import os
-import scipy.io as sio
-import numpy as np
-import json
-import pandas as pd
-import random
-import matplotlib.pyplot as plt
-import pickle as pkl
-from tqdm import tqdm
+from torch import log_softmax, nn, Tensor
 import math
 from torch.nn.modules import (
     MultiheadAttention,
@@ -21,8 +10,78 @@ from torch.nn.modules import (
     BatchNorm1d,
     TransformerEncoderLayer,
 )
+from src.args.base_args import B2TArgsModel
+from src.datasets.brain2text import B2tSampleBatch
+from src.model.b2tmodel import B2TModel, ModelOutput
 
-import copy
+class B2TMvtsTransformerArgsModel(B2TArgsModel):
+    hidden_size: int = 256
+    bidirectional: bool = True
+    num_gru_layers: int = 2
+    bias: bool = True
+    dropout: float = 0.0
+    learnable_inital_state: bool = False
+    classifier_hidden_sizes: list[int] = [256, 128, 64]
+    classifier_activation: Literal["gelu"] = "gelu"
+
+class MvtsTransformerModel(B2TModel):
+    def __init__(self, config: B2TMvtsTransformerArgsModel, vocab_size: int, in_size: int):
+        super().__init__()
+        print(vocab_size)
+        print(in_size)
+        self.max_len = in_size
+        self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
+        self.transformer = TSTransformerEncoderClassiregressor(
+            feat_dim=256,
+            d_model=256,
+            max_len=self.max_len,
+            n_heads=2,
+            num_layers=2,
+            dim_feedforward=256,
+            num_classes=vocab_size,
+            dropout=0.5,
+            pos_encoding="learnable",
+            activation="gelu",
+            norm="BatchNorm",
+            freeze=False,
+        )
+
+    def forward(self, batch: B2tSampleBatch):
+        x, targets = batch
+        assert targets is not None, "Targets must be set"
+        target_lens = batch.target_lens
+        input_lens = batch.input_lens
+        device = targets.device
+        # if targets is not None:
+        #     targets = torch.where(
+        #         targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
+        #     )
+        x_padded = torch.zeros(x.shape[0] , self.max_len , x.shape[2])
+        x_padded[:, :x.shape[1], :] = x
+        mask = x_padded != 0
+        sequence_mask = mask.any(-1)
+        out = self.transformer.forward(x_padded.to(device), sequence_mask.to(device))
+        out = log_softmax(out, -1)
+        out = out.transpose(0, 1)
+        ctc_loss = self.loss(
+            out,
+            targets,
+            input_lens.to(device),
+            target_lens.to(device),
+        )
+
+        if ctc_loss.item() < 0:
+            print(
+                f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+            )
+
+        return ModelOutput(
+            out.transpose(0, 1),
+            {"ctc_loss": ctc_loss.item()},
+            ctc_loss,
+        )
+
+
 
 
 class TransformerBatchNormEncoderLayer(nn.modules.Module):
@@ -320,7 +379,6 @@ class TSTransformerEncoderClassiregressor(nn.Module):
         self.max_len = max_len
         self.d_model = d_model
         self.n_heads = n_heads
-
         self.project_inp = nn.Linear(feat_dim, d_model)
         self.pos_enc = get_pos_encoder(pos_encoding)(
             d_model, dropout=dropout * (1.0 - freeze), max_len=max_len
