@@ -10,3 +10,4 @@ run*.sh
 wandb/*
 speechBCI/**
 neural_seq_decoder/*
+temp/*
