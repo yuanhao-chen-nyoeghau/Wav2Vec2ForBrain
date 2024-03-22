@@ -22,6 +22,10 @@ class LLMOutput(NamedTuple):
     wer: list[float]
     decoded_transcripts: list[str]
     confidences: list[float]
+    target_transcripts: list[str]
+
+
+LLMOutputBatch = list[LLMOutput]
 
 
 if __name__ == "__main__":
@@ -33,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_dir", type=str, help="Data directory for post processing"
     )
+    parser.add_argument("--rescoring", action="store_true")
     args = parser.parse_args()
     print(f"Converting data in {args.data_dir} to LLM outputs")
     batches: list[tuple[tuple[PhonemeSampleBatch, ModelOutput], str]] = []
@@ -59,7 +64,7 @@ if __name__ == "__main__":
     lmDir = yaml_config.config.ngram_lm_model_path
     print("Loading n-gram LM")
     ngramDecoder = lmDecoderUtils.build_lm_decoder(
-        lmDir, acoustic_scale=0.5, nbest=100, beam=18
+        lmDir, acoustic_scale=0.8, nbest=10, beam=18
     )
     print("n-gram loaded")
 
@@ -86,50 +91,53 @@ if __name__ == "__main__":
         batch_logits = lmDecoderUtils.rearrange_speech_logits(
             batch_logits.detach().cpu().numpy(), has_sil=True
         )
+        out_batch: LLMOutputBatch = []
         for i in range(batch_logits.shape[0]):
             logits = batch_logits[i]
             # logits = np.concatenate(
             # [logits[:, 1:], logits[:, 0:1]], axis=-1
             # )  # Blank moved to the end
-            print("Decoding sample", i)
+            print("Decoding sample", i, "with rescoring enabled: ", args.rescoring)
             nbest = lmDecoderUtils.lm_decode(
                 ngramDecoder,
                 logits[: input.input_lens[i].item()],
                 blankPenalty=blank_penalty,
                 returnNBest=True,
-                rescore=True,
+                rescore=args.rescoring == True,
             )
             nbest_outputs.append(nbest)
 
             new_trans = [ord(c) for c in input.transcriptions[i]] + [0]
             rnn_outputs["transcriptions"].append(np.array(new_trans))
 
-            # Rescore nbest outputs with LLM
-            start_t = time.time()
-            print("LLM rescoring")
-            llm_out = lmDecoderUtils.cer_with_gpt2_decoder(
-                llm,
-                llm_tokenizer,
-                nbest_outputs[:],
-                acoustic_scale,
-                rnn_outputs,
-                outputType="speech_sil",
-                returnCI=True,
-                lengthPenalty=0,
-                alpha=llm_weight,
-            )
-            time_per_batch = (time.time() - start_t) / len(logits)
-            print(f"LLM decoding took {time_per_batch} seconds per sample")
+        # Rescore nbest outputs with LLM
+        start_t = time.time()
+        print("LLM rescoring")
+        llm_out = lmDecoderUtils.cer_with_gpt2_decoder(
+            llm,
+            llm_tokenizer,
+            nbest_outputs,
+            acoustic_scale,
+            rnn_outputs,
+            outputType="speech_sil",
+            returnCI=True,
+            lengthPenalty=0,
+            alpha=llm_weight,
+        )
+        time_per_batch = (time.time() - start_t) / len(logits)
+        print(f"LLM decoding took {time_per_batch} seconds per sample")
+        llm_output = LLMOutput(
+            cer=llm_out["cer"],
+            wer=llm_out["wer"],
+            decoded_transcripts=llm_out["decoded_transcripts"],
+            confidences=llm_out["confidences"],
+            target_transcripts=input.transcriptions,
+        )
+        out_batch.append(llm_output)
+        print("decoded", llm_out["decoded_transcripts"])
+        print("target", input.transcriptions[i])
 
-            llm_output = LLMOutput(
-                cer=llm_out["cer"],
-                wer=llm_out["wer"],
-                decoded_transcripts=llm_out["decoded_transcripts"],
-                confidences=llm_out["confidences"],
-            )
-
-            with open(os.path.join(out_dir, file), "wb") as handle:
-                pickle.dump(llm_output, handle)
-
+        with open(os.path.join(out_dir, file), "wb") as handle:
+            pickle.dump(out_batch, handle)
     time_per_batch = (time.time() - start_t) / len(batches)
-    print(f"5gram decoding took {time_per_batch} seconds per batch")
+    print(f"3gram decoding took {time_per_batch} seconds per batch")

@@ -54,6 +54,14 @@ class B2P2TExperiment(Experiment):
         self, predictions: ModelOutput, sample: PhonemeSampleBatch
     ) -> DecodedPredictionBatch:
         predicted_ids = predictions.logits.argmax(dim=-1).cpu().numpy()
+
+        print(
+            "Predicted phonemes: ",
+            [decode_predicted_phoneme_ids(entry) for entry in predicted_ids],
+        )
+        print("True phonemes: ", sample.phonemes)
+        print("Target label:", sample.transcriptions)
+        print("Phoneme error rate:", self._calc_phoneme_error_rate(sample, predictions))
         # tuple[PhonemeSampleBatch, ModelOutput]
         temp_dir = f"temp/{uuid.uuid4()}"
         os.makedirs(temp_dir, exist_ok=True)
@@ -114,12 +122,16 @@ class B2P2TExperiment(Experiment):
         self, batch: PhonemeSampleBatch, predictions: ModelOutput
     ) -> dict[str, float]:
         metrics = super().evaluate_batch(batch, predictions)
+        metrics["phoneme_error_rate"] = self._calc_phoneme_error_rate(
+            batch, predictions
+        )
+        return metrics
 
-        # compute phoneme error rate. Source: https://github.com/cffan/neural_seq_decoder/blob/master/src/neural_decoder/neural_decoder_trainer.py#L172
-        adjustedLens = (
-            (batch.input_lens - self.config.unfolder_kernel_len)
-            / self.config.unfolder_stride_len
-        ).to(torch.int32)
+    def _calc_phoneme_error_rate(
+        self, batch: PhonemeSampleBatch, predictions: ModelOutput
+    ):
+        adjustedLens = predictions.logit_lens
+        assert adjustedLens != None, "logit_lens is None."
 
         pred = predictions.logits
         total_edit_distance = 0
@@ -145,5 +157,4 @@ class B2P2TExperiment(Experiment):
             total_edit_distance += dist
             total_seq_length += len(trueSeq)
 
-        metrics["phoneme_error_rate"] = total_edit_distance / total_seq_length
-        return metrics
+        return total_edit_distance / total_seq_length

@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 import numpy as np
 from src.datasets.batch_types import B2tSampleBatch
-from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
+from src.datasets.base_dataset import BaseDataset, Sample
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel
 from src.datasets.preprocessing import (
@@ -70,7 +70,6 @@ sessionNames.sort()
 
 class B2tSample(Sample):
     day_idx: int
-
 
 
 class Brain2TextDataset(BaseDataset):

@@ -1,6 +1,5 @@
 import os
 from torch.optim.optimizer import Optimizer
-from src.datasets.base_dataset import Sample, SampleBatch
 from src.datasets.audio import AudioDataset
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment

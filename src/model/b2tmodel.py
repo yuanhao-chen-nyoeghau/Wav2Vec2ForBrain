@@ -11,6 +11,7 @@ class ModelOutput:
     logits: torch.Tensor
     metrics: dict[str, float]
     loss: Optional[torch.Tensor] = None
+    logit_lens: Optional[torch.Tensor] = None
 
 
 class B2TModel(Module, ABC):

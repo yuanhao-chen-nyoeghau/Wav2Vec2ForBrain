@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABCMeta
 from git import Optional
-from src.datasets.base_dataset import BaseDataset, SampleBatch
+from src.datasets.base_dataset import BaseDataset
+from src.datasets.batch_types import SampleBatch
 from src.args.base_args import BaseExperimentArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Callable, Literal, Type, cast, Any, NamedTuple
@@ -110,7 +111,7 @@ class Experiment(metaclass=ABCMeta):
                 model_for_testing = self.model
 
             self.run_real_world_test(model_for_testing)
-            
+
             artifact = wandb.Artifact(name="results", type="experiment_results")
             artifact.add_dir(self.results_dir)
             cast(Run, wandb.run).log_artifact(artifact)
@@ -123,8 +124,6 @@ class Experiment(metaclass=ABCMeta):
         self._predict_and_store(model, self.dataloader_test, "test")
         if self.base_config.predict_on_train == True:
             self._predict_and_store(model, self.dataloader_train, "train")
-
-        
 
     @abstractmethod
     def get_name(self) -> str:

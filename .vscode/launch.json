@@ -260,6 +260,22 @@
                 "--data_dir",
                 "/hpi/fs00/home/tobias.fiedler/brain2text/temp/6d752d4e-cbf5-4355-be80-ca1f06b89df4"
             ]
+        },
+        {
+            "name": "decoding/preprocess_baseline.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/decoding/postprocess_baseline.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION": "python"
+            },
+            "justMyCode": true,
+            "args": [
+                "--data_dir",
+                "/hpi/fs00/home/tobias.fiedler/brain2text/temp/898a4cf5-c398-4499-895f-0f39b4a0d7f0"
+            ]
         }
     ],
 }

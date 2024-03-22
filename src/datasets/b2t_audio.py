@@ -6,7 +6,8 @@ from scipy.io import loadmat
 from pathlib import Path
 import torch
 import numpy as np
-from src.datasets.base_dataset import BaseDataset, Sample, SampleBatch
+from src.datasets.batch_types import SampleBatch
+from src.datasets.base_dataset import BaseDataset, Sample
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import B2TDatasetArgsModel

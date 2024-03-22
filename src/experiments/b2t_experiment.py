@@ -1,6 +1,5 @@
-import os
 from torch.optim.optimizer import Optimizer
-from src.datasets.base_dataset import Sample, SampleBatch
+from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import Brain2TextDataset
@@ -8,10 +7,6 @@ from src.experiments.experiment import DecodedPredictionBatch, Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
 from transformers import AutoTokenizer
-import torch
-from torch.nn.functional import pad
-import re
-from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
 
