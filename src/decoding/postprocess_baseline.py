@@ -98,8 +98,20 @@ if __name__ == "__main__":
             logit_lens != None
         ), "Logit lens is None (probably because the model outputs in the pickle are outdated)"
 
+        np_logits = np.stack(
+            [
+                np.concatenate(
+                    [
+                        sample_logits[:, 1:],
+                        sample_logits[:, 0:1],
+                    ],
+                    axis=-1,
+                )
+                for sample_logits in output.logits.cpu().numpy()
+            ]  # move blank to the end
+        )
         rnn_outputs = {
-            "logits": output.logits.cpu().numpy(),
+            "logits": np_logits,
             "logitLengths": logit_lens.cpu().numpy(),
             "transcriptions": prepare_transcription_batch(input.transcriptions),
         }
