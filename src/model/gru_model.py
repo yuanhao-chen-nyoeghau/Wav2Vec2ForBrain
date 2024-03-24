@@ -81,10 +81,9 @@ class GRUModel(B2TModel):
 
         # out shape: (batch_size, seq_len, vocab_size)
 
-        out = log_softmax(out, -1)
         # TODO: check if ctc loss calculation is still valid
         ctc_loss = self.loss.forward(
-            torch.permute(out, [1, 0, 2]),
+            torch.permute(log_softmax(out, -1), [1, 0, 2]),
             targets,
             batch.input_lens,
             batch.target_lens,
