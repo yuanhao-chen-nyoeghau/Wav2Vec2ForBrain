@@ -36,7 +36,7 @@ class B2P2TModelArgsModel(BaseModel):
     input_layer_nonlinearity: Literal["softsign"] = "softsign"
     unfolder_kernel_len: int = 14
     unfolder_stride_len: int = 4
-    gaussian_smooth_width: int = 0
+    gaussian_smooth_width: float = 0.3
 
 
 class GaussianSmoothing(nn.Module):
