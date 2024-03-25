@@ -17,6 +17,7 @@ import re
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
 from src.model.b2tmodel import B2TModel, ModelOutput
+from src.train.evaluator import DefaultEvaluator
 
 
 class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
@@ -241,3 +242,6 @@ class CtcLmExperiment(Experiment):
         return self.tokenizer.convert_ids_to_tokens(
             list(range(self.tokenizer.vocab_size))
         )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

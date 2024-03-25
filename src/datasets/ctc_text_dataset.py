@@ -12,6 +12,7 @@ from math import floor
 from torch.nn.functional import pad
 import re
 
+
 class CTCTextDataset(Dataset):
     def __init__(
         self,
@@ -136,7 +137,6 @@ class CTCTextDataset(Dataset):
             )
         )
         return CTCTextDataset(self.config, self.yaml_config, self.tokenizer, sentences)
-
 
     def get_collate_fn(self):
         def _collate(batch: list[tuple[torch.Tensor, str]]):

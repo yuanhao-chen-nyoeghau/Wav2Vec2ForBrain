@@ -7,6 +7,7 @@ import os
 import argparse
 
 from sentry_sdk import continue_trace
+from decoding.decoding_types import LLMOutput
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.yaml_config import YamlConfig
@@ -17,12 +18,6 @@ from typing import NamedTuple, cast
 # export PYTHONPATH="/hpi/fs00/home/tobias.fiedler/brain2text"
 # export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 # conda install cudatoolkit -y
-class LLMOutput(NamedTuple):
-    cer: list[float]
-    wer: list[float]
-    decoded_transcripts: list[str]
-    confidences: list[float]
-    target_transcripts: list[str]
 
 
 LLMOutputBatch = list[LLMOutput]

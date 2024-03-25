@@ -1,31 +1,22 @@
-from typing import Any, Literal
-from torch.nn.functional import pad
+from typing import Any
 from src.experiments.b2t_wav2vec_experiment import B2TWav2VecExperiment
 from src.args.b2t_resnet_args import B2TWav2VecResnetArgsModel
-import torch
-import re
-from src.args.base_args import B2TDatasetArgsModel
 from src.args.yaml_config import YamlConfigModel
-import os
 from src.model.b2tmodel import B2TModel
-from src.datasets.brain2text import Brain2TextDataset
-from src.experiments.experiment import Experiment
 from src.model.b2t_resnet_model import (
     B2TCustomEncoderW2VFineTuningModel,
     B2TCustomEncoderW2VPretrainingModel,
 )
-from transformers import AutoTokenizer
 from torch.optim.optimizer import Optimizer
-from torch.utils.data import Dataset
 
 
 class B2TWav2VecResnetExperiment(B2TWav2VecExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         super().__init__(config, yamlConfig)
         self.config = B2TWav2VecResnetArgsModel(**config)
-        self.model: B2TCustomEncoderW2VPretrainingModel | B2TCustomEncoderW2VFineTuningModel = (
-            self.model
-        )
+        self.model: (
+            B2TCustomEncoderW2VPretrainingModel | B2TCustomEncoderW2VFineTuningModel
+        ) = self.model
 
     def get_name(self) -> str:
         return "b2t_wav2vec_resnet"

@@ -8,6 +8,7 @@ from typing import Any, Literal, cast
 from transformers import AutoTokenizer
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
+from src.train.evaluator import DefaultEvaluator
 
 
 class B2TAudioWav2VecExperiment(Experiment):
@@ -69,6 +70,7 @@ class B2TAudioWav2VecExperiment(Experiment):
             config=self.ds_config,
             yaml_config=self.yaml_config,
             split=split,
+            tokenizer=self.tokenizer,
         )
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
@@ -77,10 +79,13 @@ class B2TAudioWav2VecExperiment(Experiment):
             self._create_dataset(split),
             batch_size=self.base_config.batch_size,
             shuffle=True,
-            collate_fn=ds.get_collate_fn(self.tokenizer),
+            collate_fn=ds.get_collate_fn(),
         )
 
     def get_vocab(self) -> list[str]:
         return self.tokenizer.convert_ids_to_tokens(
             list(range(self.tokenizer.vocab_size))
         )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

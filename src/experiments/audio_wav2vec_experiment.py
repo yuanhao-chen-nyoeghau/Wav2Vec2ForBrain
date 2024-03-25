@@ -7,13 +7,10 @@ from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
 from src.args.wav2vec_args import AudioWav2VecArgsModel
 from transformers import AutoTokenizer
-import torch
-from torch.nn.functional import pad
-import re
-from torch.utils.data import Dataset
 from datasets import load_dataset, DatasetDict
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
+from src.train.evaluator import DefaultEvaluator
 
 
 class AudioWav2VecExperiment(Experiment):
@@ -84,6 +81,7 @@ class AudioWav2VecExperiment(Experiment):
             hugg_dataset=cast(DatasetDict, self._hugg_dataset),
             split=split,
             config=self.config,
+            tokenizer=self.tokenizer,
         )
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
@@ -92,10 +90,13 @@ class AudioWav2VecExperiment(Experiment):
             self._create_dataset(split),
             batch_size=self.base_config.batch_size,
             shuffle=True,
-            collate_fn=ds.get_collate_fn(self.tokenizer),
+            collate_fn=ds.get_collate_fn(),
         )
 
     def get_vocab(self) -> list[str]:
         return self.tokenizer.convert_ids_to_tokens(
             list(range(self.tokenizer.vocab_size))
         )
+
+    def create_evaluator(self, mode:Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer,mode)

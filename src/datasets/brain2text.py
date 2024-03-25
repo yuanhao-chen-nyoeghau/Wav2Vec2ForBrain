@@ -78,6 +78,7 @@ class Brain2TextDataset(BaseDataset):
         config: B2TDatasetArgsModel,
         yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"] = "train",
+        tokenizer: Optional[PreTrainedTokenizer] = None,
     ) -> None:
         super().__init__()
         self.config = config
@@ -101,6 +102,7 @@ class Brain2TextDataset(BaseDataset):
         self.transcriptions: list[str] = []
         self.brain_data_samples: list[torch.Tensor] = []
         self.days: list[int] = []
+        self.tokenizer = tokenizer
         preprocess = PreprocessingFunctions[config.preprocessing]
 
         for day_idx, data_file in data_files:

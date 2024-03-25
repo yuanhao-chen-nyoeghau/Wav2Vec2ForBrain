@@ -3,12 +3,14 @@ from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import Brain2TextDataset
-from src.experiments.experiment import DecodedPredictionBatch, Experiment
+from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
 from transformers import AutoTokenizer
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
+from src.train.evaluator import DefaultEvaluator
+from src.train.history import DecodedPredictionBatch
 
 
 class B2TExperiment(Experiment):
@@ -63,6 +65,7 @@ class B2TExperiment(Experiment):
             config=self.config,
             yaml_config=self.yaml_config,
             split=split,
+            tokenizer=self.tokenizer,
         )
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
@@ -78,3 +81,6 @@ class B2TExperiment(Experiment):
         return self.tokenizer.convert_ids_to_tokens(
             list(range(self.tokenizer.vocab_size))
         )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

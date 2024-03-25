@@ -1,16 +1,13 @@
-from genericpath import isdir
 import time
 import pickle
 import numpy as np
 import pickle
 import os
 import argparse
-
-from sentry_sdk import continue_trace
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.yaml_config import YamlConfig
-from typing import NamedTuple, cast, Optional
+from src.decoding.decoding_types import LLMOutput
 
 # Code from: https://github.com/fwillett/speechBCI/blob/main/AnalysisExamples/rnn_step3_baselineRNNInference.ipynb
 
@@ -38,16 +35,14 @@ def prepare_transcription_batch(transcriptions: list[str]):
 # export PYTHONPATH="/hpi/fs00/home/tobias.fiedler/brain2text"
 # export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 # conda install cudatoolkit -y
-class LLMOutput(NamedTuple):
-    cer: Optional[list[float]]
-    wer: Optional[list[float]]
-    decoded_transcripts: list[str]
-    confidences: Optional[list[float]]
-    target_transcripts: list[str]
 
 
 if __name__ == "__main__":
-    print("Environment running postprocessing script:", os.environ["CONDA_DEFAULT_ENV"])
+    print(
+        "Environment running postprocessing script:",
+        os.environ["CONDA_DEFAULT_ENV"],
+        flush=True,
+    )
     import neuralDecoder.utils.lmDecoderUtils as lmDecoderUtils
 
     # Argparse postprocessing data directory
@@ -56,7 +51,7 @@ if __name__ == "__main__":
         "--data_dir", type=str, help="Data directory for post processing"
     )
     args = parser.parse_args()
-    print(f"Converting data in {args.data_dir} to LLM outputs")
+    print(f"Converting data in {args.data_dir} to LLM outputs", flush=True)
     batches: list[tuple[tuple[PhonemeSampleBatch, ModelOutput], str]] = []
     for file in os.listdir(args.data_dir):
         if os.path.isdir(os.path.join(args.data_dir, file)):
@@ -74,11 +69,11 @@ if __name__ == "__main__":
     MODEL_CACHE_DIR = yaml_config.config.cache_dir
 
     lmDir = yaml_config.config.ngram_lm_model_path
-    print("Loading n-gram LM")
+    print("Loading n-gram LM", flush=True)
     ngramDecoder = lmDecoderUtils.build_lm_decoder(
         lmDir, acoustic_scale=0.8, nbest=1, beam=18  # 1.2
     )
-    print("n-gram loaded")
+    print("n-gram loaded", flush=True)
 
     # LM decoding hyperparameters
     acoustic_scale = 0.5
@@ -128,11 +123,14 @@ if __name__ == "__main__":
             confidences=None,
         )
 
-        print("decoded", decoder_out["decoded_transcripts"])
-        print("target", decoder_out["true_transcripts"])
-        print("cer", decoder_out["cer"])
-        print("wer", decoder_out["wer"])
+        print("decoded", decoder_out["decoded_transcripts"], flush=True)
+        print("target", decoder_out["true_transcripts"], flush=True)
+        print("cer", decoder_out["cer"], flush=True)
+        print("wer", decoder_out["wer"], flush=True)
         with open(os.path.join(out_dir, file), "wb") as handle:
             pickle.dump(llm_output, handle)
     time_per_batch = (time.time() - start_t) / len(batches)
-    print(f"3gram decoding took {time_per_batch} seconds per batch")
+    print(
+        f"3gram decoding took {time_per_batch} seconds per batch and a total of {time.time() - start_t} seconds",
+        flush=True,
+    )

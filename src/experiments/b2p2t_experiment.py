@@ -1,19 +1,19 @@
-from src.decoding.postprocess import LLMOutput
+import sys
+from src.decoding.decoding_types import LLMOutput
 from src.model.b2p2t_model import B2P2TModel
 from src.model.b2p2t_model import B2P2TModelArgsModel
 from src.datasets.brain2text_w_phonemes import (
     Brain2TextWPhonemesDataset,
-    decode_predicted_phoneme_ids,
 )
-from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.base_args import (
     B2TDatasetArgsModel,
     BaseExperimentArgsModel,
 )
-from src.experiments.experiment import DecodedPredictionBatch, Experiment
+from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Literal
+from typing import IO, Literal, cast
 from torch.utils.data import DataLoader
 import torch
 from abc import abstractmethod
@@ -25,107 +25,101 @@ import uuid
 import os
 import subprocess
 from shutil import rmtree
+from src.train.evaluator import Evaluator
+from src.train.history import MetricEntry, SingleEpochHistory, DecodedPredictionBatch
 
 
-class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
-    pass
+class B2P2TEvaluator(Evaluator):
+    def __init__(self, mode=Literal["train", "val", "test"]):
+        super().__init__(mode)
+        self.temp_dir = f"temp/{uuid.uuid4()}"
+        os.makedirs(self.temp_dir, exist_ok=True)
+        self.file_order: list[str] = []
+        self.losses: list[float] = []
+        self.metrics: list[dict[str, float]] = []
 
-
-class B2P2TExperiment(Experiment):
-    def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = self.get_args_model()(**config)
-        super().__init__(config, yamlConfig)
-
-    def get_name(self) -> str:
-        raise NotImplementedError()
-
-    @staticmethod
-    def get_args_model():
-        return B2P2TArgsModel
-
-    def _create_model(self):
-        return B2P2TModel(self.config, self._create_neural_decoder())
-
-    @abstractmethod
-    def _create_neural_decoder(self) -> B2TModel:
-        raise NotImplementedError()
-
-    def decode_predictions(
-        self, predictions: ModelOutput, sample: PhonemeSampleBatch
-    ) -> DecodedPredictionBatch:
-        predicted_ids = predictions.logits.argmax(dim=-1).cpu().numpy()
-
-        print(
-            "Predicted phonemes: ",
-            [decode_predicted_phoneme_ids(entry) for entry in predicted_ids],
+    def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
+        if self.mode == "test":
+            filename = f"{self.n_losses}.pkl"
+            with open(f"{self.temp_dir}/{filename}", "wb") as handle:
+                pickle.dump((sample, predictions), handle)
+                self.file_order.append(filename)
+        assert predictions.loss != None, "Loss is None."
+        self.losses.append(predictions.loss.item())
+        predictions.metrics.update(
+            phoneme_error_rate=self._calc_phoneme_error_rate(sample, predictions)
         )
-        print("True phonemes: ", sample.phonemes)
-        print("Target label:", sample.transcriptions)
-        print("Phoneme error rate:", self._calc_phoneme_error_rate(sample, predictions))
-        # tuple[PhonemeSampleBatch, ModelOutput]
-        temp_dir = f"temp/{uuid.uuid4()}"
-        os.makedirs(temp_dir, exist_ok=True)
+        self.metrics.append(predictions.metrics)
 
-        filename = "1.pkl"
-        with open(f"{temp_dir}/{filename}", "wb") as handle:
-            pickle.dump((sample, predictions), handle)
+    def evaluate(self) -> SingleEpochHistory:
+        if self.mode == "test":
+            new_env = os.environ.copy()
+            new_env["PYTHONPATH"] = "/hpi/fs00/home/tobias.fiedler/brain2text"
+            new_env["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+            print(
+                "[B2P2T Evaluator] Running external script for decoding (this might take a while)"
+            )
+            process = subprocess.Popen(
+                ["stdbuf", "-oL"]
+                + [
+                    "conda",
+                    "run",
+                    "-n",
+                    "lm_decoder",
+                    "python",
+                    "src/decoding/postprocess_baseline.py",
+                    "--data_dir",
+                    self.temp_dir,
+                ],
+                env=new_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
 
-        # execute: conda run -n ${CONDA_ENV_NAME} python script.py
-        result = subprocess.run(
-            [
-                "conda",
-                "run",
-                "-n",
-                "lm_decoder",
-                "python",
-                "src/decoding/postprocess.py",
-                "--data_dir",
-                temp_dir,
-            ]
-        )
-        if result.returncode != 0:
-            raise Exception(f"Error running postprocess.py: {result.stderr}")
-        out_file = os.path.join(temp_dir, "out", filename)
-        with open(out_file, "rb") as handle:
-            batch: LLMOutput = pickle.load(handle)
+            # Read the output line by line as soon as it is available
+            while True:
+                output = cast(IO[str], process.stdout).readline()
+                if output == "" and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip())
+                sys.stdout.flush()
 
-        rmtree(temp_dir)
-        # TODO: decode phonemes to strings
-        predicted_strings = batch.decoded_transcripts
+            out, err = process.communicate()
+            if out:
+                print(out.strip(), flush=True)
+            if err:
+                print(err.strip(), file=sys.stderr, flush=True)
+            print(
+                f"[B2P2T Evaluator] Finished decoding script with return code {process.returncode}"
+            )
+            if process.returncode != 0:
+                raise Exception(f"Error running postprocess_baseline.py")
 
-        label_strings = sample.transcriptions
-        return DecodedPredictionBatch(predicted_strings, label_strings)
+        out_dir = os.path.join(self.temp_dir, "out")
 
-    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        return Brain2TextWPhonemesDataset(
-            config=self.config,
-            yaml_config=self.yaml_config,
-            split=split,
-        )
+        history = SingleEpochHistory()
+        for i in range(len(self.losses)):
 
-    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
-        ds = self._create_dataset(split)
-        return DataLoader(
-            self._create_dataset(split),
-            batch_size=self.base_config.batch_size,
-            shuffle=True,
-            collate_fn=ds.get_collate_fn(),
-        )
+            base_metrics = self.metrics[i]
+            loss = self.losses[i]
 
-    def get_vocab(self) -> list[str]:
-        return Brain2TextWPhonemesDataset.vocab
+            decoded = None
+            if self.mode == "test":
+                filename = self.file_order[i]
+                with open(os.path.join(out_dir, filename), "rb") as handle:
+                    batch: LLMOutput = pickle.load(handle)
+                    base_metrics.update(decoder_wer=batch.wer, decoder_cer=batch.cer)
+                    decoded = DecodedPredictionBatch(
+                        batch.decoded_transcripts, batch.target_transcripts
+                    )
+            history.add_batch_metric(MetricEntry(base_metrics, loss), decoded)
+        return history
 
-    def _get_in_size_after_preprocessing(self):
-        return (256) * self.config.unfolder_kernel_len
-
-    def evaluate_batch(
-        self, batch: PhonemeSampleBatch, predictions: ModelOutput
-    ) -> dict[str, float]:
-        metrics = super().evaluate_batch(batch, predictions)
-        metrics["phoneme_error_rate"] = self._calc_phoneme_error_rate(
-            batch, predictions
-        )
-        return metrics
+    def clean_up(self):
+        rmtree(self.temp_dir)
 
     def _calc_phoneme_error_rate(
         self, batch: PhonemeSampleBatch, predictions: ModelOutput
@@ -158,3 +152,52 @@ class B2P2TExperiment(Experiment):
             total_seq_length += len(trueSeq)
 
         return total_edit_distance / total_seq_length
+
+
+class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
+    pass
+
+
+class B2P2TExperiment(Experiment):
+    def __init__(self, config: dict, yamlConfig: YamlConfigModel):
+        self.config = self.get_args_model()(**config)
+        super().__init__(config, yamlConfig)
+
+    def get_name(self) -> str:
+        raise NotImplementedError()
+
+    @staticmethod
+    def get_args_model():
+        return B2P2TArgsModel
+
+    def _create_model(self):
+        return B2P2TModel(self.config, self._create_neural_decoder())
+
+    @abstractmethod
+    def _create_neural_decoder(self) -> B2TModel:
+        raise NotImplementedError()
+
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
+        return Brain2TextWPhonemesDataset(
+            config=self.config,
+            yaml_config=self.yaml_config,
+            split=split,
+        )
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+        return DataLoader(
+            self._create_dataset(split),
+            batch_size=self.base_config.batch_size,
+            shuffle=True,
+            collate_fn=ds.get_collate_fn(),
+        )
+
+    def get_vocab(self) -> list[str]:
+        return Brain2TextWPhonemesDataset.vocab
+
+    def _get_in_size_after_preprocessing(self):
+        return (256) * self.config.unfolder_kernel_len
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
+        return B2P2TEvaluator(mode)

@@ -11,6 +11,7 @@ from transformers.modeling_outputs import CausalLMOutput
 from torcheval.metrics import WordErrorRate
 import uuid
 import numpy as np
+from src.train.evaluator import Evaluator
 
 Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
 
@@ -40,19 +41,17 @@ class Trainer:
             verbose=True,
         )
 
-    def _log_intermediate(
-        self, batch: int, n_batches: int, epoch_history: SingleEpochHistory
-    ):
-        loss = epoch_history.get_last().loss
-        running = epoch_history.get_average().loss
+    def _log_intermediate(self, batch: int, n_batches: int, evaluator: Evaluator):
+        loss = evaluator.get_latest_loss()
+        running = evaluator.get_running_loss()
         print(
             f"Batch {batch + 1}/{n_batches} loss: {loss:.2f} running: {running:.2f}\r",
             end="",
         )
 
     def _train_epoch(self):
-        losses = SingleEpochHistory()
         self.model.train()
+        evaluator = self.experiment.create_evaluator("train")
 
         for i, batch in enumerate(self.dataloader_train):
             batch = cast(SampleBatch, batch).cuda()
@@ -87,19 +86,20 @@ class Trainer:
 
             # Adjust learning weights
             self.optimizer.step()
-            additional_metrics = self.experiment.evaluate_batch(batch, outputs)
-            outputs.metrics.update(additional_metrics)
-            losses.add_batch_metric(MetricEntry(outputs.metrics, loss.cpu().item()))
+            evaluator.track_batch(outputs, batch)
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
             ):
-                self._log_intermediate(i, len(self.dataloader_train), losses)
-        return losses
+                self._log_intermediate(i, len(self.dataloader_train), evaluator)
+        results = evaluator.evaluate()
+        evaluator.clean_up()
+        return results
 
-    def _evaluate_epoch(self, dataloader: DataLoader):
-        losses = SingleEpochHistory()
+    def _evaluate_epoch(self, mode: Literal["val", "test"]):
+        dataloader = self.dataloader_val if mode == "val" else self.dataloader_test
         self.model.eval()
+        evaluator = self.experiment.create_evaluator(mode)
 
         for i, batch in enumerate(dataloader):
             batch = cast(SampleBatch, batch).cuda()
@@ -107,21 +107,16 @@ class Trainer:
             with torch.no_grad():
                 outputs = self.model.forward(batch)
 
-            additional_metrics = self.experiment.evaluate_batch(batch, outputs)
-            outputs.metrics.update(additional_metrics)
-            losses.add_batch_metric(
-                MetricEntry(
-                    outputs.metrics,
-                    outputs.loss.item() if outputs.loss is not None else 0,
-                )
-            )
+            evaluator.track_batch(outputs, batch)
             if (
                 i % self.config.log_every_n_batches
                 == self.config.log_every_n_batches - 1
             ):
-                self._log_intermediate(i, len(dataloader), losses)
+                self._log_intermediate(i, len(dataloader), evaluator)
 
-        return losses
+        results = evaluator.evaluate()
+        evaluator.clean_up()
+        return results
 
     def _get_wandb_metrics(self, epoch: SingleEpochHistory, prefix: str):
         def add_prefix_to_dict_keys(d: dict, prefix: str):
@@ -166,7 +161,7 @@ class Trainer:
             print(f"\nEpoch {epoch + 1}/{self.config.epochs}")
 
             train_losses = self._train_epoch()
-            val_losses = self._evaluate_epoch(self.dataloader_val)
+            val_losses = self._evaluate_epoch("val")
             self.scheduler.step()
 
             print(
@@ -214,7 +209,7 @@ class Trainer:
             os.remove(best_model_path)
             os.rmdir(os.path.dirname(best_model_path))
             print("Loaded model with best validation loss of this experiment from disk")
-        test_losses = self._evaluate_epoch(self.dataloader_test)
+        test_losses = self._evaluate_epoch("test")
         wandb.log(self._get_wandb_metrics(test_losses, "test"))
         print(
             f"\nTest loss ({self.config.loss_function}): {test_losses.get_average().loss}"

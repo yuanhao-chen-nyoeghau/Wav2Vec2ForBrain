@@ -115,6 +115,7 @@ class B2TAudioDataset(BaseDataset):
         self,
         config: B2TAudioDatasetArgsModel,
         yaml_config: YamlConfigModel,
+        tokenizer: PreTrainedTokenizer,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
@@ -135,7 +136,7 @@ class B2TAudioDataset(BaseDataset):
         ]
 
         print("Loaded raw data")
-
+        self.tokenizer = tokenizer
         self.transcriptions: list[str] = []
         brain_data_samples: list[torch.Tensor] = []
         preprocess = PreprocessingFunctions[config.preprocessing]
@@ -217,7 +218,7 @@ class B2TAudioDataset(BaseDataset):
     def __getitem__(self, index) -> Sample:
         return Sample(self.soundwaves[index], self.transcriptions[index])
 
-    def get_collate_fn(self, tokenizer: PreTrainedTokenizer):
+    def get_collate_fn(self):
         def _collate(batch: list[Sample]):
             max_audio_len = max([x.size(0) for x, _ in batch])
             padded_audio = [
@@ -246,7 +247,7 @@ class B2TAudioDataset(BaseDataset):
                 # label = label.upper()
                 return label
 
-            batch_label_ids: torch.Tensor = tokenizer(
+            batch_label_ids: torch.Tensor = self.tokenizer(
                 [process_label(label) for _, label in batch],
                 padding="longest",
                 return_tensors="pt",

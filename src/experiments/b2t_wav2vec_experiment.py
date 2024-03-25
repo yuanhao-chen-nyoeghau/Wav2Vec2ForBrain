@@ -6,11 +6,10 @@ from typing import Any, Literal, cast
 from src.args.wav2vec_args import B2TWav2VecArgsModel
 from transformers import AutoTokenizer
 from src.model.b2t_wav2vec_model import B2TWav2Vec
-import torch
-from torch.nn.functional import pad
-import re
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
+
+from src.train.evaluator import DefaultEvaluator
 
 
 class B2TWav2VecExperiment(Experiment):
@@ -93,9 +92,13 @@ class B2TWav2VecExperiment(Experiment):
             config=self.config,
             yaml_config=self.yaml_config,
             split=split,
+            tokenizer=self.tokenizer,
         )
 
     def get_vocab(self) -> list[str]:
         return self.tokenizer.convert_ids_to_tokens(
             list(range(self.tokenizer.vocab_size))
         )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

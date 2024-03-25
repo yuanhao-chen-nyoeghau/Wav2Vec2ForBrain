@@ -15,11 +15,13 @@ class AudioDataset(Dataset):
         self,
         hugg_dataset: DatasetDict,
         config: AudioWav2VecArgsModel,
+        tokenizer: PreTrainedTokenizer,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         super().__init__()
         self.config = config
         self._data = hugg_dataset["test" if split == "val" else split]
+        self.tokenizer = tokenizer
 
     def __len__(self):
         return len(self._data)
@@ -31,7 +33,7 @@ class AudioDataset(Dataset):
             row["transcription"].upper(),
         )
 
-    def get_collate_fn(self, tokenizer: PreTrainedTokenizer):
+    def get_collate_fn(self):
         def _collate(batch: list[Sample]):
             max_audio_len = max([x.size(0) for x, _ in batch])
             padded_audio = [
@@ -51,7 +53,7 @@ class AudioDataset(Dataset):
                 # label = label.upper()
                 return label
 
-            batch_label_ids: torch.Tensor = tokenizer(
+            batch_label_ids: torch.Tensor = self.tokenizer(
                 [process_label(label) for _, label in batch],
                 padding="longest",
                 return_tensors="pt",

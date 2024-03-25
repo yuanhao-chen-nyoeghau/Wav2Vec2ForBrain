@@ -276,6 +276,36 @@
                 "--data_dir",
                 "/hpi/fs00/home/tobias.fiedler/brain2text/temp/898a4cf5-c398-4499-895f-0f39b4a0d7f0"
             ]
-        }
+        },
+        {
+            "name": "run.py b2p2t_gru limit_samples=64",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=b2p2t_gru",
+                "--preprocessing=seperate_zscoring",
+                "--batch_size=8",
+                "--predict_on_train=True",
+                "--learning_rate=0.02",
+                "--return_best_model=true",
+                "--epochs=64",
+                "--scheduler_step_size=10",
+                "--scheduler_gamma=1",
+                "--dropout=0.4",
+                "--weight_decay=1e-5",
+                "--hidden_size=1024",
+                "--num_gru_layers=5",
+                "--whiteNoiseSD=0.8",
+                "--constantOffsetSD=0.2",
+                "--gaussian_smooth_width=2",
+                "--unfolder_stride_len=4",
+                "--unfolder_kernel_len=32",
+                "--bidirectional=true",
+                "--limit_samples=64"
+            ]
+        },
     ],
 }

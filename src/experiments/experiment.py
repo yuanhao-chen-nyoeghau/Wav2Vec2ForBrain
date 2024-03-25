@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABCMeta
+from ast import Not
 from git import Optional
 from src.datasets.base_dataset import BaseDataset
 from src.datasets.batch_types import SampleBatch
@@ -13,21 +14,17 @@ import json
 import os
 from datetime import datetime
 from torch.optim.optimizer import Optimizer
-from src.train.history import TrainHistory
+from src.train.history import MetricEntry, SingleEpochHistory, TrainHistory
 import sys
 import numpy as np
 from torcheval.metrics import WordErrorRate
 from wandb.sdk.wandb_run import Run
+from src.train.evaluator import Evaluator
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
 }
-
-
-class DecodedPredictionBatch(NamedTuple):
-    predictions: list[str]
-    targets: list[str]
 
 
 class Experiment(metaclass=ABCMeta):
@@ -94,7 +91,6 @@ class Experiment(metaclass=ABCMeta):
             raise Exception("wandb init failed. wandb.run is None")
         with wandb.run:
             wandb.watch(trainer.model)
-            model_for_testing: B2TModel
 
             if not self.base_config.only_test:
                 trained_model, history = trainer.train()
@@ -104,16 +100,15 @@ class Experiment(metaclass=ABCMeta):
                 )
                 with open(os.path.join(self.results_dir, "history.json"), "w") as f:
                     json.dump(history.to_dict(), f, indent=5)
-                model_for_testing = trained_model
 
                 self.plot_results(history)
             else:
-                model_for_testing = self.model
-
-            self.run_real_world_test(model_for_testing)
+                test_results = self.run_real_world_test(self.model)
+                if test_results != None:
+                    wandb.log(trainer._get_wandb_metrics(test_results, "test"))
 
             artifact = wandb.Artifact(name="results", type="experiment_results")
-            artifact.add_dir(self.results_dir)
+            artifact.add_dir(f"{self.results_dir}/")
             cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
 
@@ -121,9 +116,10 @@ class Experiment(metaclass=ABCMeta):
         history.plot(os.path.join(self.results_dir, "history.png"))
 
     def run_real_world_test(self, model: B2TModel):
-        self._predict_and_store(model, self.dataloader_test, "test")
+        test_results = self._predict_and_store(model, "test")
         if self.base_config.predict_on_train == True:
-            self._predict_and_store(model, self.dataloader_train, "train")
+            self._predict_and_store(model, "train")
+        return test_results
 
     @abstractmethod
     def get_name(self) -> str:
@@ -145,7 +141,6 @@ class Experiment(metaclass=ABCMeta):
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
-
         return DataLoader(
             ds,
             batch_size=self.base_config.batch_size,
@@ -153,9 +148,8 @@ class Experiment(metaclass=ABCMeta):
             collate_fn=ds.get_collate_fn(),
         )
 
-    def _predict_and_store(
-        self, model: B2TModel, dataloader: DataLoader, out_file_prefix: str
-    ):
+    def _predict_and_store(self, model: B2TModel, mode: Literal["train", "test"]):
+
         def handle_evaluation_prediction_batch(
             batch_id: int,
             batch: SampleBatch,
@@ -163,10 +157,10 @@ class Experiment(metaclass=ABCMeta):
         ):
             if batch_id >= self.base_config.visualize_predictions_n_batches:
                 return
-            out_dir = os.path.join(self.results_dir, f"{out_file_prefix}_predictions")
+            out_dir = os.path.join(self.results_dir, f"{mode}_predictions")
             os.makedirs(out_dir, exist_ok=True)
             print(
-                f"\nVisualizing prediction batch {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {out_file_prefix}..."
+                f"\nVisualizing prediction batch {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {mode}..."
             )
             self.visualize_predictions(
                 batch,
@@ -175,29 +169,25 @@ class Experiment(metaclass=ABCMeta):
                 batch_id,
             )
 
-        prediction = self._predict(
-            model, dataloader, handle_evaluation_prediction_batch
-        )
-        with open(
-            os.path.join(self.results_dir, f"{out_file_prefix}_predictions.json"), "w"
-        ) as f:
-            json.dump(prediction, f, indent=5)
-
-    @abstractmethod
-    def decode_predictions(
-        self, predictions: ModelOutput, sample: SampleBatch
-    ) -> DecodedPredictionBatch:
-        raise NotImplementedError("Implement decode_predictions in subclass")
+        prediction = self._predict(model, mode, handle_evaluation_prediction_batch)
+        if prediction != None:
+            with open(
+                os.path.join(self.results_dir, f"{mode}_predictions.json"),
+                "w",
+            ) as f:
+                json.dump(prediction.to_dict(), f, indent=5)
+        return prediction
 
     def _predict(
         self,
         model: B2TModel,
-        dataloader: DataLoader,
+        mode: Literal["train", "test"],
         handle_prediction_batch: Optional[
             Callable[[int, SampleBatch, ModelOutput], Any]
         ] = None,
     ):
-        result = []
+        dataloader = self.dataloader_train if mode == "train" else self.dataloader_test
+        evaluator = self.create_evaluator(mode)
         for i, data in enumerate(dataloader):
             data = cast(SampleBatch, data).cuda()
 
@@ -205,35 +195,17 @@ class Experiment(metaclass=ABCMeta):
                 outputs = model.forward(data)
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
-                    return []
-
-                decoded = self.decode_predictions(outputs, data)
-                predicted = decoded.predictions
-                targets = decoded.targets
-
+                    return None
+                evaluator.track_batch(outputs, data)
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, data, outputs)
-                combined = zip(predicted, targets)
-                batch_predictions = []
-                outputs.metrics.update(self.evaluate_batch(data, outputs))
-                batch_result = {
-                    "metrics": outputs.metrics,
-                    "batch_id": i,
-                    "predictions": batch_predictions,
-                }
-
-                for prediction, target in combined:
-                    batch_predictions.append(
-                        {
-                            "prediction": prediction,
-                            "target    ": target,
-                        }
-                    )
-                result.append(batch_result)
             print(
-                f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
+                f"Running predictions on {mode}. Batch {i + 1}/{len(dataloader)}\r",
                 end="",
             )
+
+        result = evaluator.evaluate()
+        evaluator.clean_up()
         return result
 
     def _get_optimizer_cls(self) -> Type[Optimizer]:
@@ -271,13 +243,14 @@ class Experiment(metaclass=ABCMeta):
 
         # Assuming `predictions` is your model's output with shape (seq_len, vocab_size)
         # And `vocab` is your vocabulary list with the characters
-
+        vocab = self.get_vocab()
         predictions = output.logits.softmax(-1).cpu().numpy()
-        predicted_str, target_str = self.decode_predictions(output, batch)
+        predicted_str = [
+            "".join([vocab[i] for i in np.argmax(p, axis=-1)]) for p in predictions
+        ]
+        target_str = ["".join([vocab[i] for i in p]) for p in batch.target]
 
         batch_size, seq_len, vocab_size = predictions.shape
-        vocab = self.get_vocab()
-
         px = 1 / plt.rcParams["figure.dpi"]
 
         nrows = min(batch_size, 4)
@@ -336,31 +309,6 @@ class Experiment(metaclass=ABCMeta):
         plt.tight_layout()
         plt.savefig(out_path)
 
-    def evaluate_batch(
-        self, batch: SampleBatch, predictions: ModelOutput
-    ) -> dict[str, float]:
-        """Called after each batch during training and validation.
-        Can be implemented by subclasses to compute and track specific metrics.
-        Metrics in the returned dict will automatically be tracked in train history."""
-
-        predicted_strings, label_strings = self.decode_predictions(predictions, batch)
-
-        # remove characters after EOS token
-        def cut_after_eos_token(string: str):
-            eos_token = "</s>"
-            index_of_eos = string.find(eos_token)
-            if index_of_eos != -1:
-                return string[: (index_of_eos + len(eos_token))]
-            else:
-                return string
-
-        predicted_strings = [
-            cut_after_eos_token(string) for string in predicted_strings
-        ]
-
-        return {
-            "word_error_rate": WordErrorRate()
-            .update(input=predicted_strings, target=label_strings)
-            .compute()
-            .item()
-        }
+    @abstractmethod
+    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
+        raise NotImplementedError("Implement create_evaluator in subclass")
