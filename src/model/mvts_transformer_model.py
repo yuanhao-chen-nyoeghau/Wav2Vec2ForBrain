@@ -1,4 +1,5 @@
 from typing import Literal, Type, Optional
+from numpy import pad
 import torch
 import torch.nn.functional as F
 from torch import log_softmax, nn, Tensor
@@ -15,35 +16,36 @@ from src.datasets.brain2text import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 
 class B2TMvtsTransformerArgsModel(B2TArgsModel):
-    hidden_size: int = 256
-    bidirectional: bool = True
-    num_gru_layers: int = 2
-    bias: bool = True
-    dropout: float = 0.0
-    learnable_inital_state: bool = False
-    classifier_hidden_sizes: list[int] = [256, 128, 64]
+    dim_feedforward: int = 256
+    num_layers: int = 2
+    num_heads: int = 2
+    dropout: float = 0.5
+    dim_model = 1024
+    norm: Literal["BatchNorm"] = "BatchNorm"
     classifier_activation: Literal["gelu"] = "gelu"
+    freeze: bool = False
+    pos_encoding: Literal["learnable"] = "learnable"
 
 class MvtsTransformerModel(B2TModel):
-    def __init__(self, config: B2TMvtsTransformerArgsModel, vocab_size: int, in_size: int):
+    def __init__(self, config: B2TMvtsTransformerArgsModel, vocab_size: int, in_size: int, pad_token_id=0):
         super().__init__()
-        print(vocab_size)
-        print(in_size)
-        self.max_len = in_size
+        self.config = config
+        self.max_len = 1000
+        self.pad_token_id = pad_token_id
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
         self.transformer = TSTransformerEncoderClassiregressor(
-            feat_dim=256,
-            d_model=256,
+            feat_dim=in_size,
+            d_model=self.config.dim_model,
             max_len=self.max_len,
-            n_heads=2,
-            num_layers=2,
-            dim_feedforward=256,
+            n_heads=self.config.num_heads,
+            num_layers=self.config.num_layers,
+            dim_feedforward=self.config.dim_feedforward,
             num_classes=vocab_size,
-            dropout=0.5,
-            pos_encoding="learnable",
-            activation="gelu",
-            norm="BatchNorm",
-            freeze=False,
+            dropout=self.config.dropout,
+            pos_encoding=self.config.pos_encoding,
+            activation=self.config.classifier_activation,
+            norm=self.config.norm,
+            freeze=self.config.freeze,
         )
 
     def forward(self, batch: B2tSampleBatch):
@@ -52,10 +54,11 @@ class MvtsTransformerModel(B2TModel):
         target_lens = batch.target_lens
         input_lens = batch.input_lens
         device = targets.device
-        # if targets is not None:
-        #     targets = torch.where(
-        #         targets == self.tokenizer.pad_token_id, torch.tensor(-100), targets
-        #     )
+        if targets is not None:
+            targets = torch.where(
+                targets == self.pad_token_id, torch.tensor(-100), targets
+            )
+
         x_padded = torch.zeros(x.shape[0] , self.max_len , x.shape[2])
         x_padded[:, :x.shape[1], :] = x
         mask = x_padded != 0
