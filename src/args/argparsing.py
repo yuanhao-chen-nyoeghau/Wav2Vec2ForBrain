@@ -1,9 +1,11 @@
 import argparse
+from src.experiments.b2p2t_mvtst_experiment import B2P2TMvtstExperiment
 from src.experiments.b2p2t_gru_experiment import B2P2TGruExperiment
 from src.experiments.b2p2t_mamba_experiment import B2P2TMambaExperiment
 from src.experiments.b2t_ctclm_mamba_finetuning_experiment import (
     B2tCtcLmMambaFinetuningExperiment,
 )
+from src.experiments.mvts_transformer_experiment import MvtsTransformerExperiment
 from src.experiments.ctc_lm_experiment import CtcLmExperiment
 from src.experiments.b2t_mamba_experiment import B2tMambaExperiment
 from src.experiments.b2t_gru_experiment import B2tGruExperiment
@@ -39,11 +41,13 @@ experiments: dict[str, Type[Experiment]] = {
     "onehot_index": OneHotIndexExperiment,
     "b2t_cnn": CNNExperiment,
     "b2t_gru": B2tGruExperiment,
+    "mvts_transformer": MvtsTransformerExperiment,
     "b2t_mamba": B2tMambaExperiment,
     "ctc_lm": CtcLmExperiment,
     "b2t_ctc_lm_mamba_finetuning": B2tCtcLmMambaFinetuningExperiment,
     "b2p2t_mamba": B2P2TMambaExperiment,
     "b2p2t_gru": B2P2TGruExperiment,
+    "b2p2t_mvtst": B2P2TMvtstExperiment
 }
 
 
