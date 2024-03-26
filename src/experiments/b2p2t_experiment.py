@@ -30,13 +30,14 @@ from src.train.history import MetricEntry, SingleEpochHistory, DecodedPrediction
 
 
 class B2P2TEvaluator(Evaluator):
-    def __init__(self, mode=Literal["train", "val", "test"]):
+    def __init__(self, decoding_script: str, mode: Literal["train", "val", "test"]):
         super().__init__(mode)
         self.temp_dir = f"temp/{uuid.uuid4()}"
         os.makedirs(self.temp_dir, exist_ok=True)
         self.file_order: list[str] = []
         self.losses: list[float] = []
         self.metrics: list[dict[str, float]] = []
+        self.decoding_script = decoding_script
 
     def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
         if self.mode == "test":
@@ -67,7 +68,7 @@ class B2P2TEvaluator(Evaluator):
                     "-n",
                     "lm_decoder",
                     "python",
-                    "src/decoding/postprocess_baseline.py",
+                    self.decoding_script,
                     "--data_dir",
                     self.temp_dir,
                 ],
@@ -155,7 +156,7 @@ class B2P2TEvaluator(Evaluator):
 
 
 class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
-    pass
+    decoding_script: str = "src/decoding/postprocess_baseline.py"
 
 
 class B2P2TExperiment(Experiment):
@@ -200,4 +201,4 @@ class B2P2TExperiment(Experiment):
         return (256) * self.config.unfolder_kernel_len
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
-        return B2P2TEvaluator(mode)
+        return B2P2TEvaluator(self.config.decoding_script, mode)

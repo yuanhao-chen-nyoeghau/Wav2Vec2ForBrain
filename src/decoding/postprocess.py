@@ -1,4 +1,3 @@
-from genericpath import isdir
 import time
 import pickle
 import numpy as np
@@ -6,12 +5,10 @@ import pickle
 import os
 import argparse
 
-from sentry_sdk import continue_trace
-from decoding.decoding_types import LLMOutput
+from src.decoding.decoding_types import LLMOutput, prepare_transcription_batch
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.yaml_config import YamlConfig
-from typing import NamedTuple, cast
 
 
 # before executing:
@@ -75,35 +72,33 @@ if __name__ == "__main__":
     os.makedirs(out_dir, exist_ok=True)
     for (input, output), file in batches:
         batch_logits = output.logits
-
+        assert output.logit_lens != None
         rnn_outputs = {
-            "logits": [],
-            "logitLengths": [],
-            "transcriptions": [],
+            "transcriptions": prepare_transcription_batch(input.transcriptions),
         }
 
-        nbest_outputs = []
-        batch_logits = lmDecoderUtils.rearrange_speech_logits(
-            batch_logits.detach().cpu().numpy(), has_sil=True
-        )
+        batch_nbest_outputs = []
+
         out_batch: LLMOutputBatch = []
         for i in range(batch_logits.shape[0]):
-            logits = batch_logits[i]
-            # logits = np.concatenate(
-            # [logits[:, 1:], logits[:, 0:1]], axis=-1
-            # )  # Blank moved to the end
+            logits = batch_logits[i].detach().cpu().numpy()
+            logits = np.concatenate(
+                [logits[:, 1:], logits[:, 0:1]], axis=-1
+            )  # Blank must be last token
+            logits = lmDecoderUtils.rearrange_speech_logits(
+                logits[None, :, :], has_sil=True
+            )
+
             print("Decoding sample", i, "with rescoring enabled: ", args.rescoring)
+
             nbest = lmDecoderUtils.lm_decode(
                 ngramDecoder,
-                logits[: input.input_lens[i].item()],
+                logits[0, : output.logit_lens[i].item()],
                 blankPenalty=blank_penalty,
                 returnNBest=True,
                 rescore=args.rescoring == True,
             )
-            nbest_outputs.append(nbest)
-
-            new_trans = [ord(c) for c in input.transcriptions[i]] + [0]
-            rnn_outputs["transcriptions"].append(np.array(new_trans))
+            batch_nbest_outputs.append(nbest)
 
         # Rescore nbest outputs with LLM
         start_t = time.time()
@@ -111,7 +106,7 @@ if __name__ == "__main__":
         llm_out = lmDecoderUtils.cer_with_gpt2_decoder(
             llm,
             llm_tokenizer,
-            nbest_outputs,
+            batch_nbest_outputs[:],
             acoustic_scale,
             rnn_outputs,
             outputType="speech_sil",

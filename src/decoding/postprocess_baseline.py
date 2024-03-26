@@ -7,28 +7,9 @@ import argparse
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.args.yaml_config import YamlConfig
-from src.decoding.decoding_types import LLMOutput
+from src.decoding.decoding_types import LLMOutput, prepare_transcription_batch
 
 # Code from: https://github.com/fwillett/speechBCI/blob/main/AnalysisExamples/rnn_step3_baselineRNNInference.ipynb
-
-
-def text_to_ascii(text: str):
-    return [ord(char) for char in text]
-
-
-def prepare_transcription_batch(transcriptions: list[str]):
-    transcriptions = [
-        t.replace("<s>", "").replace("</s>", "").lower() for t in transcriptions
-    ]
-    max_len = (
-        max([len(t) for t in transcriptions]) + 1
-    )  # make sure there is an end token/blank in each sequence
-    paddedTranscripts = []
-    for t in transcriptions:
-        paddedTranscription = np.zeros([max_len]).astype(np.int32)
-        paddedTranscription[0 : len(t)] = np.array(text_to_ascii(t))
-        paddedTranscripts.append(paddedTranscription)
-    return np.stack(paddedTranscripts, axis=0)
 
 
 # before executing:
