@@ -15,6 +15,7 @@ from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 
+
 class B2TMvtsTransformerArgsModel(B2TArgsModel):
     dim_feedforward: int = 256
     num_layers: int = 2
@@ -26,8 +27,15 @@ class B2TMvtsTransformerArgsModel(B2TArgsModel):
     freeze: bool = False
     pos_encoding: Literal["learnable"] = "learnable"
 
+
 class MvtsTransformerModel(B2TModel):
-    def __init__(self, config: B2TMvtsTransformerArgsModel, vocab_size: int, in_size: int, pad_token_id=0):
+    def __init__(
+        self,
+        config: B2TMvtsTransformerArgsModel,
+        vocab_size: int,
+        in_size: int,
+        pad_token_id=0,
+    ):
         super().__init__()
         self.config = config
         self.max_len = 1000
@@ -50,41 +58,39 @@ class MvtsTransformerModel(B2TModel):
 
     def forward(self, batch: B2tSampleBatch):
         x, targets = batch
-        assert targets is not None, "Targets must be set"
         target_lens = batch.target_lens
         input_lens = batch.input_lens
-        device = targets.device
+        device = x.device
         if targets is not None:
             targets = torch.where(
                 targets == self.pad_token_id, torch.tensor(-100), targets
             )
 
-        x_padded = torch.zeros(x.shape[0] , self.max_len , x.shape[2])
-        x_padded[:, :x.shape[1], :] = x
+        x_padded = torch.zeros(x.shape[0], self.max_len, x.shape[2])
+        x_padded[:, : x.shape[1], :] = x
         mask = x_padded != 0
         sequence_mask = mask.any(-1)
         out = self.transformer.forward(x_padded.to(device), sequence_mask.to(device))
-        out = log_softmax(out, -1)
-        out = out.transpose(0, 1)
-        ctc_loss = self.loss(
-            out,
-            targets,
-            input_lens.to(device),
-            target_lens.to(device),
-        )
 
-        if ctc_loss.item() < 0:
-            print(
-                f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+        if targets != None and target_lens != None:
+            ctc_loss = self.loss(
+                out.log_softmax(-1).transpose(0, 1),
+                targets,
+                input_lens.to(device),
+                target_lens.to(device),
             )
 
-        return ModelOutput(
-            out.transpose(0, 1),
-            {"ctc_loss": ctc_loss.item()},
-            ctc_loss,
-        )
+            if ctc_loss.item() < 0:
+                print(
+                    f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+                )
 
-
+            return ModelOutput(
+                out,
+                {"ctc_loss": ctc_loss.item()},
+                ctc_loss,
+            )
+        return ModelOutput(out, {}, None)
 
 
 class TransformerBatchNormEncoderLayer(nn.modules.Module):
@@ -119,8 +125,8 @@ class TransformerBatchNormEncoderLayer(nn.modules.Module):
         self.norm2 = BatchNorm1d(d_model, eps=1e-5)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
-        
-        self.activation = F.relu if activation == 'relu' else F.gelu
+
+        self.activation = F.relu if activation == "relu" else F.gelu
 
     def __setstate__(self, state):
         if "activation" not in state:
@@ -155,6 +161,7 @@ class TransformerBatchNormEncoderLayer(nn.modules.Module):
         src = self.norm2(src)
         src = src.permute(2, 0, 1)  # restore (seq_len, batch_size, d_model)
         return src
+
 
 class FixedPositionalEncoding(nn.Module):
     """Positional encoding of input.
@@ -258,7 +265,7 @@ class TSTransformerEncoder(nn.Module):
         activation: the activation function of intermediate layer, relu or gelu
         norm: the normalization layer
         freeze: whether to freeze the positional encoding layer
-        """
+    """
 
     def __init__(
         self,
@@ -306,7 +313,7 @@ class TSTransformerEncoder(nn.Module):
 
         self.output_layer = nn.Linear(d_model, feat_dim)
 
-        self.act = F.relu if activation == 'relu' else F.gelu
+        self.act = F.relu if activation == "relu" else F.gelu
 
         self.dropout1 = nn.Dropout(dropout)
 
@@ -406,7 +413,7 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
-        self.act = F.relu if activation == 'relu' else F.gelu
+        self.act = F.relu if activation == "relu" else F.gelu
 
         self.dropout1 = nn.Dropout(dropout)
 
@@ -436,7 +443,7 @@ class TSTransformerEncoderClassiregressor(nn.Module):
         )  # [seq_length, batch_size, d_model] project input vectors to d_model dimensional space
         inp = self.pos_enc(inp)  # add positional encoding
         # NOTE: logic for padding masks is reversed to comply with definition in MultiHeadAttention, TransformerEncoderLayer
-        inverse_padding_masks=~padding_masks
+        inverse_padding_masks = ~padding_masks
         output = self.transformer_encoder(
             inp, src_key_padding_mask=inverse_padding_masks.float()
         )  # (seq_length, batch_size, d_model)
@@ -448,6 +455,6 @@ class TSTransformerEncoderClassiregressor(nn.Module):
 
         # Output
         output = output * padding_masks.unsqueeze(-1)  # zero-out padding embeddings
-        output = self.output_layer(output) # (batch_size, seq_length, vocab)
+        output = self.output_layer(output)  # (batch_size, seq_length, vocab)
 
         return output

@@ -65,8 +65,7 @@ if __name__ == "__main__":
     blank_penalty = np.log(7)
     llm_weight = 0.5
 
-    llm_outputs = []
-    # Generate nbest outputs from 5gram LM
+    # Generate nbest outputs from n-gram phoneme LM
     start_t = time.time()
     out_dir = os.path.join(args.data_dir, "out")
     os.makedirs(out_dir, exist_ok=True)
@@ -74,7 +73,11 @@ if __name__ == "__main__":
         batch_logits = output.logits
         assert output.logit_lens != None
         rnn_outputs = {
-            "transcriptions": prepare_transcription_batch(input.transcriptions),
+            "transcriptions": (
+                prepare_transcription_batch(input.transcriptions)
+                if input.transcriptions is not None
+                else [[]] * len(batch_logits)
+            ),
         }
 
         batch_nbest_outputs = []
@@ -114,20 +117,24 @@ if __name__ == "__main__":
             lengthPenalty=0,
             alpha=llm_weight,
         )
+        cer, cerIstart, cerIend = llm_out["cer"]
+        wer, werIstart, werIend = llm_out["wer"]
         time_per_batch = (time.time() - start_t) / len(logits)
         print(f"LLM decoding took {time_per_batch} seconds per sample")
         llm_output = LLMOutput(
-            cer=llm_out["cer"],
-            wer=llm_out["wer"],
+            cer=cer,
+            wer=wer,
             decoded_transcripts=llm_out["decoded_transcripts"],
             confidences=llm_out["confidences"],
-            target_transcripts=input.transcriptions,
+            target_transcripts=lmDecoderUtils._extract_transcriptions(rnn_outputs),
+            cer_95_confidence_interval=(cerIstart, cerIend),
+            wer_95_confidence_interval=(werIstart, werIend),
         )
-        out_batch.append(llm_output)
-        print("decoded", llm_out["decoded_transcripts"])
-        print("target", input.transcriptions[i])
-
+        print("decoded", llm_output.decoded_transcripts)
+        print("target", llm_output.target_transcripts)
+        print("wer", llm_output.wer)
+        print("cer", llm_output.cer)
         with open(os.path.join(out_dir, file), "wb") as handle:
-            pickle.dump(out_batch, handle)
+            pickle.dump(llm_output, handle)
     time_per_batch = (time.time() - start_t) / len(batches)
     print(f"3gram decoding took {time_per_batch} seconds per batch")

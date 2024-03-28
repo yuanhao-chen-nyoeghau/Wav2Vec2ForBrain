@@ -1,3 +1,4 @@
+from math import nan
 import sys
 from src.decoding.decoding_types import LLMOutput
 from src.model.b2p2t_model import B2P2TModel
@@ -5,7 +6,7 @@ from src.model.b2p2t_model import B2P2TModelArgsModel
 from src.datasets.brain2text_w_phonemes import (
     Brain2TextWPhonemesDataset,
 )
-from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
+from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.base_args import (
     B2TDatasetArgsModel,
@@ -27,6 +28,7 @@ import subprocess
 from shutil import rmtree
 from src.train.evaluator import Evaluator
 from src.train.history import MetricEntry, SingleEpochHistory, DecodedPredictionBatch
+import json
 
 
 class B2P2TEvaluator(Evaluator):
@@ -112,6 +114,18 @@ class B2P2TEvaluator(Evaluator):
                 filename = self.file_order[i]
                 with open(os.path.join(out_dir, filename), "rb") as handle:
                     batch: LLMOutput = pickle.load(handle)
+                    if batch.wer_95_confidence_interval != None:
+                        wer_CI_start, wer_CI_end = batch.wer_95_confidence_interval
+                        base_metrics.update(
+                            decoder_wer_CI_start=wer_CI_start,
+                            decoder_wer_CI_end=wer_CI_end,
+                        )
+                    if batch.cer_95_confidence_interval != None:
+                        cer_CI_start, cer_CI_end = batch.cer_95_confidence_interval
+                        base_metrics.update(
+                            decoder_cer_CI_start=cer_CI_start,
+                            decoder_cer_CI_end=cer_CI_end,
+                        )
                     base_metrics.update(decoder_wer=batch.wer, decoder_cer=batch.cer)
                     decoded = DecodedPredictionBatch(
                         batch.decoded_transcripts, batch.target_transcripts
@@ -127,7 +141,8 @@ class B2P2TEvaluator(Evaluator):
     ):
         adjustedLens = predictions.logit_lens
         assert adjustedLens != None, "logit_lens is None."
-
+        if batch.target == None or batch.target_lens == None:
+            return nan
         pred = predictions.logits
         total_edit_distance = 0
         total_seq_length = 0
@@ -190,7 +205,7 @@ class B2P2TExperiment(Experiment):
         return DataLoader(
             self._create_dataset(split),
             batch_size=self.base_config.batch_size,
-            shuffle=True,
+            shuffle=split != "test" or not self.config.competition_mode,
             collate_fn=ds.get_collate_fn(),
         )
 
@@ -202,3 +217,58 @@ class B2P2TExperiment(Experiment):
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
         return B2P2TEvaluator(self.config.decoding_script, mode)
+
+    def process_test_results(self, test_results: SingleEpochHistory):
+        worst_wer = 0
+        best_wer = 10
+        best_i = -1
+        worst_i = -1
+        perfect: list[dict] = []
+        total = len(test_results.metrics)
+
+        def get_batch(i: int):
+            entry = test_results.decoded[i]
+            if entry is not None:
+                return {
+                    "predictions": entry.predictions,
+                    "targets": entry.targets,
+                }
+            return {}
+
+        for i, metric in enumerate(test_results.metrics):
+            wer = metric.metrics["decoder_wer"]
+            if wer < best_wer:
+                best_wer = wer
+                best_i = i
+            if wer > worst_wer:
+                worst_wer = wer
+                worst_i = i
+            if wer == 0:
+                perfect.append(get_batch(i))
+        with open(os.path.join(self.results_dir, "best_worst.json"), "w") as f:
+            json.dump(
+                {
+                    "best": {
+                        "metrics": test_results.metrics[best_i].metrics,
+                        "batch": get_batch(best_i),
+                    },
+                    "worst": {
+                        "metrics": test_results.metrics[worst_i].metrics,
+                        "batch": get_batch(worst_i),
+                    },
+                    "perfect": {
+                        "count": len(perfect),
+                        "items": perfect,
+                    },
+                    "total": total,
+                },
+                f,
+                indent=5,
+            )
+
+        if self.config.competition_mode == True:
+            with open(os.path.join(self.results_dir, "submission.txt"), "w") as f:
+                for batch in test_results.decoded:
+                    assert batch is not None
+                    for pred in batch.predictions:
+                        f.write(f"{pred}\n")

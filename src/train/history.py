@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 class DecodedPredictionBatch(NamedTuple):
     predictions: list[str]
-    targets: list[str]
+    targets: Optional[list[str]]
 
 
 @dataclass
@@ -54,9 +54,15 @@ class SingleEpochHistory:
         return self.metrics[-1]
 
     def to_dict(self):
+        def get_batch(i: int):
+            entry = self.decoded[i]
+            if entry is not None:
+                return {"predictions": entry.predictions, "targets": entry.targets}
+            return {}
+
         return {
             "history": [
-                {**metric.__dict__, "decoded": self.decoded[i]}
+                {**metric.__dict__, "batch": get_batch(i)}
                 for i, metric in enumerate(self.metrics)
             ],
             "average": self.get_average().__dict__,
@@ -140,14 +146,14 @@ class TrainHistory(NamedTuple):
             for batch in epoch["train"]["history"]:
                 train_epoch_history.add_batch_metric(
                     MetricEntry(**batch["metric"]),
-                    DecodedPredictionBatch(**batch["decoded"]),
+                    DecodedPredictionBatch(**batch["batch"]),
                 )
 
             val_epoch_history = SingleEpochHistory()
             for batch in epoch["val"]["history"]:
                 val_epoch_history.add_batch_metric(
                     MetricEntry(**batch["metric"]),
-                    DecodedPredictionBatch(**batch["decoded"]),
+                    DecodedPredictionBatch(**batch["batch"]),
                 )
 
             epoch_history = EpochLosses(

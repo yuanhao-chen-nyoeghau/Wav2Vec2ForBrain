@@ -117,8 +117,6 @@ class MambaModel(B2TModel):
 
     def forward(self, batch: B2tSampleBatch) -> ModelOutput:
         x, targets = batch
-        assert targets is not None, "Targets must be set"
-        device = targets.device
         if targets is not None:
             targets = torch.where(
                 targets == self.pad_token_id, torch.tensor(-100), targets
@@ -129,10 +127,16 @@ class MambaModel(B2TModel):
 
         # out shape: (batch_size, seq_len, vocab_size)
         out = log_softmax(out, -1)
-        ctc_loss = compute_ctc_loss(x, out, targets, self.loss)
 
+        if targets != None:
+            ctc_loss = compute_ctc_loss(x, out, targets, self.loss)
+            return ModelOutput(
+                out,
+                {"ctc_loss": ctc_loss.item()},
+                ctc_loss,
+            )
         return ModelOutput(
             out,
-            {"ctc_loss": ctc_loss.item()},
-            ctc_loss,
+            {},
+            None,
         )

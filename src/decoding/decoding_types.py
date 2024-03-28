@@ -8,6 +8,8 @@ class LLMOutput(NamedTuple):
     decoded_transcripts: list[str]
     confidences: Optional[list[float]]
     target_transcripts: list[str]
+    wer_95_confidence_interval: Optional[tuple[float, float]] = None
+    cer_95_confidence_interval: Optional[tuple[float, float]] = None
 
 
 def text_to_ascii(text: str):

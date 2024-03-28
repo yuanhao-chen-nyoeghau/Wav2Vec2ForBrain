@@ -62,7 +62,6 @@ class GRUModel(B2TModel):
     def forward(self, batch: B2tSampleBatch) -> ModelOutput:
         x, targets = batch
 
-        assert targets is not None, "Targets must be set"
         if targets is not None:
             targets = torch.where(
                 targets == self.pad_token_id, torch.tensor(-100), targets
@@ -82,15 +81,21 @@ class GRUModel(B2TModel):
         # out shape: (batch_size, seq_len, vocab_size)
 
         # TODO: check if ctc loss calculation is still valid
-        ctc_loss = self.loss.forward(
-            torch.permute(log_softmax(out, -1), [1, 0, 2]),
-            targets,
-            batch.input_lens,
-            batch.target_lens,
+        ctc_loss = (
+            self.loss.forward(
+                torch.permute(log_softmax(out, -1), [1, 0, 2]),
+                targets,
+                batch.input_lens,
+                batch.target_lens,
+            )
+            if batch.target_lens is not None and targets is not None
+            else None
         )
+
+        metrics_dict = {"ctc_loss": ctc_loss.item()} if ctc_loss is not None else {}
 
         return ModelOutput(
             out,
-            {"ctc_loss": ctc_loss.item()},
+            metrics_dict,
             ctc_loss,
         )

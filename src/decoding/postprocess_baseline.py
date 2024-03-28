@@ -89,7 +89,11 @@ if __name__ == "__main__":
         rnn_outputs = {
             "logits": np_logits,
             "logitLengths": logit_lens.cpu().numpy(),
-            "transcriptions": prepare_transcription_batch(input.transcriptions),
+            "transcriptions": (
+                prepare_transcription_batch(input.transcriptions)
+                if input.transcriptions is not None
+                else [[]] * len(batch_logits)
+            ),
         }
 
         decoder_out = lmDecoderUtils.cer_with_lm_decoder(
@@ -100,7 +104,7 @@ if __name__ == "__main__":
             cer=decoder_out["cer"],
             wer=decoder_out["wer"],
             decoded_transcripts=decoder_out["decoded_transcripts"],
-            target_transcripts=input.transcriptions,
+            target_transcripts=lmDecoderUtils._extract_transcriptions(rnn_outputs),
             confidences=None,
         )
 

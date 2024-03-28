@@ -90,7 +90,7 @@ class CtcLmExperiment(Experiment):
         model: B2TModel,
         dataloader: DataLoader,
         handle_prediction_batch: Optional[
-            Callable[[int, torch.Tensor, ModelOutput, list[str]], Any]
+            Callable[[int, torch.Tensor, ModelOutput, Optional[list[str]]], Any]
         ] = None,
     ):
         result = []
@@ -107,12 +107,20 @@ class CtcLmExperiment(Experiment):
                     inputs.argmax(dim=-1).cpu().numpy()
                 )
                 predicted = self.tokenizer.batch_decode(predicted_ids)
-                targets = self.tokenizer.batch_decode(
-                    labels.cpu().numpy(), group_tokens=False
+                targets = (
+                    self.tokenizer.batch_decode(
+                        labels.cpu().numpy(), group_tokens=False
+                    )
+                    if labels is not None
+                    else None
                 )
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, inputs, outputs, targets)
-                combined = zip(predicted, targets, inputs_decoded)
+                combined = zip(
+                    predicted,
+                    targets if targets is not None else [None] * len(predicted),
+                    inputs_decoded,
+                )
                 batch_predictions = []
                 batch_result = {
                     "metrics": outputs.metrics,
@@ -154,8 +162,10 @@ class CtcLmExperiment(Experiment):
         predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
         predicted_str = self.tokenizer.batch_decode(predicted_ids)
         input_str = self.tokenizer.batch_decode(batch.input.argmax(-1).cpu().numpy())
-        target_str = self.tokenizer.batch_decode(
-            batch.target.cpu().numpy(), group_tokens=False
+        target_str = (
+            self.tokenizer.batch_decode(batch.target.cpu().numpy(), group_tokens=False)
+            if batch.target is not None
+            else None
         )
 
         batch_size, seq_len, vocab_size = predictions.shape
@@ -232,7 +242,7 @@ class CtcLmExperiment(Experiment):
                 ax.set_title(f"Tokenized {title}: {str_data}")
 
             fig.suptitle(
-                f"Target: {target_str[sample_index]}",
+                f"Target: {target_str[sample_index] if target_str is not None else 'N/A'}",
                 fontsize="large",
                 fontweight="bold",
             )

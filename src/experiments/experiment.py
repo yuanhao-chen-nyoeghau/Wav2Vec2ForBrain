@@ -57,7 +57,7 @@ class Experiment(metaclass=ABCMeta):
             print(f"loading model from checkpoint {self.base_config.from_checkpoint}")
             self.model.load_state_dict(
                 torch.load(self.base_config.from_checkpoint, map_location="cuda"),
-                strict=False,
+                strict=True,
             )
             history_path = os.path.join(
                 os.path.dirname(self.base_config.from_checkpoint), "history.json"
@@ -102,15 +102,20 @@ class Experiment(metaclass=ABCMeta):
                     json.dump(history.to_dict(), f, indent=5)
 
                 self.plot_results(history)
+                self.process_test_results(history.test_losses)
             else:
                 test_results = self.run_real_world_test(self.model)
                 if test_results != None:
                     wandb.log(trainer._get_wandb_metrics(test_results, "test"))
+                    self.process_test_results(test_results)
 
             artifact = wandb.Artifact(name="results", type="experiment_results")
             artifact.add_dir(f"{self.results_dir}/")
             cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
+
+    def process_test_results(self, test_results: SingleEpochHistory):
+        pass
 
     def plot_results(self, history: TrainHistory):
         history.plot(os.path.join(self.results_dir, "history.png"))
@@ -188,6 +193,7 @@ class Experiment(metaclass=ABCMeta):
     ):
         dataloader = self.dataloader_train if mode == "train" else self.dataloader_test
         evaluator = self.create_evaluator(mode)
+        model.eval()
         for i, data in enumerate(dataloader):
             data = cast(SampleBatch, data).cuda()
 
@@ -248,7 +254,11 @@ class Experiment(metaclass=ABCMeta):
         predicted_str = [
             "".join([vocab[i] for i in np.argmax(p, axis=-1)]) for p in predictions
         ]
-        target_str = ["".join([vocab[i] for i in p]) for p in batch.target]
+        target_str = (
+            ["".join([vocab[i] for i in p]) for p in batch.target]
+            if batch.target is not None
+            else None
+        )
 
         batch_size, seq_len, vocab_size = predictions.shape
         px = 1 / plt.rcParams["figure.dpi"]
@@ -302,7 +312,7 @@ class Experiment(metaclass=ABCMeta):
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_xlabel(
-                f"Target: {target_str[sample_index]}\nPrediction: {predicted_str[sample_index]}"
+                f"Target: {target_str[sample_index] if target_str is not None else None}\nPrediction: {predicted_str[sample_index]}"
             )
 
         plt.title(f"Displaying {nrows}/{batch_size} samples")

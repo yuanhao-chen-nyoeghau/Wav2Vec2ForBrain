@@ -48,8 +48,10 @@ class B2TExperiment(Experiment):
         predicted_strings = self.tokenizer.batch_decode(
             predicted_ids, group_tokens=True
         )
-        label_strings = self.tokenizer.batch_decode(
-            sample.target.cpu().numpy(), group_tokens=False
+        label_strings = (
+            self.tokenizer.batch_decode(sample.target.cpu().numpy(), group_tokens=False)
+            if sample.target is not None
+            else None
         )
         return DecodedPredictionBatch(predicted_strings, label_strings)
 

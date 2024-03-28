@@ -26,21 +26,22 @@ command:
   - --unfolder_stride_len=4
   - --unfolder_kernel_len=32
   - --optimizer_epsilon=0.1
+  - --experiment_name="mamba_large_dmodel"
 metric:
   name: val_ctc_loss
   goal: minimize
 parameters:
   mamba_n_layer:
-    values: [64, 32, 128]
+    values: [64]
   mamba_d_model:
-    values: [128, 64]
+    values: [512,756,1024]
   feature_extractor_activation:
-    values: ['sigmoid', "linear", "gelu"]
+    values: ["linear"]
   input_dropout: 
-    values: [0.4, 0.5, 0.6]
+    values: [0.4]
   weight_decay:
-    values: [0.001, 0.1]
+    values: [0.001]
   whiteNoiseSD:
-    values: [0.8,1.0]
+    values: [1.0]
 
   

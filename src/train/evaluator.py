@@ -67,14 +67,14 @@ class DefaultEvaluator(Evaluator):
         predicted_strings = [
             cut_after_eos_token(string) for string in predicted_strings
         ]
-
-        additional_metrics = {
-            "word_error_rate": WordErrorRate()
-            .update(input=predicted_strings, target=label_strings)
-            .compute()
-            .item()
-        }
-        predictions.metrics.update(additional_metrics)
+        if label_strings is not None:
+            additional_metrics = {
+                "word_error_rate": WordErrorRate()
+                .update(input=predicted_strings, target=label_strings)
+                .compute()
+                .item()
+            }
+            predictions.metrics.update(additional_metrics)
         assert (
             predictions.loss != None
         ), "Loss is None. Make sure to set loss in ModelOutput"
@@ -95,7 +95,9 @@ class DefaultEvaluator(Evaluator):
         predicted_strings = self.tokenizer.batch_decode(
             predicted_ids, group_tokens=True
         )
-        label_strings = self.tokenizer.batch_decode(
-            sample.target.cpu().numpy(), group_tokens=False
+        label_strings = (
+            self.tokenizer.batch_decode(sample.target.cpu().numpy(), group_tokens=False)
+            if sample.target is not None
+            else None
         )
         return DecodedPredictionBatch(predicted_strings, label_strings)
