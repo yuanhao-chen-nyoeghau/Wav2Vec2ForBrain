@@ -57,7 +57,7 @@ class B2P2TEvaluator(Evaluator):
     def evaluate(self) -> SingleEpochHistory:
         if self.mode == "test":
             new_env = os.environ.copy()
-            new_env["PYTHONPATH"] = "/hpi/fs00/home/tobias.fiedler/brain2text"
+            new_env["PYTHONPATH"] = os.getcwd()
             new_env["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
             print(
                 "[B2P2T Evaluator] Running external script for decoding (this might take a while)"
