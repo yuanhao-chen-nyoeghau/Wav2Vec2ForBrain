@@ -129,7 +129,7 @@ class Brain2TextDataset(BaseDataset):
                 )
 
             for sentence in transcriptions:
-                self.transcriptions.append(f"<s>{sentence.upper()}</s>")
+                self.transcriptions.append(sentence.upper())
                 self.days.append(day_idx)
 
         assert len(self.transcriptions) == len(
