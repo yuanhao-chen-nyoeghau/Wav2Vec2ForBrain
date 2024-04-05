@@ -87,20 +87,20 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
 
         self.g2p = G2p()
         self.phoneme_seqs = [
-            self.get_phoneme_seq(transcription) for transcription in self.transcriptions
+            self.get_phoneme_seq(sample.target) for sample in self.samples
         ]
 
     def __getitem__(self, index: int) -> PhonemeSample:
-        resampled, transcription = super().__getitem__(index)
+        sample: B2tSample = super().__getitem__(index)
         phoneme_ids, phonemes = self.phoneme_seqs[index]
 
         if self.config.remove_punctuation:
             chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-            transcription = re.sub(chars_to_ignore_regex, "", transcription)
+            transcription = re.sub(chars_to_ignore_regex, "", sample.target)
 
-        day_idx = self.days[index]
+        day_idx = sample.day_idx
 
-        sample = PhonemeSample(resampled, phoneme_ids)
+        sample = PhonemeSample(sample.input, phoneme_ids)
         sample.day_idx = day_idx
         sample.transcription = transcription
         sample.phonemes = phonemes

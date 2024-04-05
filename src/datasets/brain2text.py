@@ -99,11 +99,11 @@ class Brain2TextDataset(BaseDataset):
             if os.path.exists(data_path / f"{filePrefix}.mat")
         ]
 
-        self.transcriptions: list[str] = []
-        self.brain_data_samples: list[torch.Tensor] = []
-        self.days: list[int] = []
         self.tokenizer = tokenizer
         preprocess = PreprocessingFunctions[config.preprocessing]
+
+        # Samples are made up of a tuple of (day_idx, brain_data_sample, transcription)
+        self.samples: list[B2tSample] = []
 
         for day_idx, data_file in data_files:
             # block-wise feature normalization
@@ -123,24 +123,23 @@ class Brain2TextDataset(BaseDataset):
 
             input_features, transcriptions = preprocess(data_file, blocks)
 
-            for dataSample in input_features:
-                self.brain_data_samples.append(
-                    torch.tensor(dataSample, dtype=torch.float32)
+            assert len(input_features) == len(
+                transcriptions
+            ), "Length of input features and transcriptions must be equal."
+
+            for i in range(0, len(input_features)):
+                sample = B2tSample(
+                    torch.tensor(input_features[i], dtype=torch.float32),
+                    transcriptions[i].upper(),
                 )
-
-            for sentence in transcriptions:
-                self.transcriptions.append(sentence.upper())
-                self.days.append(day_idx)
-
-        assert len(self.transcriptions) == len(
-            self.brain_data_samples
-        ), "Length of labels and data samples must be equal."
+                sample.day_idx = day_idx
+                self.samples.append(sample)
 
     def __len__(self):
         return (
-            len(self.transcriptions)
+            len(self.samples)
             if self.config.limit_samples is None
-            else min(len(self.transcriptions), self.config.limit_samples)
+            else min(len(self.samples), self.config.limit_samples)
         )
 
     def __getitem__(self, index: int) -> B2tSample:
@@ -150,16 +149,15 @@ class Brain2TextDataset(BaseDataset):
         if target_sample_rate % orig_sample_rate != 0:
             print("WARNING: target_sample_rate % orig_sample_rate != 0")
 
-        sample = self.brain_data_samples[index]
+        brain_data = self.samples[index].input
         resampled = (
-            resample_sample(sample, target_sample_rate, orig_sample_rate)
+            resample_sample(brain_data, target_sample_rate, orig_sample_rate)
             if target_sample_rate != orig_sample_rate
-            else sample
+            else brain_data
         )
-
-        sample = B2tSample(resampled, self.transcriptions[index])
-        sample.day_idx = self.days[index]
-        return sample
+        resampled_sample = B2tSample(resampled, self.samples[index].target)
+        resampled_sample.day_idx = self.samples[index].day_idx
+        return resampled_sample
 
     def get_collate_fn(
         self, tokenizer: Optional[PreTrainedTokenizer]

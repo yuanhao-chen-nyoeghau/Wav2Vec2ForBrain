@@ -11,6 +11,7 @@ from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
 from src.train.evaluator import DefaultEvaluator
 from src.train.history import DecodedPredictionBatch
+from util.batch_sampler import Brain2TextBatchSampler
 
 
 class B2TExperiment(Experiment):
@@ -72,10 +73,12 @@ class B2TExperiment(Experiment):
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
+
+        batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
+
         return DataLoader(
             self._create_dataset(split),
-            batch_size=self.base_config.batch_size,
-            shuffle=True,
+            batch_sampler=batch_sampler,
             collate_fn=ds.get_collate_fn(self.tokenizer),
         )
 
