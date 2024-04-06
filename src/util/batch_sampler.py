@@ -1,41 +1,55 @@
-from math import ceil
-from typing import Iterable, Sized
-from torch.utils.data import BatchSampler
+from random import shuffle
+from typing import Dict
 from torch.utils.data.sampler import Sampler
+
+from src.datasets.brain2text import Brain2TextDataset
 
 
 class Brain2TextBatchSampler(Sampler):
-    def __init__(self, data, batch_size) -> None:
-        self.data = {}
-        # Create day index
-        for i, sample in enumerate(data.samples):
-            if sample.day_idx in self.data.keys():
-                self.data[sample.day_idx].append(i)
-            else:
-                self.data[sample.day_idx] = [i]
+    def __init__(
+        self, data: Brain2TextDataset, batch_size: int, shuffle: bool = True
+    ) -> None:
+        self.shuffle = shuffle
         self.batch_size = batch_size
 
-        self.total = sum(
-            [
-                ceil(len(self.data[day_idx]) / self.batch_size)
-                for day_idx in self.data.keys()
-            ]
-        )
+        # Create day index
+        self.day_index = self.build_day_index(data)
+
+        self.batches = self.build_batches()
 
     def __iter__(self):
+        if self.shuffle:
+            shuffle(self.batches)
+        for batch in self.batches:
+            yield batch
+
+    def __len__(self):
+        return len(self.batches)
+
+    def build_batches(self) -> list[list[int]]:
+        batches = []
         batch = []
-        for _, indices in self.data.items():
+        # Build batches from day indices
+        for indices in self.day_index.values():
+            shuffle(indices)
             for index in indices:
                 batch.append(index)
 
                 if len(batch) == self.batch_size:
-                    yield batch
+                    batches.append(batch)
                     batch = []
 
             # Returns uncompleted batch if there is one
             if len(batch) > 0:
-                yield batch
+                batches.append(batch)
                 batch = []
+        return batches
 
-    def __len__(self):
-        return self.total
+    def build_day_index(self, data: Brain2TextDataset) -> Dict[int, list[int]]:
+        day_idx: Dict[int, list[int]] = {}
+        for i, sample in enumerate(data.samples):
+            if sample.day_idx in day_idx.keys():
+                day_idx[sample.day_idx].append(i)
+            else:
+                day_idx[sample.day_idx] = [i]
+        return day_idx

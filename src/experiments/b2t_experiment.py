@@ -11,7 +11,7 @@ from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
 from src.train.evaluator import DefaultEvaluator
 from src.train.history import DecodedPredictionBatch
-from util.batch_sampler import Brain2TextBatchSampler
+from src.util.batch_sampler import Brain2TextBatchSampler
 
 
 class B2TExperiment(Experiment):
