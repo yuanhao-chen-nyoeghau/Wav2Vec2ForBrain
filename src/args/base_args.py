@@ -83,7 +83,9 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
-
+    day_batches: bool = Field(
+        True, description="Build batches only from measurements of the same day"
+    )
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1

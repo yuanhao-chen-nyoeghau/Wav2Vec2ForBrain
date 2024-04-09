@@ -205,13 +205,21 @@ class B2P2TExperiment(Experiment):
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
 
-        batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
+        if self.config.day_batches and split == "train":
+            batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
 
-        return DataLoader(
-            self._create_dataset(split),
-            batch_sampler=batch_sampler,
-            collate_fn=ds.get_collate_fn(),
-        )
+            return DataLoader(
+                self._create_dataset(split),
+                batch_sampler=batch_sampler,
+                collate_fn=ds.get_collate_fn(),
+            )
+        else:
+            return DataLoader(
+                self._create_dataset(split),
+                batch_size=self.base_config.batch_size,
+                shuffle=split == "train",
+                collate_fn=ds.get_collate_fn(),
+            )
 
     def get_vocab(self) -> list[str]:
         return Brain2TextWPhonemesDataset.vocab

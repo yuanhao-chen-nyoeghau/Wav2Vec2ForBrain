@@ -74,7 +74,7 @@ class B2TExperiment(Experiment):
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
 
-        if split == "train":
+        if self.config.day_batches and split == "train":
             batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
 
             return DataLoader(
@@ -86,6 +86,7 @@ class B2TExperiment(Experiment):
             return DataLoader(
                 self._create_dataset(split),
                 batch_size=self.base_config.batch_size,
+                shuffle=split == "train",
                 collate_fn=ds.get_collate_fn(self.tokenizer),
             )
 
