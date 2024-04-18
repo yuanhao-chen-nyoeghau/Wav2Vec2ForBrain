@@ -14,14 +14,15 @@ from torch.nn.modules import (
 from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
+from pydantic import BaseModel
 
 
-class B2TMvtsTransformerArgsModel(B2TArgsModel):
+class B2TMvtsTransformerArgsModel(BaseModel):
     dim_feedforward: int = 256
     num_layers: int = 2
     num_heads: int = 2
     dropout: float = 0.5
-    dim_model = 1024
+    dim_model: int = 1024
     norm: Literal["BatchNorm"] = "BatchNorm"
     classifier_activation: Literal["gelu"] = "gelu"
     freeze: bool = False
@@ -58,8 +59,7 @@ class MvtsTransformerModel(B2TModel):
 
     def forward(self, batch: B2tSampleBatch):
         x, targets = batch
-        target_lens = batch.target_lens
-        input_lens = batch.input_lens
+
         device = x.device
         if targets is not None:
             targets = torch.where(
@@ -72,24 +72,27 @@ class MvtsTransformerModel(B2TModel):
         sequence_mask = mask.any(-1)
         out = self.transformer.forward(x_padded.to(device), sequence_mask.to(device))
 
-        if targets != None and target_lens != None:
-            ctc_loss = self.loss(
-                out.log_softmax(-1).transpose(0, 1),
-                targets,
-                input_lens.to(device),
-                target_lens.to(device),
-            )
-
-            if ctc_loss.item() < 0:
-                print(
-                    f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+        if targets != None:
+            target_lens = batch.target_lens
+            input_lens = batch.input_lens
+            if target_lens != None:
+                ctc_loss = self.loss(
+                    out.log_softmax(-1).transpose(0, 1),
+                    targets,
+                    input_lens.to(device),
+                    target_lens.to(device),
                 )
 
-            return ModelOutput(
-                out,
-                {"ctc_loss": ctc_loss.item()},
-                ctc_loss,
-            )
+                if ctc_loss.item() < 0:
+                    print(
+                        f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+                    )
+
+                return ModelOutput(
+                    out,
+                    {"ctc_loss": ctc_loss.item()},
+                    ctc_loss,
+                )
         return ModelOutput(out, {}, None)
 
 

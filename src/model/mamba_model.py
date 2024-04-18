@@ -105,19 +105,25 @@ class MambaLMHeadModel(B2TModel, GenerationMixin):
 
 class MambaModel(B2TModel):
     def __init__(
-        self, config: MambaArgsModel, vocab_size: int, in_size: int, pad_token_id=0
+        self,
+        config: MambaArgsModel,
+        vocab_size: int,
+        in_size: int,
+        pad_token_id=0,
+        replace_target_pad=True,
     ):
         super().__init__()
         self.config = config
         self.vocab_size = vocab_size
         self.pad_token_id = pad_token_id
+        self.replace_target_pad = replace_target_pad
 
         self.model = MambaLMHeadModel(config, vocab_size, in_size)
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(self, batch: B2tSampleBatch) -> ModelOutput:
         x, targets = batch
-        if targets is not None:
+        if targets is not None and self.replace_target_pad:
             targets = torch.where(
                 targets == self.pad_token_id, torch.tensor(-100), targets
             )
@@ -126,10 +132,9 @@ class MambaModel(B2TModel):
         out = self.model.forward(x).logits
 
         # out shape: (batch_size, seq_len, vocab_size)
-        out = log_softmax(out, -1)
 
         if targets != None:
-            ctc_loss = compute_ctc_loss(x, out, targets, self.loss)
+            ctc_loss = compute_ctc_loss(x, log_softmax(out, -1), targets, self.loss)
             return ModelOutput(
                 out,
                 {"ctc_loss": ctc_loss.item()},

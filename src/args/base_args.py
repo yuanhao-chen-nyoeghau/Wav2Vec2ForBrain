@@ -29,7 +29,7 @@ class CTCTextDatasetArgsModel(BaseModel):
     remove_char_prob: float = 0.05
     noise_mean: float = -16
     noise_std: float = 2
-    correct_as_second_prob = 0.2
+    correct_as_second_prob: float = 0.2
     random_second_id_in_blank_prob: float = 0.1
     cache_generated_samples: bool = False
     remove_punctuation: bool = True
@@ -92,10 +92,13 @@ class BaseExperimentArgsModel(BaseModel):
     whiteNoiseSD: float = 0.0
     constantOffsetSD: float = 0.0
     seed: int = 42
-    optimizer_epsilon = 1e-8
+    optimizer_epsilon: float = 1e-8
     early_stopping_patience: Optional[int] = Field(
         None,
         description="Number of epochs n to consider for early stopping. Once all n-1 last epochs did not improve compared to the -nth epoch, training is stopped.   If None, early stopping is disabled",
+    )
+    train_on_val_once: bool = Field(
+        False, description="Train once on val after normal training"
     )
 
 

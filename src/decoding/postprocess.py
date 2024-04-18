@@ -56,7 +56,7 @@ if __name__ == "__main__":
     lmDir = yaml_config.config.ngram_lm_model_path
     print("Loading n-gram LM")
     ngramDecoder = lmDecoderUtils.build_lm_decoder(
-        lmDir, acoustic_scale=0.8, nbest=10, beam=18
+        lmDir, acoustic_scale=0.5, nbest=100, beam=18
     )
     print("n-gram loaded")
 

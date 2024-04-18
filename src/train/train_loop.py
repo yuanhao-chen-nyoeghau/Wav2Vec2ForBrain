@@ -49,11 +49,11 @@ class Trainer:
             end="",
         )
 
-    def _train_epoch(self):
+    def _train_epoch(self, data_loader: DataLoader):
         self.model.train()
         evaluator = self.experiment.create_evaluator("train")
 
-        for i, batch in enumerate(self.dataloader_train):
+        for i, batch in enumerate(data_loader):
             batch = cast(SampleBatch, batch).cuda()
 
             self.optimizer.zero_grad()
@@ -160,7 +160,7 @@ class Trainer:
         for epoch in range(self.config.epochs):
             print(f"\nEpoch {epoch + 1}/{self.config.epochs}")
 
-            train_losses = self._train_epoch()
+            train_losses = self._train_epoch(self.dataloader_train)
             val_losses = self._evaluate_epoch("val")
             self.scheduler.step()
 
@@ -209,6 +209,11 @@ class Trainer:
             os.remove(best_model_path)
             os.rmdir(os.path.dirname(best_model_path))
             print("Loaded model with best validation loss of this experiment from disk")
+
+        if self.config.train_on_val_once:
+            print("Training one epoch on val set")
+            train_losses = self._train_epoch(self.dataloader_val)
+
         test_losses = self._evaluate_epoch("test")
         wandb.log(self._get_wandb_metrics(test_losses, "test"))
         print(

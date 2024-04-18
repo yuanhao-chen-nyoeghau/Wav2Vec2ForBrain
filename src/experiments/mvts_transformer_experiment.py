@@ -3,10 +3,17 @@ from src.args.base_args import B2TArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.model.b2tmodel import B2TModel
-from src.model.mvts_transformer_model import B2TMvtsTransformerArgsModel, MvtsTransformerModel
+from src.model.mvts_transformer_model import (
+    B2TMvtsTransformerArgsModel,
+    MvtsTransformerModel,
+)
 from src.args.yaml_config import YamlConfigModel
 from typing import Literal
 from torch.utils.data import Dataset
+
+
+class B2P2TMvtsArgsModel(B2TMvtsTransformerArgsModel, B2TArgsModel):
+    pass
 
 
 class MvtsTransformerExperiment(B2TExperiment):
@@ -25,7 +32,7 @@ class MvtsTransformerExperiment(B2TExperiment):
 
     @staticmethod
     def get_args_model():
-        return B2TMvtsTransformerArgsModel
+        return B2P2TMvtsArgsModel
 
     def _create_model(self):
         assert (
@@ -36,9 +43,9 @@ class MvtsTransformerExperiment(B2TExperiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = MvtsTransformerModel(self.config, vocab_size = 1, in_size=5)
+        model = MvtsTransformerModel(self.config, vocab_size=1, in_size=5)
         return model
-    
+
     def _create_dataset(
         self, split: Literal["train", "val", "test"] = "train"
     ) -> Dataset:

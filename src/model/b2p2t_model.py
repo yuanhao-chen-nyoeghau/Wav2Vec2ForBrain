@@ -136,7 +136,6 @@ class B2P2TModel(B2TModel):
         x, targets = batch
         day_idxs = batch.day_idxs
 
-        assert targets is not None, "Targets must be set"
         if targets is not None:
             targets = torch.where(
                 targets == self.pad_token_id, torch.tensor(-100), targets
@@ -161,12 +160,14 @@ class B2P2TModel(B2TModel):
             (0, 2, 1),
         )
         preprocessed_batch = batch.copy_and_change(input=strided_inputs)
-        processed_in_lens = (
-            (batch.input_lens - self.config.unfolder_kernel_len)
-            / self.config.unfolder_stride_len
-        ).to(torch.int32)
-        preprocessed_batch.input_lens = processed_in_lens
+        if hasattr(batch, "input_lens"):
+            processed_in_lens = (
+                (batch.input_lens - self.config.unfolder_kernel_len)
+                / self.config.unfolder_stride_len
+            ).to(torch.int32)
+            preprocessed_batch.input_lens = processed_in_lens
+            out = self.neural_decoder.forward(preprocessed_batch)
+            out.logit_lens = processed_in_lens
+            return out
 
-        out = self.neural_decoder.forward(preprocessed_batch)
-        out.logit_lens = processed_in_lens
-        return out
+        return self.neural_decoder.forward(preprocessed_batch)
