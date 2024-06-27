@@ -26,12 +26,10 @@ class AudioWPhonemesDataset:
         self,
         hugg_dataset: DatasetDict,
         config: AudioWav2VecArgsModel,
-        tokenizer: PreTrainedTokenizer,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         self.config = config
         self._data = hugg_dataset["test" if split == "val" else split]
-        self.tokenizer = tokenizer
         self.g2p = G2p()
         self.phoneme_seqs = [
             self.get_phoneme_seq(cast(Dict, sample)["transcription"])
