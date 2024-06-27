@@ -1,5 +1,13 @@
+from math import nan
 import os
+from pyexpat import model
+import numpy as np
+import torch
 from torch.optim.optimizer import Optimizer
+from datasets.batch_types import PhonemeSampleBatch, SampleBatch
+from datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from model.b2tmodel import ModelOutput
+from model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
@@ -10,16 +18,81 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
-from src.train.evaluator import DefaultEvaluator
+from src.train.evaluator import DefaultEvaluator, Evaluator
+from train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
+from edit_distance import SequenceMatcher
 
 
-class W2VSUCArgsModel(BaseExperimentArgsModel):
+class W2VSUCEvaluator(Evaluator):
+    def __init__(self, mode: Literal["train", "val", "test"]):
+        super().__init__(mode)
+        self.history = SingleEpochHistory()
+
+    def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
+        phoneme_error_rate, prediction_batch = self._calc_phoneme_error_rate(
+            sample, predictions
+        )
+        additional_metrics = {"phoneme_error_rate": phoneme_error_rate}
+        predictions.metrics.update(additional_metrics)
+
+        assert (
+            predictions.loss != None
+        ), "Loss is None. Make sure to set loss in ModelOutput"
+        self.history.add_batch_metric(
+            MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
+            prediction_batch,
+        )
+
+    def evaluate(self) -> SingleEpochHistory:
+        return self.history
+
+    def _calc_phoneme_error_rate(
+        self, batch: PhonemeSampleBatch, predictions: ModelOutput
+    ):
+        adjustedLens = predictions.logit_lens
+        assert adjustedLens != None, "logit_lens is None."
+        if batch.target == None or batch.target_lens == None:
+            raise Exception("target or target_lens is None.")
+        pred = predictions.logits
+        total_edit_distance = 0
+        total_seq_length = 0
+        labels = []
+        predicted = []
+        for iterIdx in range(pred.shape[0]):
+            decodedSeq = torch.argmax(
+                torch.tensor(pred[iterIdx, 0 : adjustedLens[iterIdx], :]),
+                dim=-1,
+            )  # [num_seq,]
+            decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
+            decodedSeq = decodedSeq.cpu().detach().numpy()
+            decodedSeq = np.array([i for i in decodedSeq if i != 0])
+            trueSeq = np.array(
+                batch.target[iterIdx][0 : batch.target_lens[iterIdx]].cpu().detach()
+            )
+            # TODO: is this correct?
+            labels.append([PHONE_DEF_SIL[i - 1] for i in trueSeq])
+            predicted.append([PHONE_DEF_SIL[i - 1] for i in decodedSeq])
+            matcher = SequenceMatcher(a=trueSeq.tolist(), b=decodedSeq.tolist())
+            dist = matcher.distance()
+            if dist == None:
+                print(
+                    "[evaluate batch]: distance from sequence matcher is None, skipping."
+                )
+                continue
+            total_edit_distance += dist
+            total_seq_length += len(trueSeq)
+
+        return total_edit_distance / total_seq_length, DecodedPredictionBatch(
+            predicted, labels
+        )
+
+
+class W2VSUCExperimentArgsModel(BaseExperimentArgsModel, W2VSUCArgsModel):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
-    unfreeze_strategy: Literal["wav2vec2featureextractor", "all"] = "all"
-    tokenizer: Literal["wav2vec_pretrained"] = "wav2vec_pretrained"
+    unfreeze_strategy: Literal["suc"] = "suc"
     remove_punctuation: bool = True
 
 
@@ -33,8 +106,7 @@ class W2VSUCExperiment(Experiment):
         self._hugg_dataset = load_dataset(
             "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
         )
-        self.config = AudioWav2VecArgsModel(**config)
-        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
+        self.config = W2VSUCExperimentArgsModel(**config)
         super().__init__(config, yamlConfig)
         self.model: AudioWav2VecModel = self.model
 
@@ -43,38 +115,20 @@ class W2VSUCExperiment(Experiment):
 
     @staticmethod
     def get_args_model():
-        return W2VSUCArgsModel
-
-    def _create_tokenizer(self):
-        if self.config.tokenizer == "wav2vec_pretrained":
-            return AutoTokenizer.from_pretrained(
-                self.config.wav2vec_checkpoint,
-                cache_dir=self.yaml_config.cache_dir,
-            )
-        raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
+        return W2VSUCExperimentArgsModel
 
     def _create_model(self):
-        assert (
-            self.config.tokenizer == "wav2vec_pretrained"
-        ), "Only pretrained wav2vec is currently supported"
-
         assert (
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        raise NotImplementedError()
+        model = W2VSUCModel(self.config)
         return model
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
-            if self.config.unfreeze_strategy == "wav2vec2featureextractor":
-                return [
-                    {
-                        "params": self.model.wav2vec2.wav2vec2.feature_extractor.parameters()
-                    },
-                ]
-            if self.config.unfreeze_strategy == "all":
-                return self.model.parameters()
+            if self.config.unfreeze_strategy == "suc":
+                return cast(W2VSUCModel, self.model).suc.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
@@ -95,9 +149,7 @@ class W2VSUCExperiment(Experiment):
         )
 
     def get_vocab(self) -> list[str]:
-        return self.tokenizer.convert_ids_to_tokens(
-            list(range(self.tokenizer.vocab_size))
-        )
+        return ["BLANK"] + PHONE_DEF_SIL
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return DefaultEvaluator(self.tokenizer, mode)
+        return W2VSUCEvaluator(mode)
