@@ -1,9 +1,13 @@
+import os
 import re
 from typing import Dict, Literal, cast
+from args.yaml_config import YamlConfigModel
 from src.datasets.brain2text import B2tSample
 from src.datasets.base_dataset import BaseDataset, Sample
 from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
 from torch.nn.functional import pad
+
+from datasets import load_dataset, DatasetDict
 
 from src.datasets.audio import AudioDataset
 from src.datasets.brain2text_w_phonemes import (
@@ -24,11 +28,20 @@ from args.wav2vec_args import AudioWav2VecArgsModel
 class AudioWPhonemesDataset(BaseDataset):
     def __init__(
         self,
-        hugg_dataset: DatasetDict,
         config: AudioWav2VecArgsModel,
+        yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:
         self.config = config
+        base_dir = os.path.join(yaml_config.cache_dir, "audio")
+        cache_dir = os.path.join(base_dir, "cache")
+        data_dir = os.path.join(base_dir, "data")
+        hugg_dataset = cast(
+            DatasetDict,
+            load_dataset(
+                "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
+            ),
+        )
         self._data = hugg_dataset["test" if split == "val" else split]
         self.g2p = G2p()
         self.phoneme_seqs = [
