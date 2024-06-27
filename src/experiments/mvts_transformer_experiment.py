@@ -1,18 +1,25 @@
-from typing import cast
+from src.datasets.brain2text import Brain2TextDataset
 from src.args.base_args import B2TArgsModel
-from src.model.gru_model import GRUModel, GruArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
+from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.model.b2tmodel import B2TModel
+from src.model.mvts_transformer_model import (
+    B2TMvtsTransformerArgsModel,
+    MvtsTransformerModel,
+)
 from src.args.yaml_config import YamlConfigModel
+from typing import Literal
+from torch.utils.data import Dataset
 
 
-class B2tGruArgsModel(GruArgsModel, B2TArgsModel):
+class B2P2TMvtsArgsModel(B2TMvtsTransformerArgsModel, B2TArgsModel):
     pass
 
 
-class B2tGruExperiment(B2TExperiment):
+class MvtsTransformerExperiment(B2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
+        self.ds_config = B2TAudioDatasetArgsModel(**config)
         super().__init__(config, yamlConfig)
         self.model: B2TModel = self.model
 
@@ -21,11 +28,11 @@ class B2tGruExperiment(B2TExperiment):
         ), "Only seperate_zscoring is currently supported"
 
     def get_name(self) -> str:
-        return "gru_experiment"
+        return "mvts_transformer_experiment"
 
     @staticmethod
     def get_args_model():
-        return B2tGruArgsModel
+        return B2P2TMvtsArgsModel
 
     def _create_model(self):
         assert (
@@ -36,10 +43,14 @@ class B2tGruExperiment(B2TExperiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = GRUModel(
-            self.config,
-            self.tokenizer.vocab_size,
-            256,
-            cast(int, self.tokenizer.pad_token_id),
-        )
+        model = MvtsTransformerModel(self.config, vocab_size=1, in_size=5)
         return model
+
+    def _create_dataset(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> Dataset:
+        return Brain2TextDataset(
+            config=self.ds_config,
+            yaml_config=self.yaml_config,
+            split=split,
+        )

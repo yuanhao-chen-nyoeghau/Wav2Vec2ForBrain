@@ -1,8 +1,11 @@
-from re import I
-from typing import NamedTuple
+from math import nan
+from typing import NamedTuple, Optional, Union
 from dataclasses import dataclass
 
-from jinja2 import pass_eval_context
+
+class DecodedPredictionBatch(NamedTuple):
+    predictions: list[str]
+    targets: Optional[list[str]]
 
 
 @dataclass
@@ -22,8 +25,11 @@ class MetricEntry:
     def __truediv__(self, other: float):
         metrics_copy = dict(self.metrics)
         for key, value in metrics_copy.items():
-            metrics_copy[key] /= other
-        return MetricEntry(metrics_copy, self.loss / other)
+            if other != 0:
+                metrics_copy[key] /= other
+            else:
+                metrics_copy[key] = nan
+        return MetricEntry(metrics_copy, self.loss / other if other != 0 else nan)
 
 
 class SingleEpochHistory:
@@ -31,11 +37,15 @@ class SingleEpochHistory:
         self.metrics: list[MetricEntry] = []
         self._total_loss = MetricEntry({})
         self._total_loss_count = 0
+        self.decoded: list[Union[DecodedPredictionBatch, None]] = []
 
-    def add_batch_metric(self, loss: MetricEntry):
+    def add_batch_metric(
+        self, loss: MetricEntry, decoded: Optional[DecodedPredictionBatch] = None
+    ):
         self.metrics.append(loss)
         self._total_loss += loss
         self._total_loss_count += 1
+        self.decoded.append(decoded)
 
     def get_average(self):
         return self._total_loss / self._total_loss_count
@@ -44,8 +54,17 @@ class SingleEpochHistory:
         return self.metrics[-1]
 
     def to_dict(self):
+        def get_batch(i: int):
+            entry = self.decoded[i]
+            if entry is not None:
+                return {"predictions": entry.predictions, "targets": entry.targets}
+            return {}
+
         return {
-            "history": [metric.__dict__ for metric in self.metrics],
+            "history": [
+                {**metric.__dict__, "batch": get_batch(i)}
+                for i, metric in enumerate(self.metrics)
+            ],
             "average": self.get_average().__dict__,
         }
 
@@ -114,19 +133,28 @@ class TrainHistory(NamedTuple):
         test_losses = data["test"]
 
         test_history = SingleEpochHistory()
-        for metric in test_losses["history"]:
-            test_history.add_batch_metric(MetricEntry(**metric))
+        for batch in test_losses["history"]:
+            test_history.add_batch_metric(
+                MetricEntry(**batch["metric"]),
+                DecodedPredictionBatch(**batch["decoded"]),
+            )
 
         epoch_histories: list[EpochLosses] = []
 
         for epoch in epochs:
             train_epoch_history = SingleEpochHistory()
-            for metric in epoch["train"]["history"]:
-                train_epoch_history.add_batch_metric(MetricEntry(**metric))
+            for batch in epoch["train"]["history"]:
+                train_epoch_history.add_batch_metric(
+                    MetricEntry(**batch["metric"]),
+                    DecodedPredictionBatch(**batch["batch"]),
+                )
 
             val_epoch_history = SingleEpochHistory()
-            for metric in epoch["val"]["history"]:
-                val_epoch_history.add_batch_metric(MetricEntry(**metric))
+            for batch in epoch["val"]["history"]:
+                val_epoch_history.add_batch_metric(
+                    MetricEntry(**batch["metric"]),
+                    DecodedPredictionBatch(**batch["batch"]),
+                )
 
             epoch_history = EpochLosses(
                 train_losses=train_epoch_history, val_losses=val_epoch_history

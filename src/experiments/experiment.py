@@ -1,28 +1,25 @@
-from abc import ABC, abstractmethod, abstractclassmethod, ABCMeta
-import numpy as np
+from abc import abstractmethod, ABCMeta
+from ast import Not
 from git import Optional
-from torch.utils.data import Dataset
-from pydantic import BaseModel
-from src.datasets.brain2text import Brain2TextDataset
+from src.datasets.base_dataset import BaseDataset
+from src.datasets.batch_types import SampleBatch
 from src.args.base_args import BaseExperimentArgsModel
-from torch.utils.data import default_collate
 from src.model.b2tmodel import B2TModel, ModelOutput
-from typing import Callable, Literal, Self, Type, cast, Any
-from torch.nn.modules.loss import _Loss
+from typing import Callable, Literal, Type, cast, Any, NamedTuple
 from src.args.yaml_config import YamlConfigModel
 import wandb
 from torch.utils.data import DataLoader
 import torch
-from transformers import PreTrainedTokenizer
 import json
 import os
 from datetime import datetime
 from torch.optim.optimizer import Optimizer
-from src.train.history import TrainHistory
+from src.train.history import MetricEntry, SingleEpochHistory, TrainHistory
 import sys
-import transformers
-
-from train.prefix_beam_search import prefix_beam_search
+import numpy as np
+from torcheval.metrics import WordErrorRate
+from wandb.sdk.wandb_run import Run
+from src.train.evaluator import Evaluator
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -33,9 +30,9 @@ Optimizers: dict[str, Type[Optimizer]] = {
 class Experiment(metaclass=ABCMeta):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.base_config = BaseExperimentArgsModel(**config)
+        torch.manual_seed(self.base_config.seed)
+        np.random.seed(self.base_config.seed)
         self.yaml_config = yamlConfig
-
-        self.tokenizer = self._create_tokenizer()
 
         self.dataloader_train = self._create_dataloader(split="train")
         self.dataloader_val = self._create_dataloader(split="val")
@@ -60,7 +57,7 @@ class Experiment(metaclass=ABCMeta):
             print(f"loading model from checkpoint {self.base_config.from_checkpoint}")
             self.model.load_state_dict(
                 torch.load(self.base_config.from_checkpoint, map_location="cuda"),
-                strict=False,
+                strict=True,
             )
             history_path = os.path.join(
                 os.path.dirname(self.base_config.from_checkpoint), "history.json"
@@ -103,7 +100,6 @@ class Experiment(metaclass=ABCMeta):
             raise Exception("wandb init failed. wandb.run is None")
         with wandb.run:
             wandb.watch(trainer.model)
-            model_for_testing: B2TModel
 
             if not self.base_config.only_test:
                 trained_model, history = trainer.train()
@@ -113,40 +109,41 @@ class Experiment(metaclass=ABCMeta):
                 )
                 with open(os.path.join(self.results_dir, "history.json"), "w") as f:
                     json.dump(history.to_dict(), f, indent=5)
-                model_for_testing = trained_model
 
                 self.plot_results(history)
+                self.process_test_results(history.test_losses)
             else:
-                model_for_testing = self.model
+                test_results = self.run_real_world_test(self.model)
+                if test_results != None:
+                    wandb.log(trainer._get_wandb_metrics(test_results, "test"))
+                    self.process_test_results(test_results)
 
-            self.run_real_world_test(model_for_testing)
-
+            artifact = wandb.Artifact(name="results", type="experiment_results")
+            artifact.add_dir(f"{self.results_dir}/")
+            cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
+
+    def process_test_results(self, test_results: SingleEpochHistory):
+        pass
 
     def plot_results(self, history: TrainHistory):
         history.plot(os.path.join(self.results_dir, "history.png"))
 
     def run_real_world_test(self, model: B2TModel):
-        self._predict_and_store(model, self.dataloader_test, "test")
+        test_results = self._predict_and_store(model, "test")
         if self.base_config.predict_on_train == True:
-            self._predict_and_store(model, self.dataloader_train, "train")
+            self._predict_and_store(model, "train")
+        return test_results
 
     @abstractmethod
     def get_name(self) -> str:
         pass
 
-    def get_collate_fn(self):
-        return default_collate
-
     @abstractmethod
     def _create_dataset(
         self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    ) -> BaseDataset:
         raise NotImplementedError("Implement _create_dataset in subclass")
-
-    @abstractmethod
-    def _create_tokenizer(self) -> PreTrainedTokenizer:
-        pass
 
     @abstractmethod
     def _create_model(self) -> B2TModel:
@@ -157,106 +154,73 @@ class Experiment(metaclass=ABCMeta):
         raise NotImplementedError()
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
         return DataLoader(
-            self._create_dataset(split),
+            ds,
             batch_size=self.base_config.batch_size,
             shuffle=True,
-            collate_fn=self.get_collate_fn(),
+            collate_fn=ds.get_collate_fn(),
         )
 
-    def _predict_and_store(
-        self, model: B2TModel, dataloader: DataLoader, out_file_prefix: str
-    ):
-        def handle_batch(
+    def _predict_and_store(self, model: B2TModel, mode: Literal["train", "test"]):
+
+        def handle_evaluation_prediction_batch(
             batch_id: int,
-            inputs: torch.Tensor,
+            batch: SampleBatch,
             outputs: ModelOutput,
-            targets: list[str],
         ):
             if batch_id >= self.base_config.visualize_predictions_n_batches:
                 return
-            out_dir = os.path.join(self.results_dir, f"{out_file_prefix}_predictions")
+            out_dir = os.path.join(self.results_dir, f"{mode}_predictions")
             os.makedirs(out_dir, exist_ok=True)
             print(
-                f"\nVisualizing prediction {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {out_file_prefix}..."
+                f"\nVisualizing prediction batch {batch_id+1}/{self.base_config.visualize_predictions_n_batches} for {mode}..."
             )
             self.visualize_predictions(
-                inputs,
+                batch,
                 outputs,
-                targets,
                 os.path.join(out_dir, f"batch_{batch_id}.png"),
                 batch_id,
             )
 
-        prediction = self._predict(model, dataloader, handle_batch)
-        with open(
-            os.path.join(self.results_dir, f"{out_file_prefix}_predictions.json"), "w"
-        ) as f:
-            json.dump(prediction, f, indent=5)
+        prediction = self._predict(model, mode, handle_evaluation_prediction_batch)
+        if prediction != None:
+            with open(
+                os.path.join(self.results_dir, f"{mode}_predictions.json"),
+                "w",
+            ) as f:
+                json.dump(prediction.to_dict(), f, indent=5)
+        return prediction
 
     def _predict(
         self,
         model: B2TModel,
-        dataloader: DataLoader,
+        mode: Literal["train", "test"],
         handle_prediction_batch: Optional[
-            Callable[[int, torch.Tensor, ModelOutput, list[str]], Any]
+            Callable[[int, SampleBatch, ModelOutput], Any]
         ] = None,
     ):
-        result = []
+        dataloader = self.dataloader_train if mode == "train" else self.dataloader_test
+        evaluator = self.create_evaluator(mode)
+        model.eval()
         for i, data in enumerate(dataloader):
-            inputs, labels = data
+            data = cast(SampleBatch, data).cuda()
 
             with torch.no_grad():
-                outputs = model.forward(inputs.cuda(), labels.cuda())
+                outputs = model.forward(data)
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
-                    return []
-                predicted_ids = outputs.logits.argmax(dim=-1).cpu().numpy()
-
-                predicted = self.tokenizer.batch_decode(predicted_ids)
-
-                targets = self.tokenizer.batch_decode(
-                    labels.cpu().numpy(), group_tokens=False
-                )
+                    return None
+                evaluator.track_batch(outputs, data)
                 if handle_prediction_batch is not None:
-                    handle_prediction_batch(i, inputs, outputs, targets)
-
-                batch_predictions = []
-                batch_result = {
-                    "metrics": outputs.metrics,
-                    "batch_id": i,
-                    "predictions": batch_predictions,
-                }
-                if self.base_config.use_prefix_beam_search:
-                    beam_search_strings = self._run_beam_search_for_batch(
-                        batch_ctc=torch.nn.functional.softmax(outputs.logits, dim=-1)
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
-                    combined = zip(predicted, beam_search_strings, targets)
-                    for prediction, beam_search_string, target in combined:
-                        batch_predictions.append(
-                            {
-                                "prediction": prediction,
-                                "beam      ": beam_search_string,
-                                "target    ": target,
-                            }
-                        )
-                else:
-                    combined = zip(predicted, targets)
-                    for prediction, target in combined:
-                        batch_predictions.append(
-                            {
-                                "prediction": prediction,
-                                "target    ": target,
-                            }
-                        )
-                result.append(batch_result)
+                    handle_prediction_batch(i, data, outputs)
             print(
-                f"Running predictions on test. Batch {i + 1}/{len(dataloader)}\r",
+                f"Running predictions on {mode}. Batch {i + 1}/{len(dataloader)}\r",
                 end="",
             )
+
+        result = evaluator.evaluate()
+        evaluator.clean_up()
         return result
 
     def _run_beam_search_for_batch(self, batch_ctc: np.ndarray) -> list[str]:
@@ -287,17 +251,22 @@ class Experiment(metaclass=ABCMeta):
 
     def create_optimizer(self) -> Optimizer:
         optim_cls: Any = self._get_optimizer_cls()
+
         return optim_cls(
             self.model.parameters(),
             lr=self.base_config.learning_rate,
             weight_decay=self.base_config.weight_decay,
+            eps=self.base_config.optimizer_epsilon,
         )
+
+    @abstractmethod
+    def get_vocab(self) -> list[str]:
+        raise NotImplementedError("Implement get_vocab in subclass")
 
     def visualize_predictions(
         self,
-        inputs: torch.Tensor,
+        batch: SampleBatch,
         output: ModelOutput,
-        target_batch: list[str],
         out_path: str,
         batch_id: int,
     ):
@@ -307,22 +276,26 @@ class Experiment(metaclass=ABCMeta):
 
         # Assuming `predictions` is your model's output with shape (seq_len, vocab_size)
         # And `vocab` is your vocabulary list with the characters
-
+        vocab = self.get_vocab()
         predictions = output.logits.softmax(-1).cpu().numpy()
-        predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
-        predicted_str = self.tokenizer.batch_decode(predicted_ids)
-
-        batch_size, seq_len, vocab_size = predictions.shape
-        vocab = self.tokenizer.convert_ids_to_tokens(
-            list(range(self.tokenizer.vocab_size))
+        predicted_str = [
+            "".join([vocab[i] for i in np.argmax(p, axis=-1)]) for p in predictions
+        ]
+        target_str = (
+            ["".join([vocab[i] for i in p]) for p in batch.target]
+            if batch.target is not None
+            else None
         )
 
+        batch_size, seq_len, vocab_size = predictions.shape
         px = 1 / plt.rcParams["figure.dpi"]
+
+        nrows = min(batch_size, 4)
         fig, _axs = plt.subplots(
-            nrows=min(batch_size, 32),
+            nrows=nrows,
             figsize=(
                 seq_len * 18 * px,
-                ((vocab_size + 1) * 1.5) * batch_size * 18 * px,
+                ((vocab_size + 1) * 1.5) * nrows * 18 * px,
             ),
         )  # Adjust figsize as needed
         norm = Normalize(
@@ -330,6 +303,7 @@ class Experiment(metaclass=ABCMeta):
         )  # Normalize the color scale to the probability values
         axs = _axs if batch_size > 1 else [_axs]
         for sample_index, ax in enumerate(axs):
+            print("Visualizing sample", sample_index + 1, "/", len(axs))
             # Create a table
             table_data = []
             for row in range(vocab_size):
@@ -365,12 +339,13 @@ class Experiment(metaclass=ABCMeta):
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_xlabel(
-                f"Target: {target_batch[sample_index]}\nPrediction: {predicted_str[sample_index]}"
+                f"Target: {target_str[sample_index] if target_str is not None else None}\nPrediction: {predicted_str[sample_index]}"
             )
 
-        plt.title(f"Displaying {len(axs)}/{batch_size} samples")
+        plt.title(f"Displaying {nrows}/{batch_size} samples")
         plt.tight_layout()
         plt.savefig(out_path)
 
-    def batch_decode(self, batch: torch.Tensor):
-        return self.tokenizer.batch_decode(batch.cpu().numpy(), group_tokens=False)
+    @abstractmethod
+    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
+        raise NotImplementedError("Implement create_evaluator in subclass")

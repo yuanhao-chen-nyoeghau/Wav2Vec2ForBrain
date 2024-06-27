@@ -1,3 +1,4 @@
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForPreTraining
 from transformers.modeling_outputs import CausalLMOutput
@@ -35,9 +36,8 @@ class B2TPretrainingWav2VecModel(B2TModel):
         )
         self.tokenizer = tokenizer
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         assert (
             len(x.size()) == 2 or len(x.size()) == 3
         ), "x must be 2D shape: (timestamps, brain_data) or 3D shape: (batch_size, timestamps, brain_data)"

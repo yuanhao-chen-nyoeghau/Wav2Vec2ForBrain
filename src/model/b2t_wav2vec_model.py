@@ -1,3 +1,4 @@
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC
 from transformers.modeling_outputs import CausalLMOutput
@@ -30,9 +31,11 @@ class Brain2AudioShapeModule(torch.nn.Module):
     def __init__(self, config: B2TWav2VecArgsModel):
         super().__init__()
         self.config = cast(
-            B2TWav2VecCnnArgsModel
-            if config.experiment_type == "b2t_wav2vec_cnn"
-            else B2TWav2VecSharedAggregationArgsModel,
+            (
+                B2TWav2VecCnnArgsModel
+                if config.experiment_type == "b2t_wav2vec_cnn"
+                else B2TWav2VecSharedAggregationArgsModel
+            ),
             config,
         )
         self.brain2audioshape = self._get_brain2audioshape_module()
@@ -168,9 +171,8 @@ class B2TWav2Vec(B2TModel):
         print("config", self.wav2vec2.config)
         self.tokenizer = tokenizer
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         assert (
             len(x.size()) == 2 or len(x.size()) == 3
         ), "x must be 2D shape: (timestamps, brain_data) or 3D shape: (batch_size, timestamps, brain_data)"

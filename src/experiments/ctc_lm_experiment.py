@@ -1,3 +1,4 @@
+from src.datasets.batch_types import SampleBatch
 from src.datasets.ctc_text_dataset import CTCTextDataset
 from src.experiments.experiment import Experiment
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
@@ -16,6 +17,7 @@ import re
 from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
 from src.model.b2tmodel import B2TModel, ModelOutput
+from src.train.evaluator import DefaultEvaluator
 
 
 class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
@@ -24,6 +26,10 @@ class CtcLmArgsModel(BaseExperimentArgsModel, CTCTextDatasetArgsModel):
     ctclm_classifier_hidden_sizes: list[int] = []
     ctclm_classifier_activation: ACTIVATION_FUNCTION = "gelu"
     ctclm_d_model: int = 128
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
 
 
 class CtcLmExperiment(Experiment):
@@ -64,36 +70,6 @@ class CtcLmExperiment(Experiment):
     ) -> Dataset:
         return self.dataset.get_split(split)
 
-    def get_collate_fn(self):
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max([x.size(0) for x, _ in batch])
-            padded_blocks = [
-                pad(
-                    x,
-                    (0, 0, 0, max_block_len - x.size(0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: list[list[int]] = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return torch.stack(padded_blocks), batch_label_ids
-
-        return _collate
-
     def _create_tokenizer(self) -> PreTrainedTokenizer:
         if self.config.tokenizer == "wav2vec_pretrained":
             assert (
@@ -114,15 +90,15 @@ class CtcLmExperiment(Experiment):
         model: B2TModel,
         dataloader: DataLoader,
         handle_prediction_batch: Optional[
-            Callable[[int, torch.Tensor, ModelOutput, list[str]], Any]
+            Callable[[int, torch.Tensor, ModelOutput, Optional[list[str]]], Any]
         ] = None,
     ):
         result = []
         for i, data in enumerate(dataloader):
+            data = cast(SampleBatch, data).cuda()
             inputs, labels = data
-
             with torch.no_grad():
-                outputs = model.forward(inputs.cuda(), labels.cuda())
+                outputs = model.forward(data)
                 if outputs.logits.shape[0] == 0:
                     print("Skipping _predict because outputs don't have logits")
                     return []
@@ -131,11 +107,20 @@ class CtcLmExperiment(Experiment):
                     inputs.argmax(dim=-1).cpu().numpy()
                 )
                 predicted = self.tokenizer.batch_decode(predicted_ids)
-                targets = self.tokenizer.batch_decode(
-                    labels.cpu().numpy(), group_tokens=False
+                targets = (
+                    self.tokenizer.batch_decode(
+                        labels.cpu().numpy(), group_tokens=False
+                    )
+                    if labels is not None
+                    else None
                 )
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, inputs, outputs, targets)
+                combined = zip(
+                    predicted,
+                    targets if targets is not None else [None] * len(predicted),
+                    inputs_decoded,
+                )
                 batch_predictions = []
                 batch_result = {
                     "metrics": outputs.metrics,
@@ -181,9 +166,8 @@ class CtcLmExperiment(Experiment):
 
     def visualize_predictions(
         self,
-        inputs: torch.Tensor,
+        batch: SampleBatch,
         output: ModelOutput,
-        target_batch: list[str],
         out_path: str,
         batch_id: int,
     ):
@@ -198,7 +182,12 @@ class CtcLmExperiment(Experiment):
         predictions = output.logits.softmax(-1).cpu().numpy()
         predicted_ids = output.logits.argmax(dim=-1).cpu().numpy()
         predicted_str = self.tokenizer.batch_decode(predicted_ids)
-        input_str = self.tokenizer.batch_decode(inputs.argmax(-1).cpu().numpy())
+        input_str = self.tokenizer.batch_decode(batch.input.argmax(-1).cpu().numpy())
+        target_str = (
+            self.tokenizer.batch_decode(batch.target.cpu().numpy(), group_tokens=False)
+            if batch.target is not None
+            else None
+        )
 
         batch_size, seq_len, vocab_size = predictions.shape
         vocab = self.tokenizer.convert_ids_to_tokens(
@@ -228,7 +217,9 @@ class CtcLmExperiment(Experiment):
                 vmin=0, vmax=1
             )  # Normalize the color scale to the probability values
             for i, ax in enumerate(axs):
-                data = inputs[sample_index] if i == 0 else predictions[sample_index]
+                data = (
+                    batch.input[sample_index] if i == 0 else predictions[sample_index]
+                )
                 str_data = (
                     input_str[sample_index] if i == 0 else predicted_str[sample_index]
                 )
@@ -272,8 +263,16 @@ class CtcLmExperiment(Experiment):
                 ax.set_title(f"Tokenized {title}: {str_data}")
 
             fig.suptitle(
-                f"Target: {target_batch[sample_index]}",
+                f"Target: {target_str[sample_index] if target_str is not None else 'N/A'}",
                 fontsize="large",
                 fontweight="bold",
             )
             plt.savefig(sample_out_path)
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

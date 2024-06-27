@@ -1,18 +1,13 @@
-from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
+from src.datasets.batch_types import B2tSampleBatch
+from src.experiments.b2t_experiment import B2TExperiment
+from src.args.base_args import (
+    B2TArgsModel,
+)
 from src.model.b2tmodel import B2TModel, ModelOutput
-from torch.optim.optimizer import Optimizer
-from src.datasets.brain2text import Brain2TextDataset
-from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal, Optional, cast
-from src.args.wav2vec_args import B2TWav2VecArgsModel
-from transformers import AutoTokenizer
-from src.model.b2t_wav2vec_model import B2TWav2Vec
+from typing import Optional
 import torch
-from torch.nn.functional import pad
-import re
 from torch import nn
-from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
 from math import floor
 
@@ -34,9 +29,8 @@ class FCModel(B2TModel):
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
         self.tokenizer = tokenizer
 
-    def forward(
-        self, _x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, _batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = _batch
         assert targets is not None, "Targets must be set"
         device = targets.device
         seq_len = targets.shape[-1]
@@ -72,11 +66,7 @@ class FCModel(B2TModel):
         return ModelOutput(out, {"ctc_loss": loss.item()}, loss)
 
 
-class OneHotArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    pass
-
-
-class OneHotIndexExperiment(Experiment):
+class OneHotIndexExperiment(B2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
@@ -87,7 +77,7 @@ class OneHotIndexExperiment(Experiment):
 
     @staticmethod
     def get_args_model():
-        return OneHotArgsModel
+        return B2TArgsModel
 
     def _create_model(self):
         assert (

@@ -14,3 +14,4 @@ class B2TAudioDatasetArgsModel(B2TDatasetArgsModel):
     audio_frequency: int = 16000
     frequency_coefficient: float = 50
     mean_reduction_data: bool = False
+    remove_punctuation: bool = True

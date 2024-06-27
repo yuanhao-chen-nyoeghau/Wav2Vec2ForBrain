@@ -1,0 +1,47 @@
+program: run.py
+method: grid
+name: b2p2t_mamba
+entity: machine-learning-hpi
+project: brain2text
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --early_stopping_patience=4
+  - --experiment_type=b2p2t_mamba
+  - --preprocessing=seperate_zscoring
+  - --batch_size=64
+  - --predict_on_train=True
+  - --learning_rate=0.02
+  - --return_best_model=true
+  - --epochs=100
+  - --rms_norm=true
+  - --scheduler_step_size=8
+  - --scheduler_gamma=0.9
+  - --visualize_predictions_n_batches=1
+  - --constantOffsetSD=0.2
+  - --gaussian_smooth_width=2
+  - --unfolder_stride_len=4
+  - --unfolder_kernel_len=32
+  - --optimizer_epsilon=0.1
+  - --experiment_name="mamba_large_dmodel"
+metric:
+  name: val_ctc_loss
+  goal: minimize
+parameters:
+  mamba_n_layer:
+    values: [64]
+  mamba_d_model:
+    values: [512,756,1024]
+  feature_extractor_activation:
+    values: ["linear"]
+  input_dropout: 
+    values: [0.4]
+  weight_decay:
+    values: [0.001]
+  whiteNoiseSD:
+    values: [1.0]
+
+  

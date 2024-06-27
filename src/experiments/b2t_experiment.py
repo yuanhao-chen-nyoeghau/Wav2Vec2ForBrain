@@ -1,19 +1,23 @@
 from torch.optim.optimizer import Optimizer
+from src.datasets.batch_types import SampleBatch
+from src.model.b2tmodel import ModelOutput
 from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from transformers import AutoTokenizer
-import torch
-from torch.nn.functional import pad
-import re
-from torch.utils.data import Dataset
+from transformers import PreTrainedTokenizer
+from torch.utils.data import DataLoader
+from src.train.evaluator import DefaultEvaluator
+from src.train.history import DecodedPredictionBatch
+from src.util.batch_sampler import Brain2TextBatchSampler
 
 
 class B2TExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
+        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
 
     def get_name(self) -> str:
@@ -39,39 +43,19 @@ class B2TExperiment(Experiment):
     def _create_model(self):
         raise NotImplementedError()
 
-    def get_collate_fn(self):
-        multiple_channels = self.config.preprocessing == "seperate_zscoring_2channels"
-
-        def _collate(batch: list[tuple[torch.Tensor, str]]):
-            max_block_len = max(
-                [x.size(1 if multiple_channels else 0) for x, _ in batch]
-            )
-            padded_blocks = [
-                pad(
-                    x,
-                    (0, 0, 0, max_block_len - x.size(1 if multiple_channels else 0)),
-                    mode="constant",
-                    value=0,
-                )
-                for x, _ in batch
-            ]
-
-            def process_label(label: str) -> str:
-                if self.config.remove_punctuation:
-                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
-                    label = re.sub(chars_to_ignore_regex, "", label)
-                # label = label.upper()
-                return label
-
-            batch_label_ids: list[list[int]] = self.tokenizer(
-                [process_label(label) for _, label in batch],
-                padding="longest",
-                return_tensors="pt",
-            ).input_ids
-
-            return torch.stack(padded_blocks), batch_label_ids
-
-        return _collate
+    def decode_predictions(
+        self, predictions: ModelOutput, sample: SampleBatch
+    ) -> DecodedPredictionBatch:
+        predicted_ids = predictions.logits.argmax(dim=-1).cpu().numpy()
+        predicted_strings = self.tokenizer.batch_decode(
+            predicted_ids, group_tokens=True
+        )
+        label_strings = (
+            self.tokenizer.batch_decode(sample.target.cpu().numpy(), group_tokens=False)
+            if sample.target is not None
+            else None
+        )
+        return DecodedPredictionBatch(predicted_strings, label_strings)
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
@@ -80,11 +64,37 @@ class B2TExperiment(Experiment):
         optim: Any = self._get_optimizer_cls()
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
-    def _create_dataset(
-        self, split: Literal["train", "val", "test"] = "train"
-    ) -> Dataset:
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
         return Brain2TextDataset(
             config=self.config,
             yaml_config=self.yaml_config,
             split=split,
+            tokenizer=self.tokenizer,
         )
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+
+        if self.config.day_batches and split == "train":
+            batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
+
+            return DataLoader(
+                self._create_dataset(split),
+                batch_sampler=batch_sampler,
+                collate_fn=ds.get_collate_fn(self.tokenizer),
+            )
+        else:
+            return DataLoader(
+                self._create_dataset(split),
+                batch_size=self.base_config.batch_size,
+                shuffle=split == "train",
+                collate_fn=ds.get_collate_fn(self.tokenizer),
+            )
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )
+
+    def create_evaluator(self, mode: Literal["train", "val", "test"]):
+        return DefaultEvaluator(self.tokenizer, mode)

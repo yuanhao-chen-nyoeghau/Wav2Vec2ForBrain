@@ -1,3 +1,4 @@
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.wav2vec_multi_wave_input import (
     MultiWaveInputWav2VecCTC,
 )
@@ -46,9 +47,8 @@ class B2TAudioWav2VecModel(B2TModel):
         print("config", self.wav2vec2.config)
         self.tokenizer = tokenizer
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         is_batched = len(x.size()) > 1
 
         batched = x if is_batched else x.unsqueeze(0)

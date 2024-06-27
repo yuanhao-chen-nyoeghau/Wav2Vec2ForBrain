@@ -1,19 +1,14 @@
 from src.experiments.b2t_experiment import B2TExperiment
-from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
+from src.args.base_args import (
+    B2TArgsModel,
+)
 from src.model.b2tmodel import B2TModel, ModelOutput
-from torch.optim.optimizer import Optimizer
-from src.datasets.brain2text import Brain2TextDataset
-from src.experiments.experiment import Experiment
+from src.datasets.batch_types import B2tSampleBatch
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal, Optional, cast
-from src.args.wav2vec_args import B2TWav2VecArgsModel
+from typing import Literal
 from transformers import AutoTokenizer
-from src.model.b2t_wav2vec_model import B2TWav2Vec
 import torch
-from torch.nn.functional import pad
-import re
 from torch import nn
-from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer
 from math import floor, isnan
 from torch.nn.functional import log_softmax, softmax
@@ -27,7 +22,7 @@ def calc_seq_len(index_seq: torch.Tensor):
     return 0
 
 
-class B2TCNNArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
+class B2TCNNArgsModel(B2TArgsModel):
     conv_kernel_time: list[int] = [5, 3, 3, 3]
     conv_kernel_features: list[int] = [128, 1, 1, 1]  # [5, 5, 3, 118]
     conv_out_channels: list[int] = [256, 256, 512, 32]
@@ -43,30 +38,33 @@ class CNNModel(B2TModel):
 
         self.model = nn.Sequential(
             *[
-                nn.Conv2d(
-                    2
-                    if floor(i / 2) == 0
-                    else config.conv_out_channels[floor(i / 2) - 1],
-                    config.conv_out_channels[floor(i / 2)],
-                    kernel_size=(
-                        config.conv_kernel_time[floor(i / 2)],
-                        config.conv_kernel_features[floor(i / 2)],
-                    ),
-                    stride=(1, 1),
-                    bias=config.conv_bias,
-                    padding=config.conv_padding[floor(i / 2)],
+                (
+                    nn.Conv2d(
+                        (
+                            2
+                            if floor(i / 2) == 0
+                            else config.conv_out_channels[floor(i / 2) - 1]
+                        ),
+                        config.conv_out_channels[floor(i / 2)],
+                        kernel_size=(
+                            config.conv_kernel_time[floor(i / 2)],
+                            config.conv_kernel_features[floor(i / 2)],
+                        ),
+                        stride=(1, 1),
+                        bias=config.conv_bias,
+                        padding=config.conv_padding[floor(i / 2)],
+                    )
+                    if i % 2 == 0
+                    else nn.GELU()
                 )
-                if i % 2 == 0
-                else nn.GELU()
                 for i in range(len(config.conv_out_channels) * 2)
             ]
         )
 
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         device = targets.device
 
@@ -160,3 +158,8 @@ class CNNExperiment(B2TExperiment):
         )
         model = CNNModel(self.config, self.tokenizer)
         return model
+
+    def get_vocab(self) -> list[str]:
+        return self.tokenizer.convert_ids_to_tokens(
+            list(range(self.tokenizer.vocab_size))
+        )

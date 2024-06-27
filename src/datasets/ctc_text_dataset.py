@@ -2,12 +2,15 @@ from typing import Literal, Optional, cast
 from torch.utils.data import Dataset
 import os
 import torch
+from src.datasets.base_dataset import BaseDataset
 from src.args.yaml_config import YamlConfigModel
 from src.args.base_args import CTCTextDatasetArgsModel
 from transformers import PreTrainedTokenizer
 from datasets import load_dataset
 from random import Random, random
 from math import floor
+from torch.nn.functional import pad
+import re
 
 
 class CTCTextDataset(Dataset):
@@ -134,3 +137,33 @@ class CTCTextDataset(Dataset):
             )
         )
         return CTCTextDataset(self.config, self.yaml_config, self.tokenizer, sentences)
+
+    def get_collate_fn(self):
+        def _collate(batch: list[tuple[torch.Tensor, str]]):
+            max_block_len = max([x.size(0) for x, _ in batch])
+            padded_blocks = [
+                pad(
+                    x,
+                    (0, 0, 0, max_block_len - x.size(0)),
+                    mode="constant",
+                    value=0,
+                )
+                for x, _ in batch
+            ]
+
+            def process_label(label: str) -> str:
+                if self.config.remove_punctuation:
+                    chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
+                    label = re.sub(chars_to_ignore_regex, "", label)
+                # label = label.upper()
+                return label
+
+            batch_label_ids: list[list[int]] = self.tokenizer(
+                [process_label(label) for _, label in batch],
+                padding="longest",
+                return_tensors="pt",
+            ).input_ids
+
+            return torch.stack(padded_blocks), batch_label_ids
+
+        return _collate

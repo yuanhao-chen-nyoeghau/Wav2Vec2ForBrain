@@ -1,3 +1,4 @@
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from transformers import Wav2Vec2ForCTC, Wav2Vec2ForPreTraining
 from transformers.modeling_outputs import CausalLMOutput
@@ -191,9 +192,8 @@ class B2TCustomEncoderW2VPretrainingModel(_CustomEncodeBaseW2VModel):
         )
         self.wav2vec2.wav2vec2.feature_extractor = FeatureEncoder(config)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         batched_input, targets = self._prepare_input(x, targets)
 
         batch_size = batched_input.shape[0]
@@ -269,9 +269,8 @@ class B2TCustomEncoderW2VFineTuningModel(_CustomEncodeBaseW2VModel):
         )
         self.wav2vec2.wav2vec2.feature_extractor = FeatureEncoder(config)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        x, targets = batch
         batched_input, targets = self._prepare_input(x, targets)
 
         wav2vec2_out = cast(

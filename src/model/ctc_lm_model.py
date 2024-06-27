@@ -1,21 +1,11 @@
-from src.experiments.b2t_mamba_experiment import calc_seq_len
+from src.datasets.batch_types import SampleBatch
 from src.experiments.ctc_lm_experiment import CtcLmArgsModel
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.experiments.b2t_experiment import B2TExperiment
-from src.args.base_args import (
-    B2TArgsModel,
-)
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.args.yaml_config import YamlConfigModel
 from typing import Optional
 import torch
 from torch import nn
 from transformers import PreTrainedTokenizer
 from torch.nn.functional import log_softmax
-from mamba_ssm.utils.generation import GenerationMixin
-from mamba_ssm.models.mixer_seq_simple import MixerModel, _init_weights
-from functools import partial
-from collections import namedtuple
 
 from src.util.nn_helper import compute_ctc_loss, create_fully_connected
 
@@ -43,9 +33,8 @@ class CTCLMModel(B2TModel):
         )
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(
-        self, x: torch.Tensor, targets: Optional[torch.Tensor] = None
-    ) -> ModelOutput:
+    def forward(self, batch: SampleBatch) -> ModelOutput:
+        x, targets = batch
         assert targets is not None, "Targets must be set"
         device = x.device
         if targets is not None:

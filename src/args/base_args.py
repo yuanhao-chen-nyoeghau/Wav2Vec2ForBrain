@@ -16,6 +16,7 @@ class B2TDatasetArgsModel(BaseModel):
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
+    remove_punctuation: bool = True
 
 
 class CTCTextDatasetArgsModel(BaseModel):
@@ -28,9 +29,10 @@ class CTCTextDatasetArgsModel(BaseModel):
     remove_char_prob: float = 0.05
     noise_mean: float = -16
     noise_std: float = 2
-    correct_as_second_prob = 0.2
+    correct_as_second_prob: float = 0.2
     random_second_id_in_blank_prob: float = 0.1
     cache_generated_samples: bool = False
+    remove_punctuation: bool = True
 
 
 class BaseExperimentArgsModel(BaseModel):
@@ -53,9 +55,13 @@ class BaseExperimentArgsModel(BaseModel):
         "b2t_cnn",
         "b2t_gru",
         "b2t_gru+trafo",
+        "mvts_transformer",
         "b2t_mamba",
         "ctc_lm",
         "b2t_ctc_lm_mamba_finetuning",
+        "b2p2t_mamba",
+        "b2p2t_gru",
+        "b2p2t_mvtst",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -78,10 +84,8 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
-    remove_punctuation: bool = True
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
-        "facebook/wav2vec2-base-100h"
+    day_batches: bool = Field(
+        True, description="Build batches only from measurements of the same day"
     )
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
@@ -89,7 +93,21 @@ class BaseExperimentArgsModel(BaseModel):
     use_fast_tokenizer: bool = False
     use_prefix_beam_search: bool = True
     beam_search_language_model: str = "openai-community/gpt2"
+    whiteNoiseSD: float = 0.0
+    constantOffsetSD: float = 0.0
+    seed: int = 42
+    optimizer_epsilon: float = 1e-8
+    early_stopping_patience: Optional[int] = Field(
+        None,
+        description="Number of epochs n to consider for early stopping. Once all n-1 last epochs did not improve compared to the -nth epoch, training is stopped.   If None, early stopping is disabled",
+    )
+    train_on_val_once: bool = Field(
+        False, description="Train once on val after normal training"
+    )
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    pass
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
