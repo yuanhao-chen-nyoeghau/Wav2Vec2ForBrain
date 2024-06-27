@@ -20,6 +20,7 @@ import numpy as np
 from torcheval.metrics import WordErrorRate
 from wandb.sdk.wandb_run import Run
 from src.train.evaluator import Evaluator
+import transformers
 
 Optimizers: dict[str, Type[Optimizer]] = {
     "sgd": torch.optim.SGD,
@@ -222,24 +223,6 @@ class Experiment(metaclass=ABCMeta):
         result = evaluator.evaluate()
         evaluator.clean_up()
         return result
-
-    def _run_beam_search_for_batch(self, batch_ctc: np.ndarray) -> list[str]:
-        beam_search_strings = []
-        for i in range(self.base_config.batch_size):
-            sentence_ctc = batch_ctc[i, :, :]
-            output_string = (
-                "<s>"
-                + prefix_beam_search(
-                    ctc=sentence_ctc,
-                    lm=self.beam_search_lm,
-                    experiment_tokenizer=self.tokenizer,
-                    lm_tokenizer=self.beam_search_tokenizer,
-                ).replace("|", " ")
-                + "</s>"
-            )
-            beam_search_strings.append(output_string)
-
-        return beam_search_strings
 
     def _get_optimizer_cls(self) -> Type[Optimizer]:
         if self.base_config.optimizer not in Optimizers:
