@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Literal, cast
 from src.datasets.brain2text import B2tSample
-from src.datasets.base_dataset import Sample
+from src.datasets.base_dataset import BaseDataset, Sample
 from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
 from torch.nn.functional import pad
 
@@ -21,7 +21,7 @@ import torch
 from args.wav2vec_args import AudioWav2VecArgsModel
 
 
-class AudioWPhonemesDataset:
+class AudioWPhonemesDataset(BaseDataset):
     def __init__(
         self,
         hugg_dataset: DatasetDict,
