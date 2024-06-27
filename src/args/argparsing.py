@@ -1,8 +1,5 @@
 import argparse
-from experiments.w2v_suc_experiment import W2VSUCExperiment
-from src.experiments.b2t_gru_transformer_experiment import (
-    B2tGruTrafoExperiment,
-)
+from src.experiments.w2v_suc_experiment import W2VSUCExperiment
 from src.experiments.b2p2t_mvtst_experiment import B2P2TMvtstExperiment
 from src.experiments.b2p2t_gru_experiment import B2P2TGruExperiment
 from src.experiments.b2p2t_mamba_experiment import B2P2TMambaExperiment
@@ -41,7 +38,6 @@ experiments: dict[str, Type[Experiment]] = {
     "onehot_index": OneHotIndexExperiment,
     "b2t_cnn": CNNExperiment,
     "b2t_gru": B2tGruExperiment,
-    "b2t_gru+trafo": B2tGruTrafoExperiment,
     "mvts_transformer": MvtsTransformerExperiment,
     "b2t_mamba": B2tMambaExperiment,
     "b2p2t_mamba": B2P2TMambaExperiment,

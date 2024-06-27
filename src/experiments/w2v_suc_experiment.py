@@ -1,25 +1,24 @@
-from math import nan
 import os
-from pyexpat import model
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
-from datasets.batch_types import PhonemeSampleBatch, SampleBatch
-from datasets.brain2text_w_phonemes import PHONE_DEF_SIL
-from model.b2tmodel import ModelOutput
-from model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
+from src.datasets.audio_with_phonemes import (
+    AudioWPhonemesDataset,
+    AudioWPhonemesDatasetArgsModel,
+)
+from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.model.b2tmodel import ModelOutput
+from src.model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
-from src.args.wav2vec_args import AudioWav2VecArgsModel
-from transformers import AutoTokenizer
 from datasets import load_dataset
-from transformers import PreTrainedTokenizer
 from torch.utils.data import DataLoader
-from src.train.evaluator import DefaultEvaluator, Evaluator
-from train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
+from src.train.evaluator import Evaluator
+from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
 from edit_distance import SequenceMatcher
 
 
@@ -49,8 +48,7 @@ class W2VSUCEvaluator(Evaluator):
     def _calc_phoneme_error_rate(
         self, batch: PhonemeSampleBatch, predictions: ModelOutput
     ):
-        adjustedLens = predictions.logit_lens
-        assert adjustedLens != None, "logit_lens is None."
+
         if batch.target == None or batch.target_lens == None:
             raise Exception("target or target_lens is None.")
         pred = predictions.logits
@@ -60,7 +58,7 @@ class W2VSUCEvaluator(Evaluator):
         predicted = []
         for iterIdx in range(pred.shape[0]):
             decodedSeq = torch.argmax(
-                torch.tensor(pred[iterIdx, 0 : adjustedLens[iterIdx], :]),
+                torch.tensor(pred[iterIdx, :, :]),
                 dim=-1,
             )  # [num_seq,]
             decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
@@ -87,13 +85,14 @@ class W2VSUCEvaluator(Evaluator):
         )
 
 
-class W2VSUCExperimentArgsModel(BaseExperimentArgsModel, W2VSUCArgsModel):
+class W2VSUCExperimentArgsModel(
+    BaseExperimentArgsModel, W2VSUCArgsModel, AudioWPhonemesDatasetArgsModel
+):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
     unfreeze_strategy: Literal["suc"] = "suc"
-    remove_punctuation: bool = True
 
 
 class W2VSUCExperiment(Experiment):
@@ -137,7 +136,7 @@ class W2VSUCExperiment(Experiment):
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
     def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        raise NotImplementedError()
+        return AudioWPhonemesDataset(self.config, self.yaml_config, split=split)
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)

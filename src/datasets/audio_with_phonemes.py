@@ -1,7 +1,9 @@
 import os
 import re
 from typing import Dict, Literal, cast
-from args.yaml_config import YamlConfigModel
+
+from pydantic import BaseModel
+from src.args.yaml_config import YamlConfigModel
 from src.datasets.brain2text import B2tSample
 from src.datasets.base_dataset import BaseDataset, Sample
 from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
@@ -18,17 +20,18 @@ from src.datasets.brain2text_w_phonemes import (
     PhonemeSample,
 )
 from datasets import DatasetDict
-from transformers import PreTrainedTokenizer
 from g2p_en import G2p
 import torch
 
-from args.wav2vec_args import AudioWav2VecArgsModel
+
+class AudioWPhonemesDatasetArgsModel(BaseModel):
+    remove_punctuation: bool = True
 
 
 class AudioWPhonemesDataset(BaseDataset):
     def __init__(
         self,
-        config: AudioWav2VecArgsModel,
+        config: AudioWPhonemesDatasetArgsModel,
         yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"] = "train",
     ) -> None:

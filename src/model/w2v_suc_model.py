@@ -13,10 +13,10 @@ import torch
 from torch import log_softmax, nn
 from typing import Optional, Tuple, Union, cast
 
-from datasets.batch_types import PhonemeSampleBatch
-from datasets.brain2text_w_phonemes import PHONE_DEF_SIL
-from model.b2tmodel import B2TModel, ModelOutput
-from util.nn_helper import compute_ctc_loss
+from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.model.b2tmodel import B2TModel, ModelOutput
+from src.util.nn_helper import compute_ctc_loss
 
 
 class W2VSUCArgsModel(BaseModel):
@@ -31,7 +31,12 @@ class W2VSUCModel(B2TModel):
             Wav2Vec2Config,
             Wav2Vec2Config.from_pretrained("facebook/wav2vec2-base-960h"),
         )
-        self.w2v = Wav2Vec2WithoutTransformerModel(w2v_config)
+        self.w2v = cast(
+            Wav2Vec2WithoutTransformerModel,
+            Wav2Vec2WithoutTransformerModel.from_pretrained(
+                "facebook/wav2vec2-base-960h", config=w2v_config
+            ),
+        )
         self.suc = nn.Sequential(nn.Linear(768, len(PHONE_DEF_SIL) + 1))
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
@@ -40,6 +45,8 @@ class W2VSUCModel(B2TModel):
             raise ValueError("Target is required for training")
         w2v_output = self.w2v(batch.input)
         suc_output = self.suc(w2v_output)
+
+        # TODO: make sure padding works correctly
         ctc_loss = compute_ctc_loss(
             suc_output, log_softmax(suc_output, -1), batch.target, self.loss
         )
