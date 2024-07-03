@@ -4,23 +4,22 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Config,
     Wav2Vec2FeatureEncoder,
     Wav2Vec2FeatureProjection,
-    Wav2Vec2Encoder,
-    Wav2Vec2Adapter,
-    Wav2Vec2EncoderStableLayerNorm,
     Wav2Vec2BaseModelOutput,
 )
 import torch
 from torch import log_softmax, nn
 from typing import Optional, Tuple, Union, cast
 
+from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.util.nn_helper import compute_ctc_loss
+from src.util.nn_helper import create_fully_connected
 
 
 class W2VSUCArgsModel(BaseModel):
-    pass
+    suc_hidden_sizes: list[int] = []
+    suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
 
 
 class W2VSUCModel(B2TModel):
@@ -31,73 +30,44 @@ class W2VSUCModel(B2TModel):
             Wav2Vec2Config,
             Wav2Vec2Config.from_pretrained("facebook/wav2vec2-base-960h"),
         )
-        self.w2v = cast(
+        self.w2v_feature_extractor = cast(
             Wav2Vec2WithoutTransformerModel,
             Wav2Vec2WithoutTransformerModel.from_pretrained(
                 "facebook/wav2vec2-base-960h", config=w2v_config
             ),
         )
-        self.suc = nn.Sequential(nn.Linear(768, len(PHONE_DEF_SIL) + 1))
+        self.suc = create_fully_connected(
+            768, len(PHONE_DEF_SIL) + 1, config.suc_hidden_sizes
+        )
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
-        if batch.target is None:
-            raise ValueError("Target is required for training")
-        w2v_output = self.w2v(batch.input)
+        if batch.target is None or batch.target_lens is None:
+            raise ValueError("Target and target_lens are required for training")
+
+        device = batch.input.device
+        w2v_output = self.w2v_feature_extractor(batch.input)
         suc_output = self.suc(w2v_output)
 
-        feature_extract_output_lens = self._get_feat_extract_output_lengths(
-            batch.input_lens
+        feature_extract_output_lens = cast(
+            torch.LongTensor,
+            self.w2v_feature_extractor._get_feat_extract_output_lengths(
+                cast(torch.LongTensor, batch.input_lens.long())
+            ),
         )
 
-        ctc_loss = compute_ctc_loss(
-            suc_output,
-            log_softmax(suc_output, -1),
+        ctc_loss = self.loss.forward(
+            log_softmax(suc_output, -1).transpose(0, 1),
             batch.target,
-            self.loss,
-            feature_extract_output_lens,
+            feature_extract_output_lens.to(device),
+            batch.target_lens.to(device),
         )
-
         return ModelOutput(
             suc_output,
             {"ctc_loss": ctc_loss.item()},
             loss=ctc_loss,
             logit_lens=feature_extract_output_lens,
         )
-
-    # Copied from package transformers/models/wav2vec2/modeling_wav2vec2.py#L1120
-    def _get_feat_extract_output_lengths(
-        self,
-        input_lengths: torch.Tensor,
-        add_adapter: Optional[bool] = None,
-    ):
-        """
-        Computes the output length of the convolutional layers
-        """
-
-        add_adapter = (
-            self.w2v.config.add_adapter if add_adapter is None else add_adapter
-        )
-
-        def _conv_out_length(input_length, kernel_size, stride):
-            # 1D convolutional layer output length formula taken
-            # from https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
-            return (
-                torch.div(input_length - kernel_size, stride, rounding_mode="floor") + 1
-            )
-
-        for kernel_size, stride in zip(
-            self.w2v.config.conv_kernel, self.w2v.config.conv_stride
-        ):
-            input_lengths = _conv_out_length(input_lengths, kernel_size, stride)
-
-        if add_adapter:
-            for _ in range(self.w2v.config.num_adapter_layers):
-                input_lengths = _conv_out_length(
-                    input_lengths, 1, self.w2v.config.adapter_stride
-                )
-
-        return input_lengths
 
 
 class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):
