@@ -57,10 +57,14 @@ class AudioWPhonemesDataset(BaseDataset):
 
     def __getitem__(self, index: int) -> PhonemeSample:
         row = self._data[index]
+        assert (
+            row["audio"]["sampling_rate"] == 16000
+        ), f"Encountered sample with sampling rate {row['audio']['sampling_rate']} which is not 16k"
         sample: B2tSample = B2tSample(
             torch.tensor(row["audio"]["array"], dtype=torch.float32),
             row["transcription"].upper(),
         )
+
         phoneme_ids, phonemes = self.phoneme_seqs[index]
 
         if self.config.remove_punctuation:
@@ -91,7 +95,7 @@ class AudioWPhonemesDataset(BaseDataset):
                     torch.tensor(phoneme_ids),
                     (0, max_phone_seq_len - len(phoneme_ids)),
                     mode="constant",
-                    value=0,
+                    value=-100,
                 )
                 for _, phoneme_ids in samples
             ]
