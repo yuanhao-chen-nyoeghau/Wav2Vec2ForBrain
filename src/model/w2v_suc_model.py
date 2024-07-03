@@ -20,6 +20,7 @@ from src.util.nn_helper import create_fully_connected
 class W2VSUCArgsModel(BaseModel):
     suc_hidden_sizes: list[int] = []
     suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
+    suc_dropout: float = 0.0
 
 
 class W2VSUCModel(B2TModel):
@@ -36,6 +37,7 @@ class W2VSUCModel(B2TModel):
                 "facebook/wav2vec2-base-960h", config=w2v_config
             ),
         )
+        self.dropout = nn.Dropout(config.suc_dropout)
         self.suc = create_fully_connected(
             768, len(PHONE_DEF_SIL) + 1, config.suc_hidden_sizes
         )
@@ -47,6 +49,7 @@ class W2VSUCModel(B2TModel):
 
         device = batch.input.device
         w2v_output = self.w2v_feature_extractor(batch.input)
+        w2v_output = self.dropout(w2v_output)
         suc_output = self.suc(w2v_output)
 
         feature_extract_output_lens = cast(
@@ -76,8 +79,6 @@ class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):
         self.config = config
         self.feature_extractor = Wav2Vec2FeatureEncoder(config)
         self.feature_projection = Wav2Vec2FeatureProjection(config)
-        # TODO: load pretrained weights
-        # Initialize weights and apply final processing
         self.post_init()
 
     def freeze_feature_encoder(self):
