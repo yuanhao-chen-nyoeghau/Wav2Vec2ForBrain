@@ -81,7 +81,7 @@ class W2VSUCEvaluator(Evaluator):
             total_seq_length += len(trueSeq)
 
         return total_edit_distance / total_seq_length, DecodedPredictionBatch(
-            predicted, labels
+            [" ".join(p) for p in predicted], [" ".join(l) for l in labels]
         )
 
 
