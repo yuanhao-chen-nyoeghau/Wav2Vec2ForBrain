@@ -1,0 +1,30 @@
+program: run.py
+method: grid
+name: w2v_suc
+entity: machine-learning-hpi
+project: brain2text
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --early_stopping_patience=3
+  - --experiment_type=w2v_suc
+  - --batch_size=64
+  - --return_best_model=true
+  - --epochs=100
+  - --scheduler_step_size=8
+  - --scheduler_gamma=0.9
+  - --optimizer_epsilon=0.1
+  - --experiment_name="w2v_suc_complexity_lr"
+metric:
+  name: val_ctc_loss
+  goal: minimize
+parameters:
+  learning_rate:
+    values: [0.01, 0.005,0.001,0.0001]
+  suc_hidden_sizes:
+    values: ["[]","[768]","[768, 768]","[256, 256, 256]", "[128,128,128,128]"]
+
+  
