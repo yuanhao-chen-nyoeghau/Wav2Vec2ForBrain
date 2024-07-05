@@ -124,45 +124,11 @@ class W2VSUCModel(B2TModel):
             target_tensor = torch.full(
                 (end - start,), phoneme.id, dtype=torch.long
             ).cuda()
-
+            # TODO: properly use CrossEntropyLoss (expects softmax input) + we can maybe avoid manual batching
             phoneme_loss = self.loss.forward(window, target_tensor)
 
             loss += phoneme_loss
         return loss / len(target)
-
-    # Copied from package transformers/models/wav2vec2/modeling_wav2vec2.py#L1120
-    def _get_feat_extract_output_lengths(
-        self,
-        input_lengths: torch.Tensor,
-        add_adapter: Optional[bool] = None,
-    ):
-        """
-        Computes the output length of the convolutional layers
-        """
-
-        add_adapter = (
-            self.w2v.config.add_adapter if add_adapter is None else add_adapter
-        )
-
-        def _conv_out_length(input_length, kernel_size, stride):
-            # 1D convolutional layer output length formula taken
-            # from https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
-            return (
-                torch.div(input_length - kernel_size, stride, rounding_mode="floor") + 1
-            )
-
-        for kernel_size, stride in zip(
-            self.w2v.config.conv_kernel, self.w2v.config.conv_stride
-        ):
-            input_lengths = _conv_out_length(input_lengths, kernel_size, stride)
-
-        if add_adapter:
-            for _ in range(self.w2v.config.num_adapter_layers):
-                input_lengths = _conv_out_length(
-                    input_lengths, 1, self.w2v.config.adapter_stride
-                )
-
-        return input_lengths
 
 
 class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):

@@ -1,5 +1,5 @@
 import re
-from typing import Literal, NamedTuple, override
+from typing import Literal, NamedTuple
 
 import numpy as np
 import torch
