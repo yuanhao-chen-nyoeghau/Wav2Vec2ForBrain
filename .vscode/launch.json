@@ -344,5 +344,16 @@
                 "--batch_size=8"
             ]
         },
+        {
+            "name": "run.py suc timit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=timit_w2v_suc"
+            ]
+        }
     ],
 }

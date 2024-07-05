@@ -1,3 +1,4 @@
+import math
 from pydantic import BaseModel
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2PreTrainedModel,
@@ -8,9 +9,10 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 import torch
 from torch import log_softmax, nn
-from typing import Optional, Tuple, Union, cast
+from typing import Literal, Optional, Tuple, Union, cast
 
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from src.datasets.timit_dataset import Phoneme, TimitSampleBatch
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -21,6 +23,7 @@ class W2VSUCArgsModel(BaseModel):
     suc_hidden_sizes: list[int] = []
     suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
     suc_dropout: float = 0.0
+    loss_function: Literal["ctc", "cross_entropy"] = "ctc"
 
 
 class W2VSUCModel(B2TModel):
@@ -41,11 +44,16 @@ class W2VSUCModel(B2TModel):
         self.suc = create_fully_connected(
             768, len(PHONE_DEF_SIL) + 1, config.suc_hidden_sizes
         )
-        self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
+        if self.config.loss_function == "ctc":
+            self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
+        elif self.config.loss_function == "cross_entropy":
+            self.loss = nn.CrossEntropyLoss()
+        else:
+            raise ValueError("Only ctc and cross entropy are supported")
 
-    def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
-        if batch.target is None or batch.target_lens is None:
-            raise ValueError("Target and target_lens are required for training")
+    def forward(self, batch: PhonemeSampleBatch | TimitSampleBatch) -> ModelOutput:
+        if batch.target is None:
+            raise ValueError("Target is required for training")
 
         device = batch.input.device
         w2v_output = self.w2v_feature_extractor(batch.input)
@@ -59,18 +67,102 @@ class W2VSUCModel(B2TModel):
             ),
         )
 
-        ctc_loss = self.loss.forward(
-            log_softmax(suc_output, -1).transpose(0, 1),
-            batch.target,
-            feature_extract_output_lens.to(device),
-            batch.target_lens.to(device),
-        )
+        if type(batch) == PhonemeSampleBatch:
+            if batch.target_lens is None:
+                raise ValueError("Target is required for training")
+            assert type(self.loss) == nn.CTCLoss
+            loss = self.loss.forward(
+                log_softmax(suc_output, -1).transpose(0, 1),
+                batch.target,
+                feature_extract_output_lens.to(device),
+                batch.target_lens.to(device),
+            )
+            metrics = {"ctc_loss": loss.item()}
+        elif type(batch) == TimitSampleBatch:
+            loss = self._crossEntropyLossBatch(suc_output, batch.phonemes)
+            metrics = {"sum_cross_entropy_loss": loss.item()}
+
         return ModelOutput(
             suc_output,
-            {"ctc_loss": ctc_loss.item()},
-            loss=ctc_loss,
+            metrics,
+            loss=loss,
             logit_lens=feature_extract_output_lens,
         )
+
+    def _crossEntropyLossBatch(
+        self, output: torch.Tensor, target: list[list[Phoneme]]
+    ) -> torch.Tensor:
+        loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+        for i, phonemes in enumerate(target):
+            loss += self._crossEntropyLoss(output[i, :, :], phonemes)
+        return loss / len(target)
+
+    def _crossEntropyLoss(
+        self, output: torch.Tensor, target: list[Phoneme]
+    ) -> torch.Tensor:
+        assert type(self.loss) == nn.CrossEntropyLoss
+        loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+        for phoneme in target:
+            # This phoneme could not be mapped to our original phoneme dictionary
+            if phoneme.id == -1:
+                continue
+
+            # Calculating the start and end points in milliseconds
+            # Formula: <given_recording_unit> * <time_per_recording_unit> * <conversion_to_ms>
+            start_ms = int(phoneme.start * (1 / 16000) * 1000)
+            end_ms = int(phoneme.end * (1 / 16000) * 1000)
+
+            # Starting point of the receptive field of any given output is 20 ms * idx_of_output
+            # End point of the receptive field of any given output is 25ms + 20 ms * idx_of_output
+            start = math.ceil(start_ms / 20)
+            end = max(start + 1, math.floor((end_ms - 25) / 20))
+
+            if end > output.size(0):
+                continue
+
+            window = output[start:end, :]
+            target_tensor = torch.full(
+                (end - start,), phoneme.id, dtype=torch.long
+            ).cuda()
+
+            phoneme_loss = self.loss.forward(window, target_tensor)
+
+            loss += phoneme_loss
+        return loss / len(target)
+
+    # Copied from package transformers/models/wav2vec2/modeling_wav2vec2.py#L1120
+    def _get_feat_extract_output_lengths(
+        self,
+        input_lengths: torch.Tensor,
+        add_adapter: Optional[bool] = None,
+    ):
+        """
+        Computes the output length of the convolutional layers
+        """
+
+        add_adapter = (
+            self.w2v.config.add_adapter if add_adapter is None else add_adapter
+        )
+
+        def _conv_out_length(input_length, kernel_size, stride):
+            # 1D convolutional layer output length formula taken
+            # from https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
+            return (
+                torch.div(input_length - kernel_size, stride, rounding_mode="floor") + 1
+            )
+
+        for kernel_size, stride in zip(
+            self.w2v.config.conv_kernel, self.w2v.config.conv_stride
+        ):
+            input_lengths = _conv_out_length(input_lengths, kernel_size, stride)
+
+        if add_adapter:
+            for _ in range(self.w2v.config.num_adapter_layers):
+                input_lengths = _conv_out_length(
+                    input_lengths, 1, self.w2v.config.adapter_stride
+                )
+
+        return input_lengths
 
 
 class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):

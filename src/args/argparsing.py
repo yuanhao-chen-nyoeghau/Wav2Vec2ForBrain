@@ -1,4 +1,5 @@
 import argparse
+from experiments.timit_w2v_suc_experiment import TimitW2VSUCExperiment
 from src.experiments.w2v_suc_experiment import W2VSUCExperiment
 from src.experiments.b2p2t_mvtst_experiment import B2P2TMvtstExperiment
 from src.experiments.b2p2t_gru_experiment import B2P2TGruExperiment
@@ -44,6 +45,7 @@ experiments: dict[str, Type[Experiment]] = {
     "b2p2t_gru": B2P2TGruExperiment,
     "b2p2t_mvtst": B2P2TMvtstExperiment,
     "w2v_suc": W2VSUCExperiment,
+    "timit_w2v_suc": TimitW2VSUCExperiment,
 }
 
 
