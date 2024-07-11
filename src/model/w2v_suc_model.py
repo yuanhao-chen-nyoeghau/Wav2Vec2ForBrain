@@ -12,7 +12,7 @@ from torch import log_softmax, nn
 from typing import Literal, Optional, Tuple, Union, cast
 
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.datasets.timit_dataset import Phoneme, TimitSampleBatch
+from datasets.timit_seq_dataset import Phoneme, TimitSeqSampleBatch
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -51,7 +51,7 @@ class W2VSUCModel(B2TModel):
         else:
             raise ValueError("Only ctc and cross entropy are supported")
 
-    def forward(self, batch: PhonemeSampleBatch | TimitSampleBatch) -> ModelOutput:
+    def forward(self, batch: PhonemeSampleBatch | TimitSeqSampleBatch) -> ModelOutput:
         if batch.target is None:
             raise ValueError("Target is required for training")
 
@@ -78,7 +78,7 @@ class W2VSUCModel(B2TModel):
                 batch.target_lens.to(device),
             )
             metrics = {"ctc_loss": loss.item()}
-        elif type(batch) == TimitSampleBatch:
+        elif type(batch) == TimitSeqSampleBatch:
             loss = self._crossEntropyLossBatch(suc_output, batch.phonemes)
             metrics = {"sum_cross_entropy_loss": loss.item()}
 

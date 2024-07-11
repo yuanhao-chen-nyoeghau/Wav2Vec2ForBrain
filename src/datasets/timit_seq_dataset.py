@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from src.datasets.batch_types import SampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
-from src.datasets.audio_with_phonemes import AudioWPhonemesDatasetArgsModel
+from datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
 from src.datasets.base_dataset import BaseDataset, Sample
 from pydantic import BaseModel
 import os
@@ -22,19 +22,19 @@ class Phoneme(NamedTuple):
     id: int
 
 
-class TimitSample(NamedTuple):
+class TimitSeqSample(NamedTuple):
     target: list[Phoneme]
     transcript: str
     input: torch.Tensor
 
 
-class TimitSampleBatch(SampleBatch):
+class TimitSeqSampleBatch(SampleBatch):
     transcripts: list[str]
     input_lens: torch.Tensor
     phonemes: list[list[Phoneme]]
 
 
-class TimitAudioDataset(BaseDataset):
+class TimitAudioSeqDataset(BaseDataset):
     def __init__(
         self,
         config: AudioWPhonemesDatasetArgsModel,
@@ -57,13 +57,13 @@ class TimitAudioDataset(BaseDataset):
             for sample in self._extractSampleDataFromFolder(folder):
                 self.data.append(sample)
 
-    def __getitem__(self, index) -> TimitSample:
+    def __getitem__(self, index) -> TimitSeqSample:
         row = self.data[index]
         transcription = row["transcript"].upper()
         if self.config.remove_punctuation:
             chars_to_ignore_regex = r'[\,\?\.\!\-\;\:"]'
             transcription = re.sub(chars_to_ignore_regex, "", transcription)
-        sample = TimitSample(
+        sample = TimitSeqSample(
             target=row["phonemes"],
             transcript=transcription,
             input=torch.tensor(row["audio"], dtype=torch.float32),
@@ -71,7 +71,7 @@ class TimitAudioDataset(BaseDataset):
         return sample
 
     def get_collate_fn(self):
-        def _collate(samples: list[TimitSample]):
+        def _collate(samples: list[TimitSeqSample]):
             max_audio_len = max([audio.size(0) for _, _, audio in samples])
 
             padded_audio = [
@@ -104,7 +104,7 @@ class TimitAudioDataset(BaseDataset):
                 for target_tensor in target_tensors
             ]
 
-            batch = TimitSampleBatch(
+            batch = TimitSeqSampleBatch(
                 input=torch.stack(padded_audio), target=torch.stack(padded_targets)
             )
             batch.transcripts = [transcript for _, transcript, _ in samples]

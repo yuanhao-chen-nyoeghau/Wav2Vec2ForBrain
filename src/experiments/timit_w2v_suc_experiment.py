@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
 from experiments.w2v_suc_experiment import W2VSUCExperiment
-from src.datasets.timit_dataset import TimitAudioDataset, TimitSampleBatch
+from datasets.timit_seq_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
 from datasets.audio_with_phonemes_seq import (
     AudioWPhonemesSeqDataset,
     AudioWPhonemesDatasetArgsModel,
@@ -29,7 +29,7 @@ class TimitW2VSUCEvaluator(Evaluator):
         super().__init__(mode)
         self.history = SingleEpochHistory()
 
-    def _track_batch(self, predictions: ModelOutput, sample: TimitSampleBatch):
+    def _track_batch(self, predictions: ModelOutput, sample: TimitSeqSampleBatch):
         phoneme_error_rate, prediction_batch = self._calc_phoneme_error_rate(
             sample, predictions
         )
@@ -48,7 +48,7 @@ class TimitW2VSUCEvaluator(Evaluator):
         return self.history
 
     def _calc_phoneme_error_rate(
-        self, batch: TimitSampleBatch, predictions: ModelOutput
+        self, batch: TimitSeqSampleBatch, predictions: ModelOutput
     ):
         pred = predictions.logits
         total_edit_distance = 0
@@ -121,7 +121,7 @@ class TimitW2VSUCExperiment(W2VSUCExperiment):
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
     def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        return TimitAudioDataset(self.config, self.yaml_config, split=split)
+        return TimitAudioSeqDataset(self.config, self.yaml_config, split=split)
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
