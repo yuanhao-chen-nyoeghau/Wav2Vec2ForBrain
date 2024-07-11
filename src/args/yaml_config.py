@@ -23,6 +23,9 @@ class YamlConfigModel(BaseModel):
     wandb_entity: str = Field(
         default="machine-learning-hpi", description="Your W&B entity name."
     )
+    timit_dataset_splits_dir: str = Field(
+        description="Directory containing the original train and test split folder of TIMIT dataset"
+    )
 
 
 class YamlConfig:

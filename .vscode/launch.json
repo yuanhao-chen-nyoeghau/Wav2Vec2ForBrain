@@ -354,6 +354,6 @@
             "args": [
                 "--experiment_type=timit_w2v_suc"
             ]
-        }
+        },
     ],
 }

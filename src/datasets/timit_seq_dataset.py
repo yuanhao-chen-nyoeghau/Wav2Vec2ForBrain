@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from src.datasets.batch_types import SampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
-from datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
+from src.datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
 from src.datasets.base_dataset import BaseDataset, Sample
 from pydantic import BaseModel
 import os
@@ -13,7 +13,7 @@ import soundfile
 from torch.nn.functional import pad
 
 
-from args.yaml_config import YamlConfigModel
+from src.args.yaml_config import YamlConfigModel
 
 
 class Phoneme(NamedTuple):
@@ -42,7 +42,7 @@ class TimitAudioSeqDataset(BaseDataset):
         split: Literal["train", "val", "test"],
     ):
         self.config = config
-        splits_dir = yaml_config.dataset_splits_dir
+        splits_dir = yaml_config.timit_dataset_splits_dir
         partition = "TRAIN" if split == "train" else "TEST"
         data_folder = splits_dir + "/data/" + partition
         self.data: list[dict] = []
