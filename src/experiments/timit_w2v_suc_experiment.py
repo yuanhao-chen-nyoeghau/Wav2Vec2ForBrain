@@ -4,8 +4,8 @@ import torch
 from torch.optim.optimizer import Optimizer
 from experiments.w2v_suc_experiment import W2VSUCExperiment
 from src.datasets.timit_dataset import TimitAudioDataset, TimitSampleBatch
-from src.datasets.audio_with_phonemes import (
-    AudioWPhonemesDataset,
+from datasets.audio_with_phonemes_seq import (
+    AudioWPhonemesSeqDataset,
     AudioWPhonemesDatasetArgsModel,
 )
 from src.datasets.batch_types import PhonemeSampleBatch

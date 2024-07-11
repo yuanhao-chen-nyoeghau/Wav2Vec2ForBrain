@@ -2,8 +2,8 @@ import os
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
-from src.datasets.audio_with_phonemes import (
-    AudioWPhonemesDataset,
+from datasets.audio_with_phonemes_seq import (
+    AudioWPhonemesSeqDataset,
     AudioWPhonemesDatasetArgsModel,
 )
 from src.datasets.batch_types import PhonemeSampleBatch
@@ -136,7 +136,7 @@ class W2VSUCExperiment(Experiment):
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
     def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        return AudioWPhonemesDataset(self.config, self.yaml_config, split=split)
+        return AudioWPhonemesSeqDataset(self.config, self.yaml_config, split=split)
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)

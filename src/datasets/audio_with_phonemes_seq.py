@@ -28,7 +28,7 @@ class AudioWPhonemesDatasetArgsModel(BaseModel):
     remove_punctuation: bool = True
 
 
-class AudioWPhonemesDataset(BaseDataset):
+class AudioWPhonemesSeqDataset(BaseDataset):
     def __init__(
         self,
         config: AudioWPhonemesDatasetArgsModel,
