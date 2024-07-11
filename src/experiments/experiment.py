@@ -39,6 +39,8 @@ class Experiment(metaclass=ABCMeta):
         self.dataloader_val = self._create_dataloader(split="val")
         self.dataloader_test = self._create_dataloader(split="test")
 
+        self.raw_config = config
+
         self.checkpoint_history = None
 
         self.results_dir = os.path.join(
@@ -91,7 +93,7 @@ class Experiment(metaclass=ABCMeta):
         wandb.init(
             project=self.yaml_config.wandb_project_name,
             entity=self.yaml_config.wandb_entity,
-            config=self.base_config.dict(),
+            config=self.raw_config,
             name=self.base_config.experiment_name,
             dir=self.yaml_config.cache_dir,
             save_code=True,
