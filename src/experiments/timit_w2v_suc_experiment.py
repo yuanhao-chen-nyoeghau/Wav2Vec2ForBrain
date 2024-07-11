@@ -1,10 +1,10 @@
 from torch.optim.optimizer import Optimizer
+from src.experiments.experiment import Experiment
 from src.datasets.timit_dataset import (
     TimitAudioDataset,
     TimitAudioDatasetArgsModel,
     TimitSampleBatch,
 )
-from src.experiments.w2v_suc_experiment import W2VSUCExperiment
 from src.model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
@@ -13,7 +13,7 @@ from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
 from torch.utils.data import DataLoader
 from src.train.evaluator import Evaluator
-from src.train.history import MetricEntry, SingleEpochHistory
+from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
 from sklearn.metrics import precision_score, recall_score, accuracy_score
 
 
@@ -54,16 +54,21 @@ class TimitW2VSUCEvaluator(Evaluator):
         assert (
             predictions.loss != None
         ), "Loss is None. Make sure to set loss in ModelOutput"
+
+        decoded_batch = DecodedPredictionBatch(
+            [PHONE_DEF_SIL[id] for id in predicted_class_ids_np],
+            [PHONE_DEF_SIL[id] for id in target_class_ids_np],
+        )
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            None,
+            decoded_batch,
         )
 
     def evaluate(self) -> SingleEpochHistory:
         return self.history
 
 
-class W2VSUCExperimentArgsModel(
+class TimitW2VSUCExperimentArgsModel(
     BaseExperimentArgsModel, W2VSUCArgsModel, TimitAudioDatasetArgsModel
 ):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
@@ -73,9 +78,9 @@ class W2VSUCExperimentArgsModel(
     unfreeze_strategy: Literal["suc"] = "suc"
 
 
-class TimitW2VSUCExperiment(W2VSUCExperiment):
+class TimitW2VSUCExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        self.config = W2VSUCExperimentArgsModel(**config)
+        self.config = TimitW2VSUCExperimentArgsModel(**config)
         self.datasets: dict[str, TimitAudioDataset] = {
             "train": TimitAudioDataset(self.config, yamlConfig, split="train"),
             "val": TimitAudioDataset(self.config, yamlConfig, split="val"),
@@ -85,6 +90,10 @@ class TimitW2VSUCExperiment(W2VSUCExperiment):
 
     def get_name(self) -> str:
         return "timit_w2v_suc"
+
+    @staticmethod
+    def get_args_model():
+        return TimitW2VSUCExperimentArgsModel
 
     def _create_model(self):
         assert (
@@ -118,7 +127,7 @@ class TimitW2VSUCExperiment(W2VSUCExperiment):
         )
 
     def get_vocab(self) -> list[str]:
-        return ["BLANK"] + PHONE_DEF_SIL
+        return PHONE_DEF_SIL
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]):
         return TimitW2VSUCEvaluator(mode)

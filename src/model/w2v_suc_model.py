@@ -19,6 +19,7 @@ class W2VSUCArgsModel(BaseModel):
     suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
     suc_dropout: float = 0.0
     loss_function: Literal["cross_entropy"] = "cross_entropy"
+    disable_w2v_feature_extractor_grad: bool = True
 
 
 class W2VSUCModel(B2TModel):
@@ -46,7 +47,8 @@ class W2VSUCModel(B2TModel):
         if batch.target is None:
             raise ValueError("Target is required for training")
 
-        w2v_output = self.w2v_feature_extractor(batch.input)
+        with torch.no_grad():
+            w2v_output = self.w2v_feature_extractor(batch.input)
         w2v_output = self.dropout(w2v_output)
         suc_output = self.suc(w2v_output).squeeze(1)
 

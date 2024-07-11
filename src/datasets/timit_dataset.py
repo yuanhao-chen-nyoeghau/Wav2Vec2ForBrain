@@ -1,5 +1,6 @@
 from typing import Literal, NamedTuple, cast
 
+from git import Optional
 import numpy as np
 import torch
 from src.datasets.batch_types import SampleBatch
@@ -31,7 +32,7 @@ class RawSample(NamedTuple):
 
 
 class TimitAudioDatasetArgsModel(BaseModel):
-    pass
+    limit_samples: Optional[int] = None
 
 
 class TimitSampleBatch(SampleBatch):
@@ -44,7 +45,6 @@ class TimitAudioDataset(BaseDataset):
         config: TimitAudioDatasetArgsModel,
         yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"],
-        no_cuda: bool = False,
     ):
         self.config = config
         splits_dir = yaml_config.timit_dataset_splits_dir
@@ -65,8 +65,6 @@ class TimitAudioDataset(BaseDataset):
         self.class_weights = torch.tensor(
             self._calculate_target_weights(), dtype=torch.float32
         )
-        if not no_cuda:
-            self.class_weights = self.class_weights.cuda()
 
     def __getitem__(self, index: int) -> TimitSample:
         sample = self.data[index]
@@ -85,7 +83,11 @@ class TimitAudioDataset(BaseDataset):
         return _collate
 
     def __len__(self):
-        return len(self.data)
+        return (
+            len(self.data)
+            if self.config.limit_samples == None
+            else min(self.config.limit_samples, len(self.data))
+        )
 
     def _extractSampleDataFromFolder(self, folder: str) -> list[RawSample]:
         sampleNames = [
