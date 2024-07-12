@@ -120,10 +120,10 @@ class Experiment(metaclass=ABCMeta):
                 if test_results != None:
                     wandb.log(trainer._get_wandb_metrics(test_results, "test"))
                     self.process_test_results(test_results)
-
-            artifact = wandb.Artifact(name="results", type="experiment_results")
-            artifact.add_dir(f"{self.results_dir}/")
-            cast(Run, wandb.run).log_artifact(artifact)
+            if self.base_config.log_results_as_artifact:
+                artifact = wandb.Artifact(name="results", type="experiment_results")
+                artifact.add_dir(f"{self.results_dir}/")
+                cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
 
     def process_test_results(self, test_results: SingleEpochHistory):

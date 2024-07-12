@@ -106,6 +106,7 @@ class BaseExperimentArgsModel(BaseModel):
     train_on_val_once: bool = Field(
         False, description="Train once on val after normal training"
     )
+    log_results_as_artifact: bool = False
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
