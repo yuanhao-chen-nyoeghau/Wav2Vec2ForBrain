@@ -81,6 +81,11 @@ class Trainer:
             loss = cast(torch.Tensor, outputs.loss)
             loss.backward()
 
+            if self.config.gradient_clipping is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.config.gradient_clipping
+                )
+
             # Adjust learning weights
             self.optimizer.step()
             evaluator.track_batch(outputs, batch)

@@ -355,5 +355,28 @@
                 "--experiment_type=timit_w2v_suc"
             ]
         },
+        {
+            "name": "b2p suc",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--learning_rate=0.0004849126744134008",
+                "--scheduler_gamma=0.32777878218184253",
+                "--suc_dropout=0.4002714380900173",
+                "--suc_hidden_sizes=[4096,1024,512,256]",
+                "--weight_decay=4.412757798785471e-05",
+                "--early_stopping_patience=4",
+                "--experiment_type=b2p_suc",
+                "--return_best_model=true",
+                "--epochs=100",
+                "--batch_size=16",
+                "--scheduler_step_size=2",
+                "--optimizer_epsilon=0.1",
+                "--gradient_clipping=1"
+            ]
+        }
     ],
 }

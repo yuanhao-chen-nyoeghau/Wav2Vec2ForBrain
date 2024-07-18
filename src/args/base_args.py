@@ -12,7 +12,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_zscored",
         "seperate_zscoring_2channels",
         "seperate_zscoring_4channels",
-    ] = "seperate_zscoring_4channels"
+    ] = "seperate_zscoring"
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
@@ -64,6 +64,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_mvtst",
         "w2v_suc",
         "timit_w2v_suc",
+        "b2p_suc",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
