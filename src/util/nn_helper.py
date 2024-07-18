@@ -12,6 +12,7 @@ def create_fully_connected(
     output_size: int,
     hidden_sizes=[],
     activation: ACTIVATION_FUNCTION = "gelu",
+    use_batch_norm: bool = False,
 ):
     classifier_layers = []
     for i in range(-1, len(hidden_sizes)):
@@ -21,7 +22,8 @@ def create_fully_connected(
         out_size = output_size if is_last else hidden_sizes[i + 1]
         classifier_layers.append(Linear(in_size, out_size))
         if not is_last:
-            # classifier_layers.append(BatchNorm1d(num_features=1))
+            if use_batch_norm:
+                classifier_layers.append(BatchNorm1d(num_features=1))
             classifier_layers.append(ACT2FN[activation])
     return nn.Sequential(*classifier_layers)
 
