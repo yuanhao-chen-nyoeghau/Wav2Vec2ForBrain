@@ -1,5 +1,6 @@
-from torch.nn import Linear
-from torch import nn
+from sympy import false
+from torch.nn import Linear, BatchNorm1d
+from torch import batch_norm, nn
 from transformers.activations import ACT2FN
 
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
@@ -20,6 +21,7 @@ def create_fully_connected(
         out_size = output_size if is_last else hidden_sizes[i + 1]
         classifier_layers.append(Linear(in_size, out_size))
         if not is_last:
+            classifier_layers.append(BatchNorm1d(num_features=1))
             classifier_layers.append(ACT2FN[activation])
     return nn.Sequential(*classifier_layers)
 

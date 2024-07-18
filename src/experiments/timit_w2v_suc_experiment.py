@@ -1,3 +1,5 @@
+import os
+import torch
 from torch.optim.optimizer import Optimizer
 from src.experiments.experiment import Experiment
 from src.datasets.timit_dataset import (
@@ -131,3 +133,9 @@ class TimitW2VSUCExperiment(Experiment):
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]):
         return TimitW2VSUCEvaluator(mode)
+
+    def store_trained_model(self, trained_model: W2VSUCModel):
+        torch.save(
+            trained_model.suc.state_dict(),
+            os.path.join(self.results_dir, "suc.pt"),
+        )

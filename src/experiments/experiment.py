@@ -106,10 +106,7 @@ class Experiment(metaclass=ABCMeta):
 
             if not self.base_config.only_test:
                 trained_model, history = trainer.train()
-                torch.save(
-                    trained_model.state_dict(),
-                    os.path.join(self.results_dir, "model.pt"),
-                )
+                self.store_trained_model(trained_model)
                 with open(os.path.join(self.results_dir, "history.json"), "w") as f:
                     json.dump(history.to_dict(), f, indent=5)
 
@@ -125,6 +122,12 @@ class Experiment(metaclass=ABCMeta):
                 artifact.add_dir(f"{self.results_dir}/")
                 cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
+
+    def store_trained_model(self, trained_model: torch.nn.Module):
+        torch.save(
+            trained_model.state_dict(),
+            os.path.join(self.results_dir, "model.pt"),
+        )
 
     def process_test_results(self, test_results: SingleEpochHistory):
         pass
