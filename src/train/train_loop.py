@@ -82,7 +82,7 @@ class Trainer:
             loss.backward()
 
             if self.config.gradient_clipping is not None:
-                torch.nn.utils.clip_grad_norm_(
+                torch.nn.utils.clip_grad_norm_(  # type: ignore
                     self.model.parameters(), self.config.gradient_clipping
                 )
 

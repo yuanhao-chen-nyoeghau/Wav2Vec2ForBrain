@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
@@ -8,7 +9,7 @@ from src.datasets.audio_with_phonemes_seq import (
 )
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
-from src.model.w2v_suc_seq_model import W2VSUCSeqArgsModel, W2VSUCSeqModel
+from src.model.w2v_suc_seq_model import W2VSUC_CTCArgsModel, W2VSUCSeqModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
@@ -78,22 +79,28 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         )
 
 
-class W2VSUCSeqExperimentArgsModel(
-    BaseExperimentArgsModel, W2VSUCSeqArgsModel, AudioWPhonemesDatasetArgsModel
+class W2VSUCCtcExperimentArgsModel(
+    BaseExperimentArgsModel, W2VSUC_CTCArgsModel, AudioWPhonemesDatasetArgsModel
 ):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
     unfreeze_strategy: Literal["suc"] = "suc"
+    suc_checkpoint: str
 
 
-class TimitSeqW2VSUCExperiment(W2VSUCExperiment):
+class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         super().__init__(config, yamlConfig)
+        self.config = self.get_args_model()(**config)
 
     def get_name(self) -> str:
-        return "timit_seq_w2v_suc"
+        return "timit_w2v_suc_ctc"
+
+    @staticmethod
+    def get_args_model():
+        return W2VSUCCtcExperimentArgsModel
 
     def _create_model(self):
         assert (
@@ -101,12 +108,18 @@ class TimitSeqW2VSUCExperiment(W2VSUCExperiment):
             "Only cross entropy loss is currently supported",
         )
         model = W2VSUCSeqModel(self.config)
+        model.suc_for_ctc.suc.load_state_dict(
+            torch.load(self.config.suc_checkpoint, map_location="cuda"),
+            strict=True,
+        )
         return model
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "suc":
-                return cast(W2VSUCSeqModel, self.model).suc.parameters()
+                return cast(
+                    W2VSUCSeqModel, self.model
+                ).suc_for_ctc.ctc_head.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
@@ -131,3 +144,9 @@ class TimitSeqW2VSUCExperiment(W2VSUCExperiment):
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]):
         return TimitSeqW2VSUCEvaluator(mode)
+
+    def store_trained_model(self, trained_model: W2VSUCSeqModel):
+        torch.save(
+            trained_model.suc_for_ctc.state_dict(),
+            os.path.join(self.results_dir, "suc_for_ctc.pt"),
+        )

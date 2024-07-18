@@ -9,7 +9,7 @@ from src.datasets.audio_with_phonemes_seq import (
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
-from src.model.w2v_suc_seq_model import W2VSUCSeqArgsModel, W2VSUCSeqModel
+from src.model.w2v_suc_seq_model import W2VSUC_CTCArgsModel, W2VSUCSeqModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
@@ -86,7 +86,7 @@ class W2VSUCEvaluator(Evaluator):
 
 
 class W2VSUCExperimentArgsModel(
-    BaseExperimentArgsModel, W2VSUCSeqArgsModel, AudioWPhonemesDatasetArgsModel
+    BaseExperimentArgsModel, W2VSUC_CTCArgsModel, AudioWPhonemesDatasetArgsModel
 ):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
@@ -105,7 +105,7 @@ class W2VSUCExperiment(Experiment):
         self._hugg_dataset = load_dataset(
             "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
         )
-        self.config = W2VSUCExperimentArgsModel(**config)
+        self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
         self.model: AudioWav2VecModel = self.model
 

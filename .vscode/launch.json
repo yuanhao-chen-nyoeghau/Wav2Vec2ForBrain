@@ -332,19 +332,7 @@
                 "--limit_samples=64"
             ]
         },
-        {
-            "name": "run.py w2v_suc",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/run.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "--experiment_type=w2v_suc",
-                "--batch_size=8"
-            ]
-        },
-        {
+        { // STEP 1: train SUC on independant phoneme samples
             "name": "run.py suc timit",
             "type": "debugpy",
             "request": "launch",
@@ -355,15 +343,40 @@
                 "--experiment_type=timit_w2v_suc"
             ]
         },
-        {
-            "name": "b2p suc",
+        { // STEP 2: train GRU head attached on SUC via CTC loss on audio
+            "name": "b2p suc_for_ctc",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "--learning_rate=0.0004849126744134008",
+                "--learning_rate=0.0001",
+                "--scheduler_gamma=0.32777878218184253",
+                "--suc_dropout=0.4002714380900173",
+                "--suc_hidden_sizes=[4096,1024,512,256]",
+                "--weight_decay=4.412757798785471e-05",
+                "--early_stopping_patience=4",
+                "--experiment_type=timit_w2v_suc_ctc",
+                "--return_best_model=true",
+                "--epochs=40",
+                "--batch_size=16",
+                "--scheduler_step_size=2",
+                "--optimizer_epsilon=0.1",
+                "--gradient_clipping=1",
+                "--gru_hidden_size=40",
+                "--suc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc/2024-07-18_12#09#56/suc.pt"
+            ]
+        },
+        { // STEP 3: train brain data encoder using pretrained SUC and GRU head
+            "name": "b2p brain_encoder with suc_for_ctc",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--learning_rate=0.000001",
                 "--scheduler_gamma=0.32777878218184253",
                 "--suc_dropout=0.4002714380900173",
                 "--suc_hidden_sizes=[4096,1024,512,256]",
@@ -375,8 +388,9 @@
                 "--batch_size=16",
                 "--scheduler_step_size=2",
                 "--optimizer_epsilon=0.1",
-                "--gradient_clipping=1"
+                "--gradient_clipping=1",
+                "--suc_for_ctc_checkpoint=experiment_results/timit_w2v_suc_ctc/2024-07-18_14#17#19/suc_for_ctc.pt"
             ]
-        }
+        },
     ],
 }

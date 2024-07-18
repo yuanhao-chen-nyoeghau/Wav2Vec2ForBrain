@@ -32,6 +32,8 @@ class TimitSeqSampleBatch(SampleBatch):
     transcripts: list[str]
     input_lens: torch.Tensor
     phonemes: list[list[Phoneme]]
+    input_lens: torch.Tensor
+    target_lens: torch.Tensor
 
 
 class TimitAudioSeqDataset(BaseDataset):
@@ -85,11 +87,10 @@ class TimitAudioSeqDataset(BaseDataset):
             ]
 
             target_tensors = []
-            for phonemes, _, audio in samples:
-                target_tensor = torch.full((audio.size(0),), -1, dtype=torch.long)
-                for phoneme in phonemes:
-                    target_tensor[phoneme.start : phoneme.end] = phoneme.id
-                target_tensors.append(target_tensor)
+            for phonemes, _, _ in samples:
+                target_tensors.append(
+                    torch.tensor([phoneme.id + 1 for phoneme in phonemes])
+                )
 
             max_target_len = max(
                 [target_tensor.size(0) for target_tensor in target_tensors]
@@ -110,7 +111,9 @@ class TimitAudioSeqDataset(BaseDataset):
             batch.transcripts = [transcript for _, transcript, _ in samples]
             batch.input_lens = torch.tensor([audio.size(0) for _, _, audio in samples])
             batch.phonemes = [phonemes for phonemes, _, _ in samples]
-
+            batch.target_lens = torch.tensor(
+                [len(phonemes) for phonemes in batch.phonemes]
+            )
             return batch
 
         return _collate

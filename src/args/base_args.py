@@ -64,6 +64,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_mvtst",
         "w2v_suc",
         "timit_w2v_suc",
+        "timit_w2v_suc_ctc",
         "b2p_suc",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10

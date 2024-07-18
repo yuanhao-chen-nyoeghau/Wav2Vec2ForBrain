@@ -3,19 +3,17 @@ from edit_distance import SequenceMatcher
 from typing import Any, Literal, cast
 
 from torch.optim.optimizer import Optimizer
-from model.suc import SUCModel
 from src.datasets.batch_types import PhonemeSampleBatch
 import numpy as np
 import torch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF, PHONE_DEF_SIL
-from args.yaml_config import YamlConfigModel
+from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.args.yaml_config import YamlConfigModel
 from src.experiments.b2p2t_experiment import B2P2TArgsModel, B2P2TExperiment
-from src.model.b2p2t_model import B2P2TModel
 from src.model.b2p_suc import B2PSUC
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.b2p_suc import B2PSUCArgsModel
 from src.train.evaluator import Evaluator
-from train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
+from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
 
 
 class B2PSUCEvaluator(Evaluator):
@@ -79,17 +77,15 @@ class B2PSUCEvaluator(Evaluator):
 
 
 class B2PSUCExperimentArgsModel(B2PSUCArgsModel, B2P2TArgsModel):
-    suc_checkpoint: str = (
-        "/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc/2024-07-18_12#09#56/suc.pt"
-    )
+    suc_for_ctc_checkpoint: str
 
 
 class B2PSUCExperiment(B2P2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
-        cast(B2PSUC, self.model.neural_decoder).suc.load_state_dict(
-            torch.load(self.config.suc_checkpoint, map_location="cuda"),
+        cast(B2PSUC, self.model.neural_decoder).suc_for_ctc.load_state_dict(
+            torch.load(self.config.suc_for_ctc_checkpoint, map_location="cuda"),
             strict=True,
         )
 

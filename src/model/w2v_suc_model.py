@@ -6,13 +6,11 @@ import torch
 from torch import nn
 from typing import Literal, cast
 
+from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from src.model.suc import SUCModel
 from src.datasets.timit_dataset import TimitSampleBatch
-from src.model.w2v_suc_seq_model import Wav2Vec2WithoutTransformerModel
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.util.nn_helper import create_fully_connected
 
 
 class W2VSUCArgsModel(BaseModel):
