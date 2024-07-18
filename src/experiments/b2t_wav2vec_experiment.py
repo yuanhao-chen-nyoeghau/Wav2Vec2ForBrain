@@ -15,8 +15,9 @@ from src.train.evaluator import DefaultEvaluator
 class B2TWav2VecExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
-        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
+        self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
+
         self.model: B2TWav2Vec = self.model
 
     def get_name(self) -> str:

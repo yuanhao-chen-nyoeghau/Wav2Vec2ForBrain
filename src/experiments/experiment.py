@@ -39,6 +39,8 @@ class Experiment(metaclass=ABCMeta):
         self.dataloader_val = self._create_dataloader(split="val")
         self.dataloader_test = self._create_dataloader(split="test")
 
+        self.raw_config = config
+
         self.checkpoint_history = None
 
         self.results_dir = os.path.join(
@@ -91,7 +93,7 @@ class Experiment(metaclass=ABCMeta):
         wandb.init(
             project=self.yaml_config.wandb_project_name,
             entity=self.yaml_config.wandb_entity,
-            config=self.base_config.dict(),
+            config=self.raw_config,
             name=self.base_config.experiment_name,
             dir=self.yaml_config.cache_dir,
             save_code=True,
@@ -118,10 +120,10 @@ class Experiment(metaclass=ABCMeta):
                 if test_results != None:
                     wandb.log(trainer._get_wandb_metrics(test_results, "test"))
                     self.process_test_results(test_results)
-
-            artifact = wandb.Artifact(name="results", type="experiment_results")
-            artifact.add_dir(f"{self.results_dir}/")
-            cast(Run, wandb.run).log_artifact(artifact)
+            if self.base_config.log_results_as_artifact:
+                artifact = wandb.Artifact(name="results", type="experiment_results")
+                artifact.add_dir(f"{self.results_dir}/")
+                cast(Run, wandb.run).log_artifact(artifact)
             print(f"Done. Saved results to {self.results_dir}")
 
     def process_test_results(self, test_results: SingleEpochHistory):

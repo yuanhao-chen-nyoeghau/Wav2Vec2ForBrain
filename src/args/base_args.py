@@ -40,7 +40,7 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc", "contrastive_loss"] = "ctc"
+    loss_function: Literal["ctc", "contrastive_loss", "cross_entropy"] = "cross_entropy"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
@@ -62,6 +62,8 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_mamba",
         "b2p2t_gru",
         "b2p2t_mvtst",
+        "w2v_suc",
+        "timit_w2v_suc",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -104,6 +106,7 @@ class BaseExperimentArgsModel(BaseModel):
     train_on_val_once: bool = Field(
         False, description="Train once on val after normal training"
     )
+    log_results_as_artifact: bool = False
 
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):

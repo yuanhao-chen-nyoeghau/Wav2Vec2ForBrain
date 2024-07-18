@@ -332,5 +332,28 @@
                 "--limit_samples=64"
             ]
         },
+        {
+            "name": "run.py w2v_suc",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=w2v_suc",
+                "--batch_size=8"
+            ]
+        },
+        {
+            "name": "run.py suc timit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=timit_w2v_suc"
+            ]
+        },
     ],
 }

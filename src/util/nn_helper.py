@@ -37,6 +37,7 @@ def compute_ctc_loss(
     out_log_softmaxed_batch: torch.Tensor,
     targets: torch.Tensor,
     loss: nn.CTCLoss,
+    input_lens: torch.Tensor | None = None,
 ):
     """
     x: (batch_size, seq_len, *) - assuming all items of last dimension to be zero when padded
@@ -47,25 +48,26 @@ def compute_ctc_loss(
     target_lens = torch.tensor([calc_seq_len(seq) for seq in targets])
     # out shape: (batch_size, seq_len, vocab_size)
 
-    # non padded mask
-    mask = model_input != 0
-    # seq lens without padding
-    # mask shape: (batch_size, seq_len, 256)
-    in_seq_lens = mask.any(-1)
-    # in_seq_lens shape: (batch_size, seq_len)
-    in_seq_lens = in_seq_lens.sum(-1)
-    # in_seq_lens shape: (batch_size)
-    in_seq_lens = in_seq_lens.clamp(max=out_log_softmaxed_batch.shape[1])
+    if input_lens is None:
+        # non padded mask
+        mask = model_input != 0
+        # seq lens without padding
+        # mask shape: (batch_size, seq_len, 256)
+        input_lens = mask.any(-1)
+        # input_lens shape: (batch_size, seq_len)
+        input_lens = input_lens.sum(-1)
+        # input_lens shape: (batch_size)
+        input_lens = input_lens.clamp(max=out_log_softmaxed_batch.shape[1])
     out = out_log_softmaxed_batch.transpose(0, 1)
     # out shape: (seq_len, batch_size, vocab_size)
     ctc_loss = loss(
         out,
         targets,
-        in_seq_lens.to(device),
+        input_lens.to(device),
         target_lens.to(device),
     )
     if ctc_loss.item() < 0:
         print(
-            f"\nWarning: loss is negative, this might be due to prediction lens ({in_seq_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
+            f"\nWarning: loss is negative, this might be due to prediction lens ({input_lens.tolist()}) being smaller than target lens {target_lens.tolist()}\n"
         )
     return ctc_loss
