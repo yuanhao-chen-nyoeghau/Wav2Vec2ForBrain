@@ -17,7 +17,6 @@ class W2VSUCArgsModel(BaseModel):
     suc_hidden_sizes: list[int] = []
     suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
     suc_dropout: float = 0.0
-    loss_function: Literal["cross_entropy"] = "cross_entropy"
     disable_w2v_feature_extractor_grad: bool = True
 
 
