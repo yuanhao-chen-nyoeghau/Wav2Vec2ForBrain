@@ -8,7 +8,7 @@ from src.datasets.timit_dataset import (
     TimitSampleBatch,
 )
 from src.model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel

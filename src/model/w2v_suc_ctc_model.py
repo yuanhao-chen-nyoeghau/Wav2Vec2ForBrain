@@ -5,13 +5,12 @@ import torch
 from torch import log_softmax, nn
 from typing import Literal, cast
 
-from src.datasets.timit_seq_dataset import TimitSeqSampleBatch
+from src.datasets.timit_ctc_dataset import TimitSeqSampleBatch
 from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from src.model.suc import SUCModel
 from src.model.w2v_suc_model import W2VSUCArgsModel
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.datasets.batch_types import PhonemeSampleBatch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
 
 

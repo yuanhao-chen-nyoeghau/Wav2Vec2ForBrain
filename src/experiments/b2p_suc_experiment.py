@@ -6,7 +6,7 @@ from torch.optim.optimizer import Optimizer
 from src.datasets.batch_types import PhonemeSampleBatch
 import numpy as np
 import torch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.args.yaml_config import YamlConfigModel
 from src.experiments.b2p2t_experiment import B2P2TArgsModel, B2P2TExperiment
 from src.model.b2p_suc import B2PSUC

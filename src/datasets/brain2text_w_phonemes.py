@@ -7,68 +7,13 @@ import re
 from g2p_en import G2p
 from torch.nn.functional import pad
 import re
-
-PHONE_DEF = [
-    "AA",
-    "AE",
-    "AH",
-    "AO",
-    "AW",
-    "AY",
-    "B",
-    "CH",
-    "D",
-    "DH",
-    "EH",
-    "ER",
-    "EY",
-    "F",
-    "G",
-    "HH",
-    "IH",
-    "IY",
-    "JH",
-    "K",
-    "L",
-    "M",
-    "N",
-    "NG",
-    "OW",
-    "OY",
-    "P",
-    "R",
-    "S",
-    "SH",
-    "T",
-    "TH",
-    "UH",
-    "UW",
-    "V",
-    "W",
-    "Y",
-    "Z",
-    "ZH",
-]
-
-PHONE_DEF_SIL = PHONE_DEF + [
-    "SIL",
-]
-
-SIL_DEF = ["SIL"]
-
-
-class PhonemeSeq(NamedTuple):
-    phoneme_ids: list[int]
-    phonemes: list[str]
+from src.util.phoneme_helper import get_phoneme_seq
+from src.util.phoneme_helper import PHONE_DEF_SIL
 
 
 class PhonemeSample(B2tSample):
     transcription: str
     phonemes: list[str]
-
-
-def decode_predicted_phoneme_ids(ids: list[int]) -> str:
-    return " ".join([PHONE_DEF_SIL[i - 1] for i in ids if i > 0])
 
 
 class Brain2TextWPhonemesDataset(Brain2TextDataset):
@@ -85,9 +30,9 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
     ) -> None:
         super().__init__(config, yaml_config, split)
 
-        self.g2p = G2p()
+        g2p = G2p()
         self.phoneme_seqs = [
-            self.get_phoneme_seq(sample.target) for sample in self.samples
+            get_phoneme_seq(g2p, sample.target) for sample in self.samples
         ]
 
     def __getitem__(self, index: int) -> PhonemeSample:
@@ -105,29 +50,6 @@ class Brain2TextWPhonemesDataset(Brain2TextDataset):
         sample.transcription = transcription
         sample.phonemes = phonemes
         return sample
-
-    def get_phoneme_seq(self, transcription: str) -> PhonemeSeq:
-
-        def phoneToId(p):
-            return PHONE_DEF_SIL.index(p)
-
-        phonemes = []
-        if len(transcription) == 0:
-            phonemes = SIL_DEF
-        else:
-            for p in self.g2p(transcription.replace("<s>", "").replace("</s>", "")):
-                if p == " ":
-                    phonemes.append("SIL")
-                p = re.sub(r"[0-9]", "", p)  # Remove stress
-                if re.match(r"[A-Z]+", p):  # Only keep phonemes
-                    phonemes.append(p)
-            # add one SIL symbol at the end so there's one at the end of each word
-            phonemes.append("SIL")
-
-        phoneme_ids = [
-            phoneToId(p) + 1 for p in phonemes
-        ]  # +1 to shift the ids by 1 as 0 is blank
-        return PhonemeSeq(phoneme_ids, phonemes)
 
     def get_collate_fn(self) -> Callable[[list[PhonemeSample]], PhonemeSampleBatch]:
         multiple_channels = (

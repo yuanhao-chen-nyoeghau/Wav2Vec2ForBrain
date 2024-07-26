@@ -3,8 +3,9 @@ from typing import Literal, NamedTuple, cast
 from git import Optional
 import numpy as np
 import torch
+
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.datasets.batch_types import SampleBatch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.datasets.base_dataset import BaseDataset
 from pydantic import BaseModel
 import os

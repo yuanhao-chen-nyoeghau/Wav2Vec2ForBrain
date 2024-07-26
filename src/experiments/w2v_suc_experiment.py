@@ -7,7 +7,7 @@ from src.datasets.audio_with_phonemes_seq import (
     AudioWPhonemesDatasetArgsModel,
 )
 from src.datasets.batch_types import PhonemeSampleBatch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
 from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
