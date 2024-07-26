@@ -9,7 +9,7 @@ from src.datasets.audio_with_phonemes_seq import (
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
-from src.model.w2v_suc_seq_model import W2VSUC_CTCArgsModel, W2VSUCSeqModel
+from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.model.audio_wav2vec_model import AudioWav2VecModel
 from src.experiments.experiment import Experiment
@@ -121,13 +121,13 @@ class W2VSUCExperiment(Experiment):
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is currently supported",
         )
-        model = W2VSUCSeqModel(self.config)
+        model = W2VSUCForCtcModel(self.config)
         return model
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "suc":
-                return cast(W2VSUCSeqModel, self.model).suc.parameters()
+                return cast(W2VSUCForCtcModel, self.model).suc.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
