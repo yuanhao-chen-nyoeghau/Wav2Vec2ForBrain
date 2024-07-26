@@ -40,7 +40,7 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc", "contrastive_loss", "cross_entropy"] = "cross_entropy"
+    loss_function: Literal["ctc", "contrastive_loss", "cross_entropy"] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[

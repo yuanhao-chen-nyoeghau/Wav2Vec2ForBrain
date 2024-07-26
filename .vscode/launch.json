@@ -360,7 +360,7 @@
                 "--experiment_type=timit_w2v_suc_ctc",
                 "--return_best_model=true",
                 "--epochs=40",
-                "--batch_size=16",
+                "--batch_size=4",
                 "--scheduler_step_size=8",
                 "--optimizer_epsilon=0.1",
                 "--gradient_clipping=1",

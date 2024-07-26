@@ -3,11 +3,11 @@ import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
 from src.experiments.w2v_suc_experiment import W2VSUCExperiment
-from src.datasets.timit_seq_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
+from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
 from src.datasets.audio_with_phonemes_seq import (
     AudioWPhonemesDatasetArgsModel,
 )
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
 from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
@@ -55,6 +55,8 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         labels = []
         predicted = []
         for iterIdx in range(pred.shape[0]):
+            if batch.target is None:
+                continue
             decodedSeq = torch.argmax(
                 torch.tensor(pred[iterIdx, :, :]),
                 dim=-1,
@@ -63,7 +65,7 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
             decodedSeq = decodedSeq.cpu().detach().numpy()
             decodedSeq = np.array([i for i in decodedSeq if i != 0])
             trueSeq = np.array(
-                [phoneme.id for phoneme in batch.phonemes[iterIdx] if phoneme.id >= 0]
+                [idx.item() for idx in batch.target[iterIdx].cpu() if idx >= 0]
             )
             # TODO: is this correct?
             labels.append([PHONE_DEF_SIL[i - 1] for i in trueSeq])
