@@ -62,7 +62,6 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_mamba",
         "b2p2t_gru",
         "b2p2t_mvtst",
-        "w2v_suc",
         "timit_w2v_suc",
         "timit_w2v_suc_ctc",
         "b2p_suc",

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
-from src.experiments.w2v_suc_experiment import W2VSUCExperiment
+from src.experiments.experiment import Experiment
 from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
 from src.datasets.audio_with_phonemes_seq import (
     AudioWPhonemesDatasetArgsModel,
@@ -12,7 +12,7 @@ from src.model.b2tmodel import ModelOutput
 from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal, cast
+from typing import Any, Literal, Optional, cast
 from torch.utils.data import DataLoader
 from src.train.evaluator import Evaluator
 from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
@@ -40,7 +40,9 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         ), "Loss is None. Make sure to set loss in ModelOutput"
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            prediction_batch,
+            (
+                prediction_batch if self.mode == "test" else None
+            ),  # prevent 1GB history files
         )
 
     def evaluate(self) -> SingleEpochHistory:
@@ -93,14 +95,14 @@ class W2VSUCCtcExperimentArgsModel(
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
-    unfreeze_strategy: Literal["suc"] = "suc"
-    suc_checkpoint: str
+    unfreeze_strategy: Literal["suc", "suc+gru"] = "suc"
+    suc_checkpoint: Optional[str] = None
 
 
-class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
+class TimitW2VSUC_CTCExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        super().__init__(config, yamlConfig)
         self.config = self.get_args_model()(**config)
+        super().__init__(config, yamlConfig)
 
     def get_name(self) -> str:
         return "timit_w2v_suc_ctc"
@@ -115,10 +117,11 @@ class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
             "Only ctc loss is supported",
         )
         model = W2VSUCForCtcModel(self.config)
-        model.suc_for_ctc.suc.load_state_dict(
-            torch.load(self.config.suc_checkpoint, map_location="cuda"),
-            strict=True,
-        )
+        if self.config.suc_checkpoint is not None:
+            model.suc_for_ctc.suc.load_state_dict(
+                torch.load(self.config.suc_checkpoint, map_location="cuda"),
+                strict=True,
+            )
         return model
 
     def create_optimizer(self) -> Optimizer:
@@ -127,6 +130,8 @@ class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
                 return cast(
                     W2VSUCForCtcModel, self.model
                 ).suc_for_ctc.ctc_head.parameters()
+            elif self.config.unfreeze_strategy == "suc+gru":
+                return cast(W2VSUCForCtcModel, self.model).suc_for_ctc.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
