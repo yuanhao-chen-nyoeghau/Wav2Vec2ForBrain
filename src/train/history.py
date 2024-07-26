@@ -57,7 +57,10 @@ class SingleEpochHistory:
         def get_batch(i: int):
             entry = self.decoded[i]
             if entry is not None:
-                return {"predictions": entry.predictions, "targets": entry.targets}
+                return {
+                    **vars(entry),
+                    **entry._asdict(),
+                }
             return {}
 
         return {
