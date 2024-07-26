@@ -361,11 +361,12 @@
                 "--return_best_model=true",
                 "--epochs=40",
                 "--batch_size=16",
-                "--scheduler_step_size=2",
+                "--scheduler_step_size=8",
                 "--optimizer_epsilon=0.1",
                 "--gradient_clipping=1",
-                "--gru_hidden_size=40",
-                "--suc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc/2024-07-18_12#09#56/suc.pt"
+                "--ctc_gru_hidden_size=40",
+                "--suc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc/2024-07-18_12#09#56/suc.pt",
+                "--ctc_num_gru_layers=1"
             ]
         },
         { // STEP 3: train brain data encoder using pretrained SUC and GRU head
