@@ -4,34 +4,24 @@ from typing import Literal, NamedTuple
 import numpy as np
 import torch
 from src.datasets.batch_types import SampleBatch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
 from src.datasets.base_dataset import BaseDataset, Sample
 from pydantic import BaseModel
 import os
 import soundfile
 from torch.nn.functional import pad
-
-
 from src.args.yaml_config import YamlConfigModel
 
 
-class Phoneme(NamedTuple):
-    start: int
-    end: int
-    id: int
-
-
 class TimitSeqSample(NamedTuple):
-    target: list[Phoneme]
+    target: list[int]  # List of phoneme ids
     transcript: str
     input: torch.Tensor
 
 
 class TimitSeqSampleBatch(SampleBatch):
     transcripts: list[str]
-    input_lens: torch.Tensor
-    phonemes: list[list[Phoneme]]
     input_lens: torch.Tensor
     target_lens: torch.Tensor
 
