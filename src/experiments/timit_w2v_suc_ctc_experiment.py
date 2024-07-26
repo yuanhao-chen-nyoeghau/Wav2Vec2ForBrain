@@ -9,7 +9,7 @@ from src.datasets.audio_with_phonemes_seq import (
 )
 from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
-from src.model.w2v_suc_seq_model import W2VSUC_CTCArgsModel, W2VSUCSeqModel
+from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
 from typing import Any, Literal, cast
@@ -17,6 +17,10 @@ from torch.utils.data import DataLoader
 from src.train.evaluator import Evaluator
 from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
 from edit_distance import SequenceMatcher
+
+
+class EnhancedDecodedBatch(DecodedPredictionBatch):
+    original_targets: list[str]
 
 
 class TimitSeqW2VSUCEvaluator(Evaluator):
@@ -74,9 +78,10 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
             total_edit_distance += dist
             total_seq_length += len(trueSeq)
 
-        return total_edit_distance / total_seq_length, DecodedPredictionBatch(
-            predicted, labels
-        )
+        decoded = EnhancedDecodedBatch(predicted, labels)
+        decoded.original_targets = batch.transcripts
+
+        return total_edit_distance / total_seq_length, decoded
 
 
 class W2VSUCCtcExperimentArgsModel(
@@ -104,10 +109,10 @@ class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
 
     def _create_model(self):
         assert (
-            self.config.loss_function == "cross_entropy",  # type: ignore
-            "Only cross entropy loss is currently supported",
+            self.config.loss_function == "ctc",  # type: ignore
+            "Only ctc loss is supported",
         )
-        model = W2VSUCSeqModel(self.config)
+        model = W2VSUCForCtcModel(self.config)
         model.suc_for_ctc.suc.load_state_dict(
             torch.load(self.config.suc_checkpoint, map_location="cuda"),
             strict=True,
@@ -118,7 +123,7 @@ class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
         def get_trainable_params():
             if self.config.unfreeze_strategy == "suc":
                 return cast(
-                    W2VSUCSeqModel, self.model
+                    W2VSUCForCtcModel, self.model
                 ).suc_for_ctc.ctc_head.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
@@ -145,7 +150,7 @@ class TimitW2VSUC_CTCExperiment(W2VSUCExperiment):
     def create_evaluator(self, mode: Literal["train", "val", "test"]):
         return TimitSeqW2VSUCEvaluator(mode)
 
-    def store_trained_model(self, trained_model: W2VSUCSeqModel):
+    def store_trained_model(self, trained_model: W2VSUCForCtcModel):
         torch.save(
             trained_model.suc_for_ctc.state_dict(),
             os.path.join(self.results_dir, "suc_for_ctc.pt"),
