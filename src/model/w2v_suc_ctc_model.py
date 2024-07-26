@@ -17,14 +17,14 @@ from src.model.b2tmodel import B2TModel, ModelOutput
 
 class W2VSUC_CTCArgsModel(W2VSUCArgsModel):
     loss_function: Literal["ctc"] = "ctc"
-    gru_hidden_size: int = 256
-    bidirectional: bool = True
-    num_gru_layers: int = 2
-    bias: bool = True
-    dropout: float = 0.0
-    learnable_inital_state: bool = False
-    fc_hidden_sizes: list[int] = []
-    fc_activation_function: ACTIVATION_FUNCTION = "gelu"
+    ctc_gru_hidden_size: int = 256
+    ctc_bidirectional: bool = True
+    ctc_num_gru_layers: int = 2
+    ctc_bias: bool = True
+    ctc_dropout: float = 0.0
+    ctc_learnable_inital_state: bool = False
+    ctc_fc_hidden_sizes: list[int] = []
+    ctc_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
 
 
 class SUCCTCHead(nn.Module):
@@ -32,15 +32,15 @@ class SUCCTCHead(nn.Module):
         super().__init__()
         self.gru = torch.nn.GRU(
             len(PHONE_DEF_SIL),
-            config.gru_hidden_size,
-            config.num_gru_layers,
-            dropout=config.dropout,
-            bias=config.bias,
-            bidirectional=config.bidirectional,
+            config.ctc_gru_hidden_size,
+            config.ctc_num_gru_layers,
+            dropout=config.ctc_dropout,
+            bias=config.ctc_bias,
+            bidirectional=config.ctc_bidirectional,
             batch_first=True,
         )
         self.gru_project = nn.Linear(
-            config.gru_hidden_size * (2 if config.bidirectional else 1),
+            config.ctc_gru_hidden_size * (2 if config.ctc_bidirectional else 1),
             len(PHONE_DEF_SIL) + 1,
         )
 
@@ -61,7 +61,7 @@ class SUCForCTC(nn.Module):
         return self.ctc_head(suc_output)
 
 
-class W2VSUCSeqModel(B2TModel):
+class W2VSUCForCtcModel(B2TModel):
     def __init__(self, config: W2VSUC_CTCArgsModel):
         super().__init__()
         self.config = config
