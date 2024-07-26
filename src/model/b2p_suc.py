@@ -4,7 +4,7 @@ from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.datasets.batch_types import PhonemeSampleBatch
 
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.model.w2v_suc_seq_model import SUCForCTC, W2VSUC_CTCArgsModel
+from src.model.w2v_suc_ctc_model import SUCForCTC, W2VSUC_CTCArgsModel
 from src.util.nn_helper import create_fully_connected
 
 
