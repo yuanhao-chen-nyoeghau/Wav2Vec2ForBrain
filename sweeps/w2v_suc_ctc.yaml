@@ -33,5 +33,3 @@ parameters:
     max: 0.1
   ctc_gru_hidden_size:
     values: [20, 30, 40, 50, 60]
-  ctc_fc_hidden_sizes:
-    values: ["[]", "[40]"]
