@@ -1,6 +1,6 @@
 from edit_distance import SequenceMatcher
 
-from typing import Any, Literal, cast
+from typing import Any, Literal, Optional, cast
 
 from torch.optim.optimizer import Optimizer
 from src.datasets.batch_types import PhonemeSampleBatch
@@ -33,7 +33,7 @@ class B2PSUCEvaluator(Evaluator):
         ), "Loss is None. Make sure to set loss in ModelOutput"
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            prediction_batch,
+            prediction_batch if self.mode == "test" else None,
         )
 
     def evaluate(self) -> SingleEpochHistory:
@@ -48,6 +48,8 @@ class B2PSUCEvaluator(Evaluator):
         labels = []
         predicted = []
         for iterIdx in range(pred.shape[0]):
+            if batch.target is None:
+                continue
             decodedSeq = torch.argmax(
                 torch.tensor(pred[iterIdx, :, :]),
                 dim=-1,
@@ -56,8 +58,9 @@ class B2PSUCEvaluator(Evaluator):
             decodedSeq = decodedSeq.cpu().detach().numpy()
             decodedSeq = np.array([i for i in decodedSeq if i != 0])
             trueSeq = np.array(
-                [PHONE_DEF_SIL.index(phoneme) for phoneme in batch.phonemes[iterIdx]]
+                [idx.item() for idx in batch.target[iterIdx].cpu() if idx >= 0]
             )
+
             # TODO: is this correct?
             labels.append([PHONE_DEF_SIL[i - 1] for i in trueSeq])
             predicted.append([PHONE_DEF_SIL[i - 1] for i in decodedSeq])
@@ -77,17 +80,19 @@ class B2PSUCEvaluator(Evaluator):
 
 
 class B2PSUCExperimentArgsModel(B2PSUCArgsModel, B2P2TArgsModel):
-    suc_for_ctc_checkpoint: str
+    suc_for_ctc_checkpoint: Optional[str]
 
 
 class B2PSUCExperiment(B2P2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
-        cast(B2PSUC, self.model.neural_decoder).suc_for_ctc.load_state_dict(
-            torch.load(self.config.suc_for_ctc_checkpoint, map_location="cuda"),
-            strict=True,
-        )
+
+        if self.config.suc_for_ctc_checkpoint is not None:
+            cast(B2PSUC, self.model.neural_decoder).suc_for_ctc.load_state_dict(
+                torch.load(self.config.suc_for_ctc_checkpoint, map_location="cuda"),
+                strict=True,
+            )
 
     def get_name(self) -> str:
         return "b2p_suc"
@@ -113,3 +118,6 @@ class B2PSUCExperiment(B2P2TExperiment):
             weight_decay=self.base_config.weight_decay,
             eps=self.base_config.optimizer_epsilon,
         )
+
+    def process_test_results(self, test_results: SingleEpochHistory):
+        pass
