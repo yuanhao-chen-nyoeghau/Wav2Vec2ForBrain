@@ -1,5 +1,7 @@
 from math import nan
 import sys
+
+from pydantic import Field
 from src.decoding.decoding_types import LLMOutput
 from src.model.b2p2t_model import B2P2TModel
 from src.model.b2p2t_model import B2P2TModelArgsModel
@@ -174,6 +176,9 @@ class B2P2TEvaluator(Evaluator):
 
 class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
     decoding_script: str = "src/decoding/postprocess_baseline.py"
+    day_batches: bool = Field(
+        False, description="Build batches only from measurements of the same day"
+    )
 
 
 class B2P2TExperiment(Experiment):
@@ -206,6 +211,9 @@ class B2P2TExperiment(Experiment):
         ds = self._create_dataset(split)
 
         if self.config.day_batches and split == "train":
+            assert (
+                self.config.limit_samples is None
+            ), "Cannot limit samples with day_batches"
             batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
 
             return DataLoader(

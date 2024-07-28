@@ -87,9 +87,6 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
-    day_batches: bool = Field(
-        True, description="Build batches only from measurements of the same day"
-    )
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1
@@ -103,6 +100,10 @@ class BaseExperimentArgsModel(BaseModel):
     early_stopping_patience: Optional[int] = Field(
         None,
         description="Number of epochs n to consider for early stopping. Once all n-1 last epochs did not improve compared to the -nth epoch, training is stopped.   If None, early stopping is disabled",
+    )
+    early_stopping_delta: float = Field(
+        0.0001,
+        description="Minimum delta of to be optimized metric that is considered as an improvement for early stopping",
     )
     train_on_val_once: bool = Field(
         False, description="Train once on val after normal training"
