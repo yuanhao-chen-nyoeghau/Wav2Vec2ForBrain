@@ -21,9 +21,6 @@ class W2VSUC_CTCArgsModel(W2VSUCArgsModel):
     ctc_num_gru_layers: int = 2
     ctc_bias: bool = True
     ctc_dropout: float = 0.0
-    ctc_learnable_inital_state: bool = False
-    ctc_fc_hidden_sizes: list[int] = []
-    ctc_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
 
 
 class SUCCTCHead(nn.Module):
@@ -56,6 +53,7 @@ class SUCForCTC(nn.Module):
         self.ctc_head = SUCCTCHead(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+
         suc_output = self.suc(x)
         return self.ctc_head(suc_output)
 
