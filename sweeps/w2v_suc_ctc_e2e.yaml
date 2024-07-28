@@ -1,0 +1,41 @@
+# temporarily best model: /hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc_ctc/2024-07-26_18#18#50/suc_for_ctc.pt
+program: run.py
+method: bayes
+name: timit_w2v_suc_ctc_e2e_lr+ctc_hidden_size+suc_hidden_size
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 100
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --suc_dropout=0.4002714380900173
+  - --weight_decay=4.412757798785471e-05
+  - --early_stopping_patience=4
+  - --experiment_type=timit_w2v_suc_ctc
+  - --return_best_model=true
+  - --epochs=100
+  - --batch_size=32
+  - --scheduler_step_size=5
+  - --optimizer_epsilon=0.1
+  - --gradient_clipping=1
+  - --scheduler_gamma=0.5
+  - --unfreeze_strategy=suc+gru
+  - --loss_function=ctc
+metric:
+  name: test_ctc_loss
+  goal: minimize
+parameters:
+  learning_rate:
+    min: 0.00001
+    max: 0.001
+  ctc_gru_hidden_size:
+    values: [60,20,120 ]
+  ctc_num_gru_layers:
+    values: [1, 2, 3]
+  suc_hidden_sizes:
+    values: ["[]", "[128]","[256, 128]", "[4096,1024,512,256]"]
+
+# example cmd: python run.py --use_wandb=true --suc_dropout=0.4002714380900173 --weight_decay=4.412757798785471e-05 --early_stopping_patience=4 --experiment_type=timit_w2v_suc_ctc --return_best_model=true --epochs=40 --batch_size=64 --scheduler_step_size=5 --optimizer_epsilon=0.1 --gradient_clipping=1 --scheduler_gamma=0.5 --unfreeze_strategy=suc+gru --loss_function=ctc --learning_rate=0.0001 --ctc_gru_hidden_size=60 --ctc_num_gru_layers=1 --suc_hidden_sizes=[]
