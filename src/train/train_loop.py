@@ -195,6 +195,11 @@ class Trainer:
                     get_relevant_metric(epoch_loss.val_losses) for epoch_loss in history
                 ][-self.config.early_stopping_patience :]
 
+                # Adapt basline metric via early_stopping_epsilon
+                if self.config.minimize_best_model_metric:
+                    relevant_metric_history[0] -= self.config.early_stopping_delta
+                else:
+                    relevant_metric_history[0] += self.config.early_stopping_delta
                 best_index = (
                     np.argmin(relevant_metric_history)
                     if self.config.minimize_best_model_metric
