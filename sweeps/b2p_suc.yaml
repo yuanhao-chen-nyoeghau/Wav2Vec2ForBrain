@@ -1,6 +1,6 @@
 program: run.py
 method: bayes
-name: b2p_suc_lr+dropout+hidden_size+num_gru_layers+fc_hidden_sizes
+name: b2p_suc_dropout+hidden_size+num_gru_layers+fc_hidden_sizes
 entity: machine-learning-hpi
 project: brain2text
 run_cap: 100
@@ -21,22 +21,21 @@ command:
   - --scheduler_step_size=5
   - --optimizer_epsilon=0.1
   - --gradient_clipping=1
-  - --scheduler_gamma=0.5
+  - --scheduler_gamma=0.9
   - --loss_function=ctc
   - --early_stopping_patience=4
   - --epochs=100
+  - --learning_rate=0.01
+  - --day_batches=false
 metric:
   name: test_ctc_loss
   goal: minimize
 parameters:
-  learning_rate:
-    min: 0.00001
-    max: 0.001
   encoder_dropout:
     min: 0.0
     max: 0.5
   encoder_gru_hidden_size:
-    values: [64,128, 256 ]
+    values: [64, 128, 256, 512]
   encoder_num_gru_layers:
     values: [1, 2, 3]
   encoder_fc_hidden_sizes:
