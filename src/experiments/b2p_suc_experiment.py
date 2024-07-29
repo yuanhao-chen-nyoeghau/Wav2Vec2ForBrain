@@ -104,9 +104,7 @@ class B2PSUCExperiment(B2P2TExperiment):
     def _create_neural_decoder(self) -> B2TModel:
         return B2PSUC(self.config, self._get_in_size_after_preprocessing())
 
-    def create_evaluator(
-        self, mode: Literal["train"] | Literal["val"] | Literal["test"]
-    ) -> Evaluator:
+    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
         return B2PSUCEvaluator(mode)
 
     def create_optimizer(self) -> Optimizer:
