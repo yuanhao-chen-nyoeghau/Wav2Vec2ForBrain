@@ -20,8 +20,12 @@ from sklearn.metrics import precision_score, recall_score, accuracy_score
 
 
 class TimitW2VSUCEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
     def _track_batch(self, predictions: ModelOutput, sample: TimitSampleBatch):
@@ -63,7 +67,11 @@ class TimitW2VSUCEvaluator(Evaluator):
         )
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            decoded_batch,
+            (
+                decoded_batch
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
+            ),
         )
 
     def evaluate(self) -> SingleEpochHistory:
@@ -131,8 +139,12 @@ class TimitW2VSUCExperiment(Experiment):
     def get_vocab(self) -> list[str]:
         return PHONE_DEF_SIL
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return TimitW2VSUCEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return TimitW2VSUCEvaluator(mode, track_non_test_predictions)
 
     def store_trained_model(self, trained_model: W2VSUCModel):
         torch.save(

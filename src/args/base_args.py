@@ -40,7 +40,9 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc", "contrastive_loss", "cross_entropy", "bce"] = "ctc"
+    loss_function: Literal[
+        "ctc", "contrastive_loss", "cross_entropy", "bce", "ctc+discriminator"
+    ] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
@@ -117,3 +119,4 @@ class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
         "facebook/wav2vec2-base-100h"
     )
+    day_batches: bool = False

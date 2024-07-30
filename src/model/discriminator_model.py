@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 import torch
 from torch import nn
@@ -15,7 +16,9 @@ class DiscriminatorModelArgsModel(BaseModel):
 
 class DiscriminatorModel(B2TModel):
     def __init__(
-        self, config: DiscriminatorModelArgsModel, w2v_to_brain_samples_ratio: float
+        self,
+        config: DiscriminatorModelArgsModel,
+        w2v_to_brain_samples_ratio: Optional[float],
     ):
         super().__init__()
         self.config = config
@@ -28,17 +31,20 @@ class DiscriminatorModel(B2TModel):
             config.discriminator_hidden_activation,
         )
 
-        self.loss = nn.BCEWithLogitsLoss(
-            reduction="mean", pos_weight=torch.tensor([w2v_to_brain_samples_ratio])
+        self.loss = (
+            nn.BCEWithLogitsLoss(
+                reduction="mean", pos_weight=torch.tensor([w2v_to_brain_samples_ratio])
+            )
+            if w2v_to_brain_samples_ratio is not None
+            else None
         )
 
     def forward(self, batch: SampleBatch) -> ModelOutput:
-
-        if batch.target is None:
-            raise ValueError("Target is required for training")
-
         out = self.dropout(batch.input)
         out = self.discriminator(out)
+
+        if self.loss is None or batch.target is None:
+            return ModelOutput(torch.sigmoid(out), {})
 
         loss = self.loss.forward(out, batch.target)
         metrics = {"bce": loss.item()}

@@ -9,7 +9,6 @@ from src.datasets.timit_ctc_dataset import TimitSeqSampleBatch
 from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from src.model.suc import SUCModel
 from src.model.w2v_suc_model import W2VSUCArgsModel
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
 from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import B2TModel, ModelOutput
 
@@ -94,17 +93,18 @@ class W2VSUCForCtcModel(B2TModel):
         )
 
         assert type(self.loss) == nn.CTCLoss
-        loss = self.loss.forward(
+        ctc_loss = self.loss.forward(
             log_softmax(out, -1).transpose(0, 1),
             batch.target,
             feature_extract_output_lens.to(device),
             batch.target_lens.to(device),
         )
-        metrics = {"ctc_loss": loss.item()}
+
+        metrics = {"ctc_loss": ctc_loss.item()}
 
         return ModelOutput(
             out,
             metrics,
-            loss=loss,
+            loss=ctc_loss,
             logit_lens=feature_extract_output_lens,
         )

@@ -369,6 +369,35 @@
                 "--ctc_num_gru_layers=1"
             ]
         },
+        {
+            "name": "b2p suc_for_ctc + discriminator loss",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            //python run.py --experiment_type=b2p_suc --suc_for_ctc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc_ctc/2024-07-26_18#18#50/suc_for_ctc.pt --ctc_gru_hidden_size=120 --ctc_num_gru_layers=2 --learning_rate=0.01 --suc_hidden_sizes=[] --weight_decay=4.412757798785471e-05 --return_best_model=true --epochs=100 --batch_size=32 --scheduler_step_size=5 --optimizer_epsilon=0.1 --gradient_clipping=1 --scheduler_gamma=0.99 --loss_function=ctc --day_batches=false --use_wandb=true --encoder_dropout=0.4 --discriminator_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/discriminator/2024-07-30_09#39#34/discriminator.pt
+            "args": [
+                "--experiment_type=b2p_suc",
+                "--suc_for_ctc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc_ctc/2024-07-26_18#18#50/suc_for_ctc.pt",
+                "--ctc_gru_hidden_size=120",
+                "--ctc_num_gru_layers=2",
+                "--learning_rate=0.01",
+                "--suc_hidden_sizes=[]",
+                "--weight_decay=4.412757798785471e-05",
+                "--return_best_model=true",
+                "--epochs=100",
+                "--batch_size=32",
+                "--scheduler_step_size=5",
+                "--optimizer_epsilon=0.1",
+                "--gradient_clipping=1",
+                "--scheduler_gamma=0.99",
+                "--loss_function=ctc",
+                "--day_batches=false",
+                "--encoder_dropout=0.4",
+                "--discriminator_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/discriminator/2024-07-30_09#39#34/discriminator.pt"
+            ]
+        },
         { // STEP 3: train brain data encoder using pretrained SUC and GRU head
             "name": "b2p brain_encoder with suc_for_ctc",
             "type": "debugpy",
@@ -398,7 +427,7 @@
                 "--from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-28_13#50#12/model.pt"
             ]
         },
-        { // python run.py --experiment_type=discriminator --brain_encoder_path="/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt" --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --ctc_num_gru_layers=2 --ctc_gru_hidden_size=120
+        { // python run.py --experiment_type=b2p_suc --from_checkpoint="/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt" --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --ctc_num_gru_layers=2 --ctc_gru_hidden_size=120 --only_test=true --predict_on_train=true
             "name": "discriminator",
             "type": "debugpy",
             "request": "launch",

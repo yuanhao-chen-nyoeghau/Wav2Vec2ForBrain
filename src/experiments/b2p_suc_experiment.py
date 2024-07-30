@@ -19,8 +19,12 @@ from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHi
 
 
 class B2PSUCEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
     def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
@@ -35,7 +39,11 @@ class B2PSUCEvaluator(Evaluator):
         ), "Loss is None. Make sure to set loss in ModelOutput"
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            prediction_batch if self.mode == "test" else None,
+            (
+                prediction_batch
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
+            ),
         )
 
     def evaluate(self) -> SingleEpochHistory:
@@ -104,10 +112,22 @@ class B2PSUCExperiment(B2P2TExperiment):
         return B2PSUCExperimentArgsModel
 
     def _create_neural_decoder(self) -> B2TModel:
+        if self.config.discriminator_checkpoint is not None:
+            assert (
+                self.config.loss_function == "ctc"
+            ), "If discriminator_checkpoint is not set, we need to use ctc loss"
+        else:
+            assert (
+                self.config.loss_function == "ctc+discriminator"
+            ), "If discriminator_checkpoint is set, we need to use ctc+discriminator loss"
         return B2PSUC(self.config, self._get_in_size_after_preprocessing())
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
-        return B2PSUCEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ) -> Evaluator:
+        return B2PSUCEvaluator(mode, track_non_test_predictions)
 
     def create_optimizer(self) -> Optimizer:
         optim_cls: Any = self._get_optimizer_cls()

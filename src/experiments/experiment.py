@@ -207,7 +207,7 @@ class Experiment(metaclass=ABCMeta):
         ] = None,
     ):
         dataloader = self.dataloader_train if mode == "train" else self.dataloader_test
-        evaluator = self.create_evaluator(mode)
+        evaluator = self.create_evaluator(mode, True)
         model.eval()
         for i, data in enumerate(dataloader):
             data = cast(SampleBatch, data).cuda()
@@ -335,5 +335,9 @@ class Experiment(metaclass=ABCMeta):
         plt.savefig(out_path)
 
     @abstractmethod
-    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ) -> Evaluator:
         raise NotImplementedError("Implement create_evaluator in subclass")

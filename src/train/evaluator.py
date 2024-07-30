@@ -13,11 +13,16 @@ from transformers import PreTrainedTokenizer
 
 
 class Evaluator(ABC):
-    def __init__(self, mode: Literal["train", "val", "test"]):
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
         self.running_loss = 0.0
         self.n_losses = 0
         self.latest_loss = nan
         self.mode = mode
+        self.track_non_test_predictions = track_non_test_predictions
 
     def track_batch(self, predictions: ModelOutput, sample: SampleBatch):
         assert predictions.loss is not None
@@ -46,9 +51,12 @@ class Evaluator(ABC):
 
 class DefaultEvaluator(Evaluator):
     def __init__(
-        self, tokenizer: PreTrainedTokenizer, mode: Literal["train", "val", "test"]
+        self,
+        tokenizer: PreTrainedTokenizer,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
     ):
-        super().__init__(mode)
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
         self.tokenizer = tokenizer
 
@@ -80,8 +88,12 @@ class DefaultEvaluator(Evaluator):
         ), "Loss is None. Make sure to set loss in ModelOutput"
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            DecodedPredictionBatch(
-                predictions=predicted_strings, targets=label_strings
+            (
+                DecodedPredictionBatch(
+                    predictions=predicted_strings, targets=label_strings
+                )
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
             ),
         )
 

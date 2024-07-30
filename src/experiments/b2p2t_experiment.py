@@ -36,8 +36,13 @@ from src.util.batch_sampler import Brain2TextBatchSampler
 
 
 class B2P2TEvaluator(Evaluator):
-    def __init__(self, decoding_script: str, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        decoding_script: str,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.temp_dir = f"temp/{uuid.uuid4()}"
         os.makedirs(self.temp_dir, exist_ok=True)
         self.file_order: list[str] = []
@@ -237,8 +242,14 @@ class B2P2TExperiment(Experiment):
             self.config.unfolder_kernel_len
         )
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
-        return B2P2TEvaluator(self.config.decoding_script, mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ) -> Evaluator:
+        return B2P2TEvaluator(
+            self.config.decoding_script, mode, track_non_test_predictions
+        )
 
     def process_test_results(self, test_results: SingleEpochHistory):
         worst_wer = 0

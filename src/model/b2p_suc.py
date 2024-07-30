@@ -1,14 +1,19 @@
+from typing import Optional
 import torch
 
+from src.model.discriminator_model import (
+    DiscriminatorModel,
+    DiscriminatorModelArgsModel,
+)
 from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
 
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.w2v_suc_ctc_model import SUCForCTC, W2VSUC_CTCArgsModel
 from src.util.nn_helper import create_fully_connected
 
 
-class B2PSUCArgsModel(W2VSUC_CTCArgsModel):
+class B2PSUCArgsModel(W2VSUC_CTCArgsModel, DiscriminatorModelArgsModel):
     encoder_gru_hidden_size: int = 256
     encoder_bidirectional: bool = True
     encoder_num_gru_layers: int = 2
@@ -17,6 +22,8 @@ class B2PSUCArgsModel(W2VSUC_CTCArgsModel):
     encoder_learnable_inital_state: bool = False
     encoder_fc_hidden_sizes: list[int] = []
     encoder_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
+    discriminator_checkpoint: Optional[str] = None
+    discriminator_loss_weight: float = 1.0
 
 
 class BrainEncoder(torch.nn.Module):
@@ -70,18 +77,20 @@ class B2PSUC(B2TModel):
         self.config = config
         self.suc_for_ctc = SUCForCTC(config)
         self.encoder = BrainEncoder(config, in_size)
-        self.loss: torch.nn.CTCLoss = torch.nn.CTCLoss(
+        self.ctc_loss: torch.nn.CTCLoss = torch.nn.CTCLoss(
             blank=0, reduction="mean", zero_infinity=True
         )
+        if config.discriminator_checkpoint is not None:
+            self.discriminator = DiscriminatorModel(config, None)
 
     def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
-        out = self.encoder.forward(batch)
+        encoder_out = self.encoder.forward(batch)
 
-        out = self.suc_for_ctc.forward(out)
+        suc_out = self.suc_for_ctc.forward(encoder_out)
 
         ctc_loss = (
-            self.loss.forward(
-                torch.permute(torch.log_softmax(out, -1), [1, 0, 2]),
+            self.ctc_loss.forward(
+                torch.permute(torch.log_softmax(suc_out, -1), [1, 0, 2]),
                 batch.target,
                 batch.input_lens,
                 batch.target_lens,
@@ -89,7 +98,23 @@ class B2PSUC(B2TModel):
             if batch.target_lens is not None and batch.target is not None
             else None
         )
+        discriminator_loss = (
+            self.discriminator.forward(SampleBatch(encoder_out, None)).logits.mean()
+            if hasattr(self, "discriminator")
+            else None
+        )
 
         metrics_dict = {"ctc_loss": ctc_loss.item()} if ctc_loss is not None else {}
 
-        return ModelOutput(logits=out, metrics=metrics_dict, loss=ctc_loss)
+        loss = (
+            ctc_loss + self.config.discriminator_loss_weight * discriminator_loss
+            if ctc_loss is not None and discriminator_loss is not None
+            else ctc_loss
+        )
+
+        if discriminator_loss is not None:
+            metrics_dict["discriminator_loss"] = discriminator_loss.item()
+            if loss is not None:
+                metrics_dict["combined_loss"] = loss.item()
+
+        return ModelOutput(logits=suc_out, metrics=metrics_dict, loss=loss)

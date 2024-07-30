@@ -25,8 +25,12 @@ from sklearn.metrics import precision_score, recall_score, accuracy_score
 
 
 class DiscriminatorEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
     def _track_batch(self, predictions: ModelOutput, sample: TimitSampleBatch):
@@ -147,8 +151,12 @@ class DiscriminatorExperiment(Experiment):
     def get_vocab(self) -> list[str]:
         return PHONE_DEF_SIL
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return DiscriminatorEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return DiscriminatorEvaluator(mode, track_non_test_predictions)
 
     def store_trained_model(self, trained_model: DiscriminatorModel):
         torch.save(

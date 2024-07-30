@@ -24,8 +24,12 @@ class EnhancedDecodedBatch(DecodedPredictionBatch):
 
 
 class TimitSeqW2VSUCEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
     def _track_batch(self, predictions: ModelOutput, sample: TimitSeqSampleBatch):
@@ -41,7 +45,9 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
             (
-                prediction_batch if self.mode == "test" else None
+                prediction_batch
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
             ),  # prevent 1GB history files
         )
 
@@ -113,7 +119,7 @@ class TimitW2VSUC_CTCExperiment(Experiment):
 
     def _create_model(self):
         assert (
-            self.config.loss_function == "ctc",  # type: ignore
+            self.config.loss_function == "ctc" ,  # type: ignore
             "Only ctc loss is supported",
         )
         model = W2VSUCForCtcModel(self.config)
@@ -154,8 +160,12 @@ class TimitW2VSUC_CTCExperiment(Experiment):
     def get_vocab(self) -> list[str]:
         return ["BLANK"] + PHONE_DEF_SIL
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return TimitSeqW2VSUCEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return TimitSeqW2VSUCEvaluator(mode, track_non_test_predictions)
 
     def store_trained_model(self, trained_model: W2VSUCForCtcModel):
         torch.save(

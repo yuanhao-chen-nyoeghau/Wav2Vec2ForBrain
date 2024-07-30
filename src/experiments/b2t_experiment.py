@@ -96,5 +96,9 @@ class B2TExperiment(Experiment):
             list(range(self.tokenizer.vocab_size))
         )
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return DefaultEvaluator(self.tokenizer, mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return DefaultEvaluator(self.tokenizer, mode, track_non_test_predictions)
