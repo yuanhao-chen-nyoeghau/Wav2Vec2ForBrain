@@ -3,10 +3,9 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Config,
     Wav2Vec2FeatureEncoder,
     Wav2Vec2FeatureProjection,
-    Wav2Vec2BaseModelOutput,
 )
 import torch
-from typing import Optional, Tuple, Union
+from typing import Optional
 
 
 class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):
@@ -27,8 +26,10 @@ class Wav2Vec2WithoutTransformerModel(Wav2Vec2PreTrainedModel):
     def forward(
         self,
         input_values: Optional[torch.Tensor],
-    ) -> Union[Tuple, Wav2Vec2BaseModelOutput]:
-        extract_features = self.feature_extractor(input_values)
+    ) -> torch.Tensor:
+        extract_features = self.feature_extractor.forward(input_values)
         extract_features = extract_features.transpose(1, 2)
-        hidden_states, extract_features = self.feature_projection(extract_features)
+        hidden_states, extract_features = self.feature_projection.forward(
+            extract_features
+        )
         return hidden_states

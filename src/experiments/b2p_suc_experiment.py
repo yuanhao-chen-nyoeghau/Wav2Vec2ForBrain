@@ -1,8 +1,10 @@
+import os
 from edit_distance import SequenceMatcher
 
 from typing import Any, Literal, Optional, cast
 
 from torch.optim.optimizer import Optimizer
+from src.model.b2p2t_model import B2P2TModel
 from src.datasets.batch_types import PhonemeSampleBatch
 import numpy as np
 import torch
@@ -119,3 +121,9 @@ class B2PSUCExperiment(B2P2TExperiment):
 
     def process_test_results(self, test_results: SingleEpochHistory):
         pass
+
+    def store_trained_model(self, trained_model: B2P2TModel):
+        torch.save(
+            trained_model.state_dict(),
+            os.path.join(self.results_dir, "brain_encoder.pt"),
+        )

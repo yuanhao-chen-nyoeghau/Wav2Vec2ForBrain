@@ -233,7 +233,9 @@ class B2P2TExperiment(Experiment):
         return Brain2TextWPhonemesDataset.vocab
 
     def _get_in_size_after_preprocessing(self):
-        return (256) * self.config.unfolder_kernel_len
+        return B2P2TModel.get_in_size_after_preprocessing(
+            self.config.unfolder_kernel_len
+        )
 
     def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
         return B2P2TEvaluator(self.config.decoding_script, mode)

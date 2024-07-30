@@ -398,5 +398,22 @@
                 "--from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-28_13#50#12/model.pt"
             ]
         },
+        { // python run.py --experiment_type=discriminator --brain_encoder_path="/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt" --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --ctc_num_gru_layers=2 --ctc_gru_hidden_size=120
+            "name": "discriminator",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment_type=discriminator",
+                "--brain_encoder_path=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt",
+                "--encoder_gru_hidden_size=256",
+                "--encoder_fc_hidden_sizes=[]",
+                "--encoder_num_gru_layers=2",
+                "--ctc_num_gru_layers=2",
+                "--ctc_gru_hidden_size=120"
+            ]
+        }
     ],
 }

@@ -14,9 +14,12 @@ import math
 from torch.nn import functional as F
 
 
+DEFAULT_UNFOLDER_KERNEL_LEN = 14
+
+
 class B2P2TModelArgsModel(BaseModel):
     input_layer_nonlinearity: Literal["softsign"] = "softsign"
-    unfolder_kernel_len: int = 14
+    unfolder_kernel_len: int = DEFAULT_UNFOLDER_KERNEL_LEN
     unfolder_stride_len: int = 4
     gaussian_smooth_width: float = 0.3
 
@@ -171,3 +174,7 @@ class B2P2TModel(B2TModel):
             return out
 
         return self.neural_decoder.forward(preprocessed_batch)
+
+    @classmethod
+    def get_in_size_after_preprocessing(cls, unfolder_kernel_len: int):
+        return (256) * unfolder_kernel_len
