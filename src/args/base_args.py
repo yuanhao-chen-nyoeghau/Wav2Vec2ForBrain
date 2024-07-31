@@ -68,6 +68,7 @@ class BaseExperimentArgsModel(BaseModel):
         "timit_w2v_suc_ctc",
         "b2p_suc",
         "discriminator",
+        "b2p2t_gru+w2v",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -112,11 +113,3 @@ class BaseExperimentArgsModel(BaseModel):
         False, description="Train once on val after normal training"
     )
     log_results_as_artifact: bool = False
-
-
-class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
-        "facebook/wav2vec2-base-100h"
-    )
-    day_batches: bool = False

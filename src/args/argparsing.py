@@ -1,9 +1,9 @@
 import argparse
-from src.experiments.suc_approach.discriminator_experiment import (
+from src.experiments.suc_approach.C__discriminator_experiment import (
     DiscriminatorExperiment,
 )
-from src.experiments.suc_approach.b2p_suc_experiment import B2PSUCExperiment
-from src.experiments.suc_approach.timit_w2v_suc_ctc_experiment import (
+from src.experiments.suc_approach.B__b2p_suc_experiment import B2PSUCExperiment
+from src.experiments.suc_approach.A__timit_w2v_suc_ctc_experiment import (
     TimitW2VSUC_CTCExperiment,
 )
 from src.experiments.suc_approach.timit_w2v_suc_experiment import TimitW2VSUCExperiment
@@ -33,6 +33,9 @@ from src.args.base_args import BaseExperimentArgsModel
 from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
 from src.experiments.onehotindex_fc_experiment import OneHotIndexExperiment
+from src.experiments.suc_approach.D__b2p2t_gru_w2v_experiment import (
+    B2P2TGruAndW2VExperiment,
+)
 
 experiments: dict[str, Type[Experiment]] = {
     "b2t_wav2vec_cnn": B2TWav2VecCnnExperiment,
@@ -54,6 +57,7 @@ experiments: dict[str, Type[Experiment]] = {
     "timit_w2v_suc": TimitW2VSUCExperiment,
     "b2p_suc": B2PSUCExperiment,
     "discriminator": DiscriminatorExperiment,
+    "b2p2t_gru+w2v": B2P2TGruAndW2VExperiment,
 }
 
 
