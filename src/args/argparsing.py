@@ -13,38 +13,22 @@ from src.experiments.b2p2t_mamba_experiment import B2P2TMambaExperiment
 from src.experiments.mvts_transformer_experiment import MvtsTransformerExperiment
 from src.experiments.b2t_mamba_experiment import B2tMambaExperiment
 from src.experiments.b2t_gru_experiment import B2tGruExperiment
-from src.experiments.b2t_resnet_experiment import B2TWav2VecResnetExperiment
 from src.experiments.b2t_direct_cnn_experiment import CNNExperiment
-from src.experiments.b2t_custom_encoder_w2v_experiment import (
-    B2TWav2VecCustomEncoderExperiment,
-)
-from src.experiments.b2t_wav2vec_cnn_experiment import B2TWav2VecCnnExperiment
-from src.experiments.b2t_wav2vec_shared_agg_experiment import (
-    B2TWav2VecSharedAggregationExperiment,
-)
 from src.experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
 from src.experiments.b2t_audio_wav2vec_experiment import B2TAudioWav2VecExperiment
-from src.experiments.b2t_pretraining_wav2vec_experiment import (
-    B2TWav2VecPretrainingExperiment,
-)
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
 from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
 from src.experiments.onehotindex_fc_experiment import OneHotIndexExperiment
-from src.experiments.suc_approach.D__b2p2t_gru_w2v_experiment import (
-    B2P2TGruAndW2VExperiment,
+from src.experiments.suc_approach.D__b2t_gru_w2v_experiment import (
+    B2TGruAndW2VExperiment,
 )
 
 experiments: dict[str, Type[Experiment]] = {
-    "b2t_wav2vec_cnn": B2TWav2VecCnnExperiment,
-    "b2t_wav2vec_sharedaggregation": B2TWav2VecSharedAggregationExperiment,
     "audio_wav2vec2": AudioWav2VecExperiment,
     "b2t_audio_wav2vec": B2TAudioWav2VecExperiment,
-    "b2t_wav2vec_resnet": B2TWav2VecResnetExperiment,
-    "b2t_wav2vec_pretraining": B2TWav2VecPretrainingExperiment,
-    "b2t_wav2vec_custom_encoder": B2TWav2VecCustomEncoderExperiment,
     "onehot_index": OneHotIndexExperiment,
     "b2t_cnn": CNNExperiment,
     "b2t_gru": B2tGruExperiment,
@@ -57,7 +41,7 @@ experiments: dict[str, Type[Experiment]] = {
     "timit_w2v_suc": TimitW2VSUCExperiment,
     "b2p_suc": B2PSUCExperiment,
     "discriminator": DiscriminatorExperiment,
-    "b2p2t_gru+w2v": B2P2TGruAndW2VExperiment,
+    "b2p2t_gru+w2v": B2TGruAndW2VExperiment,
 }
 
 

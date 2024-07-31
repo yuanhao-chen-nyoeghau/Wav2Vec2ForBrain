@@ -11,7 +11,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 import torch
 from typing import Optional, cast
-from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.batch_types import B2tSampleBatch, PhonemeSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.b2p2t_model import B2P2TModel
 
@@ -35,10 +35,13 @@ class W2VBrainEncoderModel(B2TModel):
             ),
         )
 
-    def forward(self, batch: PhonemeSampleBatch):
-        encoded_brain = self.brain_encoder.forward(batch)
+    def forward(self, batch: B2tSampleBatch):
+        encoded_brain = self.brain_encoder.forward(
+            PhonemeSampleBatch(batch.input, None)
+        )
         targets = batch.target
         assert targets is not None
+
         targets = torch.where(targets < 1, torch.tensor(-100), targets)
         w2v_output = cast(
             CausalLMOutput,

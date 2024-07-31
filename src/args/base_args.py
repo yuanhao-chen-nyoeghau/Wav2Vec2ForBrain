@@ -46,13 +46,8 @@ class BaseExperimentArgsModel(BaseModel):
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
-        "b2t_wav2vec_sharedaggregation",
-        "b2t_wav2vec_cnn",
         "audio_wav2vec2",
         "b2t_audio_wav2vec",
-        "b2t_wav2vec_resnet",
-        "b2t_wav2vec_pretraining",
-        "b2t_wav2vec_custom_encoder",
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
