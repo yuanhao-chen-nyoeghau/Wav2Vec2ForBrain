@@ -36,9 +36,6 @@ class BrainEncoderWrapper(B2TModel):
             config,
             B2P2TModel.get_in_size_after_preprocessing(DEFAULT_UNFOLDER_KERNEL_LEN),
         )
-        self.suc_for_ctc = SUCForCTC(
-            config
-        )  # define this for flawless state dict loading
 
     def forward(self, batch: SampleBatch) -> ModelOutput:
         out = self.encoder(batch)
@@ -77,7 +74,7 @@ class DiscriminatorDataset(BaseDataset):
             else w2v_feature_extractor
         )
         brain_feat_extractor = (
-            DiscriminatorDataset.brain_feature_extractor_from_config(config)
+            DiscriminatorDataset.brain_feature_extractor_from_config(config, config.brain_encoder_path)
             if brain_feat_extractor is None
             else brain_feat_extractor
         )
@@ -144,19 +141,19 @@ class DiscriminatorDataset(BaseDataset):
         return collate
 
     @classmethod
-    def brain_feature_extractor_from_config(cls, config: DiscriminatorDatasetArgsModel):
+    def brain_feature_extractor_from_config(cls, config: B2PSUCArgsModel, brain_encoder_path: str):
         brain_feat_extractor = B2P2TModel(
             B2P2TModelArgsModel(), BrainEncoderWrapper(config)
         ).cuda()
 
-        state = torch.load(config.brain_encoder_path, map_location="cuda")
-        discriminator_keys = [
+        state = torch.load(brain_encoder_path, map_location="cuda")
+        unneeded_keys = [
             key
             for key in state.keys()
             if key.startswith("neural_decoder.discriminator")
+            or key.startswith("neural_decoder.suc_for_ctc")
         ]
-        for key in discriminator_keys:
-            # Discarding the discriminator state since we do not need it here
+        for key in unneeded_keys:
             del state[key]
         brain_feat_extractor.load_state_dict(
             state,
