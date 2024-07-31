@@ -1,5 +1,5 @@
 from typing import cast
-from src.args.base_args import B2TArgsModel
+from src.experiments.b2t_experiment import B2TArgsModel
 from src.model.gru_model import GRUModel, GruArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
 from src.model.b2tmodel import B2TModel

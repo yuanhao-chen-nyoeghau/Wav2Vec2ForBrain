@@ -1,4 +1,5 @@
-from src.args.base_args import B2TArgsModel, BaseExperimentArgsModel
+from src.experiments.b2t_experiment import B2TArgsModel
+from src.args.base_args import BaseExperimentArgsModel
 from typing import Literal, Optional
 from transformers.activations import ACT2FN
 

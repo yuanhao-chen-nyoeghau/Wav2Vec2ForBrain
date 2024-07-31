@@ -1,7 +1,7 @@
 from torch.optim.optimizer import Optimizer
 from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
-from src.args.base_args import B2TArgsModel
+from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
@@ -12,6 +12,14 @@ from torch.utils.data import DataLoader
 from src.train.evaluator import DefaultEvaluator
 from src.train.history import DecodedPredictionBatch
 from src.util.batch_sampler import Brain2TextBatchSampler
+
+
+class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
+    day_batches: bool = False
 
 
 class B2TExperiment(Experiment):
