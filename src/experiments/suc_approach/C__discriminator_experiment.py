@@ -87,7 +87,7 @@ class DiscriminatorExperiment(Experiment):
         self.config = DiscriminatorExperimentArgsModel(**config)
 
         brain_feat_extr = DiscriminatorDataset.brain_feature_extractor_from_config(
-            self.config
+            self.config, self.config.brain_encoder_path
         )
         w2v_feat_extr = DiscriminatorDataset.w2v_feature_extractor()
         self.datasets: dict[str, DiscriminatorDataset] = {

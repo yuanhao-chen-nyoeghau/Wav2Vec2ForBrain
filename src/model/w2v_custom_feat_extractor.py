@@ -22,6 +22,7 @@ class W2VBrainEncoderModelArgs(BaseModel):
 
 class W2VBrainEncoderModel(B2TModel):
     def __init__(self, config: W2VBrainEncoderModelArgs, brain_encoder: B2P2TModel):
+        super().__init__()
         self.brain_encoder = brain_encoder
         w2v_config = cast(
             Wav2Vec2Config,
@@ -76,6 +77,11 @@ class Wav2Vec2WithoutFeatExtrModel(Wav2Vec2PreTrainedModel):
     def forward(
         self,
         input_values: torch.FloatTensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        mask_time_indices: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
     ) -> Wav2Vec2BaseModelOutput:
         encoder_outputs = self.encoder(
             input_values,

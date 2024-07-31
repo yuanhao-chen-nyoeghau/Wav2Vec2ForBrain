@@ -1,8 +1,7 @@
 from typing import Literal, Type, Optional
-from numpy import pad
 import torch
 import torch.nn.functional as F
-from torch import log_softmax, nn, Tensor
+from torch import nn, Tensor
 import math
 from torch.nn.modules import (
     MultiheadAttention,
@@ -11,7 +10,6 @@ from torch.nn.modules import (
     BatchNorm1d,
     TransformerEncoderLayer,
 )
-from src.args.base_args import B2TArgsModel
 from src.datasets.brain2text import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from pydantic import BaseModel
