@@ -436,7 +436,7 @@
             "justMyCode": false,
             "args": [
                 "--experiment_type=discriminator",
-                "--brain_encoder_path=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt",
+                "--brain_encoder_path=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-30_14#32#20/brain_encoder.pt",
                 "--encoder_gru_hidden_size=256",
                 "--encoder_fc_hidden_sizes=[]",
                 "--encoder_num_gru_layers=2",
