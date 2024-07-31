@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import torch
 from torch import nn
 from src.datasets.batch_types import SampleBatch
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.util.nn_helper import create_fully_connected
 

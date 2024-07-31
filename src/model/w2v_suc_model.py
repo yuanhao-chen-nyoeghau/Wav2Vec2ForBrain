@@ -9,7 +9,7 @@ from typing import Literal, cast
 from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from src.model.suc import SUCModel
 from src.datasets.timit_dataset import TimitSampleBatch
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
 
 

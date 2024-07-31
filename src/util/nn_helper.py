@@ -1,10 +1,31 @@
+from typing import Literal
 from sympy import false
 from torch.nn import Linear, BatchNorm1d
 from torch import batch_norm, nn
 from transformers.activations import ACT2FN
 
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
 import torch
+
+ACTIVATION_FUNCTION = Literal[
+    "gelu",
+    "gelu_10",
+    "gelu_fast",
+    "gelu_new",
+    "gelu_python",
+    "gelu_pytorch_tanh",
+    "gelu_accurate",
+    "laplace",
+    "linear",
+    "mish",
+    "quick_gelu",
+    "relu",
+    "relu2",
+    "relu6",
+    "sigmoid",
+    "silu",
+    "swish",
+    "tanh",
+]
 
 
 def create_fully_connected(

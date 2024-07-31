@@ -1,6 +1,6 @@
 import torch
 
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.util.nn_helper import create_fully_connected
 
