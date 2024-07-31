@@ -1,7 +1,9 @@
 import argparse
 from src.experiments.discriminator_experiment import DiscriminatorExperiment
 from src.experiments.b2p_suc_experiment import B2PSUCExperiment
-from src.experiments.timit_w2v_suc_ctc_experiment import TimitW2VSUC_CTCExperiment
+from src.experiments.suc_approach.timit_w2v_suc_ctc_experiment import (
+    TimitW2VSUC_CTCExperiment,
+)
 from src.experiments.timit_w2v_suc_experiment import TimitW2VSUCExperiment
 from src.experiments.b2p2t_mvtst_experiment import B2P2TMvtstExperiment
 from src.experiments.b2p2t_gru_experiment import B2P2TGruExperiment
