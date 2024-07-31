@@ -443,6 +443,26 @@
                 "--ctc_num_gru_layers=2",
                 "--ctc_gru_hidden_size=120"
             ]
+        },
+        {
+            "name": "GRU+W2V",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            //python run.py --experiment_type="b2p2t_gru+w2v" --brain_encoder_path=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-30_14#32#20/brain_encoder.pt --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --ctc_num_gru_layers=2 --ctc_gru_hidden_size=120 --epochs=1 --only_test=true
+            "args": [
+                "--experiment_type=b2p2t_gru+w2v",
+                "--brain_encoder_path=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-30_14#32#20/brain_encoder.pt",
+                "--encoder_gru_hidden_size=256",
+                "--encoder_fc_hidden_sizes=[]",
+                "--encoder_num_gru_layers=2",
+                "--ctc_num_gru_layers=2",
+                "--ctc_gru_hidden_size=120",
+                "--epochs=1",
+                "--only_test=true"
+            ]
         }
     ],
 }

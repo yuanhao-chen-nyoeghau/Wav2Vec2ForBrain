@@ -90,13 +90,6 @@ class Wav2Vec2WithoutFeatExtrModel(Wav2Vec2PreTrainedModel):
         self.adapter = Wav2Vec2Adapter(config) if config.add_adapter else None
         self.post_init()
 
-    def freeze_feature_encoder(self):
-        """
-        Calling this function will disable the gradient computation for the feature encoder so that its parameter will
-        not be updated during training.
-        """
-        self.feature_extractor._freeze_parameters()
-
     def forward(
         self,
         input_values: torch.FloatTensor,
