@@ -25,6 +25,7 @@ class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
 class B2TExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
+        self.yaml_config = yamlConfig
         self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Literal
@@ -135,7 +135,10 @@ class B2P2TModel(B2TModel):
             layer = getattr(self, "inpLayer" + str(x))
             layer.weight = torch.nn.Parameter(layer.weight + torch.eye(neural_dim_len))
 
-    def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        """
+        batch can also be of sub type PhonemeSampleBatch
+        """
         x, targets = batch
         day_idxs = batch.day_idxs
 
