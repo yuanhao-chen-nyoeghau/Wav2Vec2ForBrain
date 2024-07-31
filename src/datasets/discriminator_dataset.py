@@ -148,8 +148,18 @@ class DiscriminatorDataset(BaseDataset):
         brain_feat_extractor = B2P2TModel(
             B2P2TModelArgsModel(), BrainEncoderWrapper(config)
         ).cuda()
+
+        state = torch.load(config.brain_encoder_path, map_location="cuda")
+        discriminator_keys = [
+            key
+            for key in state.keys()
+            if key.startswith("neural_decoder.discriminator")
+        ]
+        for key in discriminator_keys:
+            # Discarding the discriminator state since we do not need it here
+            del state[key]
         brain_feat_extractor.load_state_dict(
-            torch.load(config.brain_encoder_path, map_location="cuda"),
+            state,
             strict=True,
         )
         return brain_feat_extractor
