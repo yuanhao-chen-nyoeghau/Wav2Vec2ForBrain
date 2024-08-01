@@ -14,7 +14,7 @@ import math
 from torch.nn import functional as F
 
 
-DEFAULT_UNFOLDER_KERNEL_LEN = 14
+DEFAULT_UNFOLDER_KERNEL_LEN = 32
 
 
 class B2P2TModelArgsModel(BaseModel):
