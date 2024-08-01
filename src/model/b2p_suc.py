@@ -1,4 +1,5 @@
 from typing import Optional
+from pydantic import BaseModel
 import torch
 
 from src.model.discriminator_model import (
@@ -13,7 +14,7 @@ from src.model.w2v_suc_ctc_model import SUCForCTC, W2VSUC_CTCArgsModel
 from src.util.nn_helper import create_fully_connected
 
 
-class B2PSUCArgsModel(W2VSUC_CTCArgsModel, DiscriminatorModelArgsModel):
+class BrainEncoderArgsModel(BaseModel):
     encoder_gru_hidden_size: int = 256
     encoder_bidirectional: bool = True
     encoder_num_gru_layers: int = 2
@@ -22,12 +23,17 @@ class B2PSUCArgsModel(W2VSUC_CTCArgsModel, DiscriminatorModelArgsModel):
     encoder_learnable_inital_state: bool = False
     encoder_fc_hidden_sizes: list[int] = []
     encoder_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
+
+
+class B2PSUCArgsModel(
+    W2VSUC_CTCArgsModel, BrainEncoderArgsModel, DiscriminatorModelArgsModel
+):
     discriminator_checkpoint: Optional[str] = None
     discriminator_loss_weight: float = 1.0
 
 
 class BrainEncoder(torch.nn.Module):
-    def __init__(self, config: B2PSUCArgsModel, in_size):
+    def __init__(self, config: BrainEncoderArgsModel, in_size):
         super().__init__()
         self.config = config
         self.num_directions = 2 if config.encoder_bidirectional else 1

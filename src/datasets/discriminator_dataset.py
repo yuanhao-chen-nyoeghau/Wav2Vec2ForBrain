@@ -8,7 +8,7 @@ from src.model.b2p2t_model import (
     B2P2TModel,
     B2P2TModelArgsModel,
 )
-from src.model.b2p_suc import B2PSUCArgsModel, BrainEncoder
+from src.model.b2p_suc import B2PSUCArgsModel, BrainEncoder, BrainEncoderArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.w2v_suc_ctc_model import (
     SUCForCTC,
@@ -24,12 +24,12 @@ import torch
 from torch.utils.data import DataLoader
 
 
-class DiscriminatorDatasetArgsModel(B2PSUCArgsModel):
+class DiscriminatorDatasetArgsModel(BrainEncoderArgsModel):
     brain_encoder_path: str
 
 
 class BrainEncoderWrapper(B2TModel):
-    def __init__(self, config: B2PSUCArgsModel):
+    def __init__(self, config: BrainEncoderArgsModel):
         super().__init__()
 
         self.encoder = BrainEncoder(
@@ -144,7 +144,7 @@ class DiscriminatorDataset(BaseDataset):
 
     @classmethod
     def brain_feature_extractor_from_config(
-        cls, config: B2PSUCArgsModel, brain_encoder_path: Optional[str]
+        cls, config: BrainEncoderArgsModel, brain_encoder_path: Optional[str]
     ):
         brain_feat_extractor = B2P2TModel(
             B2P2TModelArgsModel(), BrainEncoderWrapper(config)
