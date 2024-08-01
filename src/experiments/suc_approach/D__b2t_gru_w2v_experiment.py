@@ -2,17 +2,21 @@ from typing import Any, Literal, cast
 
 from git import Optional
 from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
-from src.datasets.discriminator_dataset import DiscriminatorDataset
+from src.datasets.discriminator_dataset import (
+    B2P2TBrainFeatureExtractorArgsModel,
+    DiscriminatorDataset,
+)
 from src.model.w2v_custom_feat_extractor import (
     W2VBrainEncoderModel,
     W2VBrainEncoderModelArgs,
 )
-from src.model.b2p_suc import B2PSUCArgsModel
 from src.args.yaml_config import YamlConfigModel
 from torch.optim.optimizer import Optimizer
 
 
-class B2TGruAndW2VArgsModel(B2TArgsModel, B2PSUCArgsModel, W2VBrainEncoderModelArgs):
+class B2TGruAndW2VArgsModel(
+    B2TArgsModel, B2P2TBrainFeatureExtractorArgsModel, W2VBrainEncoderModelArgs
+):
     brain_encoder_path: Optional[str] = None
     unfreeze_strategy: Literal["brain_encoder"] = "brain_encoder"
 

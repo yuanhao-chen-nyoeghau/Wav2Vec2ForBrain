@@ -8,10 +8,9 @@ from src.model.b2p2t_model import (
     B2P2TModel,
     B2P2TModelArgsModel,
 )
-from src.model.b2p_suc import B2PSUCArgsModel, BrainEncoder, BrainEncoderArgsModel
+from src.model.b2p_suc import BrainEncoder, BrainEncoderArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.w2v_suc_ctc_model import (
-    SUCForCTC,
     W2VSUC_CTCArgsModel,
     W2VSUCForCtcModel,
 )
@@ -22,10 +21,6 @@ from src.args.yaml_config import YamlConfigModel
 from src.datasets.base_dataset import BaseDataset
 import torch
 from torch.utils.data import DataLoader
-
-
-class DiscriminatorDatasetArgsModel(BrainEncoderArgsModel):
-    brain_encoder_path: str
 
 
 class BrainEncoderWrapper(B2TModel):
@@ -49,6 +44,14 @@ class DiscriminatorSample(NamedTuple):
 
 # Best checkpoint run: https://wandb.ai/machine-learning-hpi/brain2text/runs/hx7z3v6n?nw=nwusertfiedlerdev
 # Local: /hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt
+
+
+class B2P2TBrainFeatureExtractorArgsModel(BrainEncoderArgsModel, B2P2TModelArgsModel):
+    pass
+
+
+class DiscriminatorDatasetArgsModel(B2P2TBrainFeatureExtractorArgsModel):
+    brain_encoder_path: str
 
 
 class DiscriminatorDataset(BaseDataset):
@@ -144,11 +147,11 @@ class DiscriminatorDataset(BaseDataset):
 
     @classmethod
     def brain_feature_extractor_from_config(
-        cls, config: BrainEncoderArgsModel, brain_encoder_path: Optional[str]
+        cls,
+        config: B2P2TBrainFeatureExtractorArgsModel,
+        brain_encoder_path: Optional[str],
     ):
-        brain_feat_extractor = B2P2TModel(
-            B2P2TModelArgsModel(), BrainEncoderWrapper(config)
-        ).cuda()
+        brain_feat_extractor = B2P2TModel(config, BrainEncoderWrapper(config)).cuda()
         if brain_encoder_path != None:
             state = torch.load(brain_encoder_path, map_location="cuda")
             unneeded_keys = [
