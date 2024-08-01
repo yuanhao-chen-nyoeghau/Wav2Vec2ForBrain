@@ -19,6 +19,30 @@ class GruArgsModel(BaseModel):
     classifier_activation: ACTIVATION_FUNCTION = "gelu"
 
 
+class GRUModelWithLinearProjectArgs(GruArgsModel):
+    linear_project_hidden_sizes: list[int] = []
+    linear_project_activation: ACTIVATION_FUNCTION = "gelu"
+
+
+class GRUModelWithLinearProject(B2TModel):
+    def __init__(
+        self,
+        config: GRUModelWithLinearProjectArgs,
+        gru_vocab_size: int,
+        gru_in_size: int,
+        gru_pad_token_id=0,
+    ):
+        super().__init__()
+
+        self.gru = GRUModel(config, gru_vocab_size, gru_in_size, gru_pad_token_id)
+        self.linear_project = create_fully_connected(gru_vocab_size, 768)
+
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        gru_out = self.gru.forward(batch)
+        out = self.linear_project.forward(gru_out.logits)
+        return ModelOutput(out, {})
+
+
 # Source: https://github.com/cffan/neural_seq_decoder/blob/master/src/neural_decoder/augmentations.py#L27
 
 

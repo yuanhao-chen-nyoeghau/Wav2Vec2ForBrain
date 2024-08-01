@@ -21,7 +21,7 @@ class W2VBrainEncoderModelArgs(BaseModel):
 
 
 class W2VBrainEncoderModel(B2TModel):
-    def __init__(self, config: W2VBrainEncoderModelArgs, brain_encoder: B2P2TModel):
+    def __init__(self, config: W2VBrainEncoderModelArgs, brain_encoder: B2TModel):
         super().__init__()
         self.brain_encoder = brain_encoder
         w2v_config = cast(
