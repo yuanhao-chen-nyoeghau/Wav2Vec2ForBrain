@@ -1,0 +1,42 @@
+program: run.py
+method: bayes
+name: b2p_suc_dropout+hidden_size+num_gru_layers+fc_hidden_sizes
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 100
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --suc_dropout=0
+  - --experiment_type=b2p_suc
+  - --suc_for_ctc_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/timit_w2v_suc_ctc/2024-07-26_18#18#50/suc_for_ctc.pt
+  - --ctc_gru_hidden_size=120 
+  - --ctc_num_gru_layers=2
+  - --suc_hidden_sizes=[]
+  - --weight_decay=4.412757798785471e-05
+  - --batch_size=64
+  - --scheduler_step_size=5
+  - --optimizer_epsilon=0.1
+  - --gradient_clipping=1
+  - --scheduler_gamma=0.9
+  - --loss_function=ctc
+  - --early_stopping_patience=4
+  - --epochs=100
+  - --learning_rate=0.01
+  - --day_batches=false
+metric:
+  name: test_ctc_loss
+  goal: minimize
+parameters:
+  encoder_dropout:
+    min: 0.0
+    max: 0.5
+  encoder_gru_hidden_size:
+    values: [64, 128, 256, 512]
+  encoder_num_gru_layers:
+    values: [1, 2, 3]
+  encoder_fc_hidden_sizes:
+    values: ["[]", "[128]","[256]","[512]", "[256, 256]", "[128, 128]", "[512, 125]"]

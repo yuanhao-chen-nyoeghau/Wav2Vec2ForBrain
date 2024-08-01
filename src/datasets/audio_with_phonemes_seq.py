@@ -5,23 +5,19 @@ from typing import Dict, Literal, cast
 from pydantic import BaseModel
 from src.args.yaml_config import YamlConfigModel
 from src.datasets.brain2text import B2tSample
-from src.datasets.base_dataset import BaseDataset, Sample
-from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
+from src.datasets.base_dataset import BaseDataset
+from src.datasets.batch_types import PhonemeSampleBatch
 from torch.nn.functional import pad
 
 from datasets import load_dataset, DatasetDict
-
-from src.datasets.audio import AudioDataset
 from src.datasets.brain2text_w_phonemes import (
-    PHONE_DEF,
-    PHONE_DEF_SIL,
-    SIL_DEF,
-    PhonemeSeq,
     PhonemeSample,
 )
 from datasets import DatasetDict
 from g2p_en import G2p
 import torch
+
+from src.util.phoneme_helper import get_phoneme_seq
 
 
 class AudioWPhonemesDatasetArgsModel(BaseModel):
@@ -46,9 +42,9 @@ class AudioWPhonemesSeqDataset(BaseDataset):
             ),
         )
         self._data = hugg_dataset["test" if split == "val" else split]
-        self.g2p = G2p()
+        g2p = G2p()
         self.phoneme_seqs = [
-            self.get_phoneme_seq(cast(Dict, sample)["transcription"])
+            get_phoneme_seq(g2p, cast(Dict, sample)["transcription"])
             for sample in self._data
         ]
 
@@ -114,26 +110,3 @@ class AudioWPhonemesSeqDataset(BaseDataset):
             return batch
 
         return _collate
-
-    def get_phoneme_seq(self, transcription: str) -> PhonemeSeq:
-
-        def phoneToId(p):
-            return PHONE_DEF_SIL.index(p)
-
-        phonemes = []
-        if len(transcription) == 0:
-            phonemes = SIL_DEF
-        else:
-            for p in self.g2p(transcription.replace("<s>", "").replace("</s>", "")):
-                if p == " ":
-                    phonemes.append("SIL")
-                p = re.sub(r"[0-9]", "", p)  # Remove stress
-                if re.match(r"[A-Z]+", p):  # Only keep phonemes
-                    phonemes.append(p)
-            # add one SIL symbol at the end so there's one at the end of each word
-            phonemes.append("SIL")
-
-        phoneme_ids = [
-            phoneToId(p) + 1 for p in phonemes
-        ]  # +1 to shift the ids by 1 as 0 is blank
-        return PhonemeSeq(phoneme_ids, phonemes)

@@ -13,12 +13,13 @@ class SampleBatch(NamedTuple):
             input=self.input.cuda(),
             target=self.target.cuda() if self.target != None else None,
         )
-        # Putting all tensors of subclass attributes to cuda
-        for key, value in self.__dict__.items():
-            if isinstance(value, torch.Tensor):
-                copy.__setattr__(key, value.cuda())
-            else:
-                copy.__setattr__(key, value)
+        if hasattr(self, "__dict__"):
+            # Putting all tensors of subclass attributes to cuda
+            for key, value in self.__dict__.items():
+                if isinstance(value, torch.Tensor):
+                    copy.__setattr__(key, value.cuda())
+                else:
+                    copy.__setattr__(key, value)
         return copy
 
     def copy_and_change(self, **diff):

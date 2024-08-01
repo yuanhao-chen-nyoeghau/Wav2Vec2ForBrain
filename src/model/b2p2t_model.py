@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.datasets.batch_types import PhonemeSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 
 from src.model.b2tmodel import B2TModel, ModelOutput
 from typing import Literal
@@ -14,9 +14,12 @@ import math
 from torch.nn import functional as F
 
 
+DEFAULT_UNFOLDER_KERNEL_LEN = 14
+
+
 class B2P2TModelArgsModel(BaseModel):
     input_layer_nonlinearity: Literal["softsign"] = "softsign"
-    unfolder_kernel_len: int = 14
+    unfolder_kernel_len: int = DEFAULT_UNFOLDER_KERNEL_LEN
     unfolder_stride_len: int = 4
     gaussian_smooth_width: float = 0.3
 
@@ -132,7 +135,10 @@ class B2P2TModel(B2TModel):
             layer = getattr(self, "inpLayer" + str(x))
             layer.weight = torch.nn.Parameter(layer.weight + torch.eye(neural_dim_len))
 
-    def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
+    def forward(self, batch: B2tSampleBatch) -> ModelOutput:
+        """
+        batch can also be of sub type PhonemeSampleBatch
+        """
         x, targets = batch
         day_idxs = batch.day_idxs
 
@@ -171,3 +177,7 @@ class B2P2TModel(B2TModel):
             return out
 
         return self.neural_decoder.forward(preprocessed_batch)
+
+    @classmethod
+    def get_in_size_after_preprocessing(cls, unfolder_kernel_len: int):
+        return (256) * unfolder_kernel_len

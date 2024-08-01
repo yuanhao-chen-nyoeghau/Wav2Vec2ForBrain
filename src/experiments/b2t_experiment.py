@@ -1,7 +1,7 @@
 from torch.optim.optimizer import Optimizer
 from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
-from src.args.base_args import B2TArgsModel
+from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
 from src.datasets.brain2text import Brain2TextDataset
 from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
@@ -14,9 +14,18 @@ from src.train.history import DecodedPredictionBatch
 from src.util.batch_sampler import Brain2TextBatchSampler
 
 
+class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
+    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
+    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
+        "facebook/wav2vec2-base-100h"
+    )
+    day_batches: bool = False
+
+
 class B2TExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
+        self.yaml_config = yamlConfig
         self.tokenizer = cast(PreTrainedTokenizer, self._create_tokenizer())
         super().__init__(config, yamlConfig)
 
@@ -96,5 +105,9 @@ class B2TExperiment(Experiment):
             list(range(self.tokenizer.vocab_size))
         )
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return DefaultEvaluator(self.tokenizer, mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return DefaultEvaluator(self.tokenizer, mode, track_non_test_predictions)

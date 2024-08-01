@@ -1,5 +1,7 @@
 from math import nan
 import sys
+
+from pydantic import Field
 from src.decoding.decoding_types import LLMOutput
 from src.model.b2p2t_model import B2P2TModel
 from src.model.b2p2t_model import B2P2TModelArgsModel
@@ -34,8 +36,13 @@ from src.util.batch_sampler import Brain2TextBatchSampler
 
 
 class B2P2TEvaluator(Evaluator):
-    def __init__(self, decoding_script: str, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        decoding_script: str,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.temp_dir = f"temp/{uuid.uuid4()}"
         os.makedirs(self.temp_dir, exist_ok=True)
         self.file_order: list[str] = []
@@ -174,6 +181,9 @@ class B2P2TEvaluator(Evaluator):
 
 class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArgsModel):
     decoding_script: str = "src/decoding/postprocess_baseline.py"
+    day_batches: bool = Field(
+        False, description="Build batches only from measurements of the same day"
+    )
 
 
 class B2P2TExperiment(Experiment):
@@ -206,6 +216,9 @@ class B2P2TExperiment(Experiment):
         ds = self._create_dataset(split)
 
         if self.config.day_batches and split == "train":
+            assert (
+                self.config.limit_samples is None
+            ), "Cannot limit samples with day_batches"
             batch_sampler = Brain2TextBatchSampler(ds, self.base_config.batch_size)
 
             return DataLoader(
@@ -225,10 +238,18 @@ class B2P2TExperiment(Experiment):
         return Brain2TextWPhonemesDataset.vocab
 
     def _get_in_size_after_preprocessing(self):
-        return (256) * self.config.unfolder_kernel_len
+        return B2P2TModel.get_in_size_after_preprocessing(
+            self.config.unfolder_kernel_len
+        )
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]) -> Evaluator:
-        return B2P2TEvaluator(self.config.decoding_script, mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ) -> Evaluator:
+        return B2P2TEvaluator(
+            self.config.decoding_script, mode, track_non_test_predictions
+        )
 
     def process_test_results(self, test_results: SingleEpochHistory):
         worst_wer = 0

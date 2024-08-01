@@ -6,19 +6,17 @@ import torch
 from torch import nn
 from typing import Literal, cast
 
+from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
+from src.model.suc import SUCModel
 from src.datasets.timit_dataset import TimitSampleBatch
-from src.model.w2v_suc_seq_model import Wav2Vec2WithoutTransformerModel
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.util.nn_helper import create_fully_connected
 
 
 class W2VSUCArgsModel(BaseModel):
     suc_hidden_sizes: list[int] = []
     suc_hidden_activation: ACTIVATION_FUNCTION = "gelu"
     suc_dropout: float = 0.0
-    loss_function: Literal["cross_entropy"] = "cross_entropy"
     disable_w2v_feature_extractor_grad: bool = True
 
 
@@ -37,8 +35,9 @@ class W2VSUCModel(B2TModel):
             ),
         )
         self.dropout = nn.Dropout(config.suc_dropout)
-        self.suc = create_fully_connected(
-            768, len(PHONE_DEF_SIL), config.suc_hidden_sizes
+        self.suc = SUCModel(
+            hidden_sizes=config.suc_hidden_sizes,
+            activation=config.suc_hidden_activation,
         )
 
         self.loss = nn.CrossEntropyLoss(reduction="mean", weight=class_weights.cuda())

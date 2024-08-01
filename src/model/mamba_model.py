@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from src.datasets.batch_types import B2tSampleBatch
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
+from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
 import torch
 from torch import nn

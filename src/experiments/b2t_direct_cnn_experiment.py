@@ -1,7 +1,5 @@
-from src.experiments.b2t_experiment import B2TExperiment
-from src.args.base_args import (
-    B2TArgsModel,
-)
+from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
+
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.datasets.batch_types import B2tSampleBatch
 from src.args.yaml_config import YamlConfigModel

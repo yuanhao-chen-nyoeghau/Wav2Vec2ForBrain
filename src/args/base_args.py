@@ -12,7 +12,7 @@ class B2TDatasetArgsModel(BaseModel):
         "only_spikepow_zscored",
         "seperate_zscoring_2channels",
         "seperate_zscoring_4channels",
-    ] = "seperate_zscoring_4channels"
+    ] = "seperate_zscoring"
     competition_mode: bool = False
     limit_samples: Optional[int] = Field(None, description="Limit number of samples")
     sample_rate: int = 50
@@ -40,17 +40,14 @@ class BaseExperimentArgsModel(BaseModel):
     epochs: int = 10
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
-    loss_function: Literal["ctc", "contrastive_loss", "cross_entropy"] = "cross_entropy"
+    loss_function: Literal[
+        "ctc", "contrastive_loss", "cross_entropy", "bce", "ctc+discriminator"
+    ] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
     experiment_type: Literal[
-        "b2t_wav2vec_sharedaggregation",
-        "b2t_wav2vec_cnn",
         "audio_wav2vec2",
         "b2t_audio_wav2vec",
-        "b2t_wav2vec_resnet",
-        "b2t_wav2vec_pretraining",
-        "b2t_wav2vec_custom_encoder",
         "onehot_index",
         "b2t_cnn",
         "b2t_gru",
@@ -62,8 +59,11 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_mamba",
         "b2p2t_gru",
         "b2p2t_mvtst",
-        "w2v_suc",
         "timit_w2v_suc",
+        "timit_w2v_suc_ctc",
+        "b2p_suc",
+        "discriminator",
+        "b2p2t_gru+w2v",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
@@ -86,9 +86,6 @@ class BaseExperimentArgsModel(BaseModel):
     predict_on_train: bool = Field(
         False, description="Run prediction on train set after model training"
     )
-    day_batches: bool = Field(
-        True, description="Build batches only from measurements of the same day"
-    )
     gradient_clipping: Optional[float] = None
     weight_decay: float = 0.0
     visualize_predictions_n_batches: int = 1
@@ -103,14 +100,11 @@ class BaseExperimentArgsModel(BaseModel):
         None,
         description="Number of epochs n to consider for early stopping. Once all n-1 last epochs did not improve compared to the -nth epoch, training is stopped.   If None, early stopping is disabled",
     )
+    early_stopping_delta: float = Field(
+        0.0001,
+        description="Minimum delta of to be optimized metric that is considered as an improvement for early stopping",
+    )
     train_on_val_once: bool = Field(
         False, description="Train once on val after normal training"
     )
     log_results_as_artifact: bool = False
-
-
-class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
-    tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
-        "facebook/wav2vec2-base-100h"
-    )

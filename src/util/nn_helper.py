@@ -1,9 +1,31 @@
-from torch.nn import Linear
-from torch import nn
+from typing import Literal
+from sympy import false
+from torch.nn import Linear, BatchNorm1d
+from torch import batch_norm, nn
 from transformers.activations import ACT2FN
 
-from src.args.wav2vec_args import ACTIVATION_FUNCTION
 import torch
+
+ACTIVATION_FUNCTION = Literal[
+    "gelu",
+    "gelu_10",
+    "gelu_fast",
+    "gelu_new",
+    "gelu_python",
+    "gelu_pytorch_tanh",
+    "gelu_accurate",
+    "laplace",
+    "linear",
+    "mish",
+    "quick_gelu",
+    "relu",
+    "relu2",
+    "relu6",
+    "sigmoid",
+    "silu",
+    "swish",
+    "tanh",
+]
 
 
 def create_fully_connected(
@@ -11,6 +33,7 @@ def create_fully_connected(
     output_size: int,
     hidden_sizes=[],
     activation: ACTIVATION_FUNCTION = "gelu",
+    use_batch_norm: bool = False,
 ):
     classifier_layers = []
     for i in range(-1, len(hidden_sizes)):
@@ -20,6 +43,8 @@ def create_fully_connected(
         out_size = output_size if is_last else hidden_sizes[i + 1]
         classifier_layers.append(Linear(in_size, out_size))
         if not is_last:
+            if use_batch_norm:
+                classifier_layers.append(BatchNorm1d(num_features=1))
             classifier_layers.append(ACT2FN[activation])
     return nn.Sequential(*classifier_layers)
 

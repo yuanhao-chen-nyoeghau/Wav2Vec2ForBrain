@@ -1,5 +1,5 @@
 from src.datasets.brain2text import Brain2TextDataset
-from src.args.base_args import B2TArgsModel
+from src.experiments.b2t_experiment import B2TArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
 from src.args.b2t_audio_args import B2TAudioDatasetArgsModel
 from src.model.b2tmodel import B2TModel

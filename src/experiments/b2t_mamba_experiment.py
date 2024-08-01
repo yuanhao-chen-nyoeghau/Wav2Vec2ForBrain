@@ -1,8 +1,6 @@
 from src.model.mamba_model import MambaModel, MambaArgsModel
 from src.experiments.b2t_experiment import B2TExperiment
-from src.args.base_args import (
-    B2TArgsModel,
-)
+from src.experiments.b2t_experiment import B2TArgsModel
 from src.model.b2tmodel import B2TModel
 from src.args.yaml_config import YamlConfigModel
 

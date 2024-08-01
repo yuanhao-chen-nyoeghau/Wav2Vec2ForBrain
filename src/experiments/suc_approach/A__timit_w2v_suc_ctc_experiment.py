@@ -2,32 +2,37 @@ import os
 import numpy as np
 import torch
 from torch.optim.optimizer import Optimizer
+from src.experiments.experiment import Experiment
+from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
 from src.datasets.audio_with_phonemes_seq import (
-    AudioWPhonemesSeqDataset,
     AudioWPhonemesDatasetArgsModel,
 )
-from src.datasets.batch_types import PhonemeSampleBatch
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
-from src.model.w2v_suc_seq_model import W2VSUCSeqArgsModel, W2VSUCSeqModel
+from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
-from src.model.audio_wav2vec_model import AudioWav2VecModel
-from src.experiments.experiment import Experiment
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal, cast
-from datasets import load_dataset
+from typing import Any, Literal, Optional, cast
 from torch.utils.data import DataLoader
 from src.train.evaluator import Evaluator
 from src.train.history import DecodedPredictionBatch, MetricEntry, SingleEpochHistory
 from edit_distance import SequenceMatcher
 
 
-class W2VSUCEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+class EnhancedDecodedBatch(DecodedPredictionBatch):
+    original_targets: list[str]
+
+
+class TimitSeqW2VSUCEvaluator(Evaluator):
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
-    def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
+    def _track_batch(self, predictions: ModelOutput, sample: TimitSeqSampleBatch):
         phoneme_error_rate, prediction_batch = self._calc_phoneme_error_rate(
             sample, predictions
         )
@@ -39,24 +44,27 @@ class W2VSUCEvaluator(Evaluator):
         ), "Loss is None. Make sure to set loss in ModelOutput"
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            prediction_batch,
+            (
+                prediction_batch
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
+            ),  # prevent 1GB history files
         )
 
     def evaluate(self) -> SingleEpochHistory:
         return self.history
 
     def _calc_phoneme_error_rate(
-        self, batch: PhonemeSampleBatch, predictions: ModelOutput
+        self, batch: TimitSeqSampleBatch, predictions: ModelOutput
     ):
-
-        if batch.target == None or batch.target_lens == None:
-            raise Exception("target or target_lens is None.")
         pred = predictions.logits
         total_edit_distance = 0
         total_seq_length = 0
         labels = []
         predicted = []
         for iterIdx in range(pred.shape[0]):
+            if batch.target is None:
+                continue
             decodedSeq = torch.argmax(
                 torch.tensor(pred[iterIdx, :, :]),
                 dim=-1,
@@ -65,7 +73,7 @@ class W2VSUCEvaluator(Evaluator):
             decodedSeq = decodedSeq.cpu().detach().numpy()
             decodedSeq = np.array([i for i in decodedSeq if i != 0])
             trueSeq = np.array(
-                batch.target[iterIdx][0 : batch.target_lens[iterIdx]].cpu().detach()
+                [idx.item() for idx in batch.target[iterIdx].cpu() if idx >= 0]
             )
             # TODO: is this correct?
             labels.append([PHONE_DEF_SIL[i - 1] for i in trueSeq])
@@ -80,54 +88,56 @@ class W2VSUCEvaluator(Evaluator):
             total_edit_distance += dist
             total_seq_length += len(trueSeq)
 
-        return total_edit_distance / total_seq_length, DecodedPredictionBatch(
-            [" ".join(p) for p in predicted], [" ".join(l) for l in labels]
-        )
+        decoded = EnhancedDecodedBatch(predicted, labels)
+        decoded.original_targets = batch.transcripts
+
+        return total_edit_distance / total_seq_length, decoded
 
 
-class W2VSUCExperimentArgsModel(
-    BaseExperimentArgsModel, W2VSUCSeqArgsModel, AudioWPhonemesDatasetArgsModel
+class W2VSUCCtcExperimentArgsModel(
+    BaseExperimentArgsModel, W2VSUC_CTCArgsModel, AudioWPhonemesDatasetArgsModel
 ):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
     wav2vec_checkpoint: Literal[
         "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
     ] = "facebook/wav2vec2-base-960h"
-    unfreeze_strategy: Literal["suc"] = "suc"
+    unfreeze_strategy: Literal["suc", "suc+gru"] = "suc"
+    suc_checkpoint: Optional[str] = None
 
 
-class W2VSUCExperiment(Experiment):
+class TimitW2VSUC_CTCExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
-        base_dir = os.path.join(yamlConfig.cache_dir, "audio")
-        cache_dir = os.path.join(base_dir, "cache")
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(cache_dir, exist_ok=True)
-        os.makedirs(data_dir, exist_ok=True)
-        self._hugg_dataset = load_dataset(
-            "google/fleurs", name="en_us", cache_dir=cache_dir, data_dir=data_dir
-        )
-        self.config = W2VSUCExperimentArgsModel(**config)
+        self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
-        self.model: AudioWav2VecModel = self.model
 
     def get_name(self) -> str:
-        return "w2v_suc"
+        return "timit_w2v_suc_ctc"
 
     @staticmethod
     def get_args_model():
-        return W2VSUCExperimentArgsModel
+        return W2VSUCCtcExperimentArgsModel
 
     def _create_model(self):
         assert (
-            self.config.loss_function == "ctc",  # type: ignore
-            "Only ctc loss is currently supported",
+            self.config.loss_function == "ctc" ,  # type: ignore
+            "Only ctc loss is supported",
         )
-        model = W2VSUCSeqModel(self.config)
+        model = W2VSUCForCtcModel(self.config)
+        if self.config.suc_checkpoint is not None:
+            model.suc_for_ctc.suc.load_state_dict(
+                torch.load(self.config.suc_checkpoint, map_location="cuda"),
+                strict=True,
+            )
         return model
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
             if self.config.unfreeze_strategy == "suc":
-                return cast(W2VSUCSeqModel, self.model).suc.parameters()
+                return cast(
+                    W2VSUCForCtcModel, self.model
+                ).suc_for_ctc.ctc_head.parameters()
+            elif self.config.unfreeze_strategy == "suc+gru":
+                return cast(W2VSUCForCtcModel, self.model).suc_for_ctc.parameters()
             raise Exception(
                 f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
             )
@@ -136,7 +146,7 @@ class W2VSUCExperiment(Experiment):
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
     def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        return AudioWPhonemesSeqDataset(self.config, self.yaml_config, split=split)
+        return TimitAudioSeqDataset(self.config, self.yaml_config, split=split)
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
@@ -150,5 +160,15 @@ class W2VSUCExperiment(Experiment):
     def get_vocab(self) -> list[str]:
         return ["BLANK"] + PHONE_DEF_SIL
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return W2VSUCEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return TimitSeqW2VSUCEvaluator(mode, track_non_test_predictions)
+
+    def store_trained_model(self, trained_model: W2VSUCForCtcModel):
+        torch.save(
+            trained_model.suc_for_ctc.state_dict(),
+            os.path.join(self.results_dir, "suc_for_ctc.pt"),
+        )

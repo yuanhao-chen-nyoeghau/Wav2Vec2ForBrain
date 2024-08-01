@@ -1,3 +1,5 @@
+import os
+import torch
 from torch.optim.optimizer import Optimizer
 from src.experiments.experiment import Experiment
 from src.datasets.timit_dataset import (
@@ -6,7 +8,7 @@ from src.datasets.timit_dataset import (
     TimitSampleBatch,
 )
 from src.model.w2v_suc_model import W2VSUCArgsModel, W2VSUCModel
-from src.datasets.brain2text_w_phonemes import PHONE_DEF_SIL
+from src.util.phoneme_helper import PHONE_DEF_SIL
 from src.model.b2tmodel import ModelOutput
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
@@ -18,8 +20,12 @@ from sklearn.metrics import precision_score, recall_score, accuracy_score
 
 
 class TimitW2VSUCEvaluator(Evaluator):
-    def __init__(self, mode: Literal["train", "val", "test"]):
-        super().__init__(mode)
+    def __init__(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
     def _track_batch(self, predictions: ModelOutput, sample: TimitSampleBatch):
@@ -61,7 +67,11 @@ class TimitW2VSUCEvaluator(Evaluator):
         )
         self.history.add_batch_metric(
             MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            decoded_batch,
+            (
+                decoded_batch
+                if self.mode == "test" or self.track_non_test_predictions
+                else None
+            ),
         )
 
     def evaluate(self) -> SingleEpochHistory:
@@ -129,5 +139,15 @@ class TimitW2VSUCExperiment(Experiment):
     def get_vocab(self) -> list[str]:
         return PHONE_DEF_SIL
 
-    def create_evaluator(self, mode: Literal["train", "val", "test"]):
-        return TimitW2VSUCEvaluator(mode)
+    def create_evaluator(
+        self,
+        mode: Literal["train", "val", "test"],
+        track_non_test_predictions: bool = False,
+    ):
+        return TimitW2VSUCEvaluator(mode, track_non_test_predictions)
+
+    def store_trained_model(self, trained_model: W2VSUCModel):
+        torch.save(
+            trained_model.suc.state_dict(),
+            os.path.join(self.results_dir, "suc.pt"),
+        )
