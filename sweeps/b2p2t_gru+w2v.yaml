@@ -1,0 +1,47 @@
+program: run.py
+method: bayes
+name: b2p2t_gru+w2v__fightoverfit
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 10
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --experiment_type=b2p2t_gru+w2v
+  - --loss_function=ctc
+  - --early_stopping_patience=4
+  - --epochs=100
+  - --batch_size=32
+  - --scheduler_step_size=5
+  - --optimizer_epsilon=0.1
+  - --gradient_clipping=1
+  - --scheduler_gamma=0.9
+  - --ctc_gru_hidden_size=120 
+  - --ctc_num_gru_layers=2
+  - --weight_decay=4.412757798785471e-05
+  - --encoder_gru_hidden_size=256
+  - --encoder_fc_hidden_sizes=[]
+  - --encoder_num_gru_layers=2
+  - --learning_rate=0.0001
+  - --return_best_model=true
+  - --gaussian_smooth_width=2 
+  - --unfolder_stride_len=4 
+  - --unfolder_kernel_len=32
+metric:
+  name: test_ctc_loss
+  goal: minimize
+parameters:
+  encoder_dropout:
+    min: 0.0
+    max: 0.5
+  encoder_learnable_inital_state:
+    values: ["true", "false"]
+  constantOffsetSD:
+    min: 0.1
+    max: 0.3
+  whiteNoiseSD:
+    min: 0.1
+    max: 1.0
