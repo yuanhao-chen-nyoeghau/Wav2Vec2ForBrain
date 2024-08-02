@@ -137,11 +137,19 @@ class TrainHistory(NamedTuple):
         epochs = data["epochs"]
         test_losses = data["test"]
 
+        def get_decoded(batch):
+            try:
+                if "batch" in batch and batch["batch"] == True:
+                    return DecodedPredictionBatch(**batch["batch"])
+            except:
+                pass
+            return None
+
         test_history = SingleEpochHistory()
         for batch in test_losses["history"]:
             test_history.add_batch_metric(
-                MetricEntry(**batch["metric"]),
-                DecodedPredictionBatch(**batch["decoded"]),
+                MetricEntry(batch["metrics"], batch["loss"]),
+                get_decoded(batch),
             )
 
         epoch_histories: list[EpochLosses] = []
@@ -150,15 +158,15 @@ class TrainHistory(NamedTuple):
             train_epoch_history = SingleEpochHistory()
             for batch in epoch["train"]["history"]:
                 train_epoch_history.add_batch_metric(
-                    MetricEntry(**batch["metric"]),
-                    DecodedPredictionBatch(**batch["batch"]),
+                    MetricEntry(batch["metrics"], batch["loss"]),
+                    get_decoded(batch),
                 )
 
             val_epoch_history = SingleEpochHistory()
             for batch in epoch["val"]["history"]:
                 val_epoch_history.add_batch_metric(
-                    MetricEntry(**batch["metric"]),
-                    DecodedPredictionBatch(**batch["batch"]),
+                    MetricEntry(batch["metrics"], batch["loss"]),
+                    get_decoded(batch),
                 )
 
             epoch_history = EpochLosses(
