@@ -19,8 +19,6 @@ command:
   - --optimizer_epsilon=0.1
   - --gradient_clipping=1
   - --scheduler_gamma=0.9
-  - --ctc_gru_hidden_size=120 
-  - --ctc_num_gru_layers=2
   - --weight_decay=4.412757798785471e-05
   - --encoder_gru_hidden_size=256
   - --encoder_fc_hidden_sizes=[]
