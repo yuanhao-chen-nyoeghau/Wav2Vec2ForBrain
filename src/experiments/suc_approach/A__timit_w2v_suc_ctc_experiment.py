@@ -119,7 +119,7 @@ class TimitW2VSUC_CTCExperiment(Experiment):
 
     def _create_model(self):
         assert (
-            self.config.loss_function == "ctc" ,  # type: ignore
+            self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is supported",
         )
         model = W2VSUCForCtcModel(self.config)
