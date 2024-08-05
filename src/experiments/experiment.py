@@ -341,3 +341,13 @@ class Experiment(metaclass=ABCMeta):
         track_non_test_predictions: bool = False,
     ) -> Evaluator:
         raise NotImplementedError("Implement create_evaluator in subclass")
+
+    def get_scheduler(
+        self, optimizer: Optimizer
+    ) -> torch.optim.lr_scheduler.LRScheduler:
+        return torch.optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=self.base_config.scheduler_step_size,
+            gamma=self.base_config.scheduler_gamma,
+            verbose=True,
+        )

@@ -18,7 +18,8 @@ class B2TGruAndW2VArgsModel(
     B2TArgsModel, B2P2TBrainFeatureExtractorArgsModel, W2VBrainEncoderModelArgs
 ):
     brain_encoder_path: Optional[str] = None
-    unfreeze_strategy: Literal["brain_encoder"] = "brain_encoder"
+    unfreeze_strategy: Literal["brain_encoder", "brain_encoder+w2v"] = "brain_encoder"
+    w2v_learning_rate: Optional[float] = None
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -41,10 +42,38 @@ class B2TGruAndW2VExperiment(B2TExperiment):
         return model
 
     def create_optimizer(self) -> Optimizer:
+        def get_trainable_params():
+            if self.config.unfreeze_strategy == "brain_encoder+w2v":
+                return [
+                    {
+                        "params": cast(
+                            W2VBrainEncoderModel, self.model
+                        ).brain_encoder.parameters()
+                    },
+                    {
+                        "params": cast(
+                            W2VBrainEncoderModel, self.model
+                        ).w2v_encoder.parameters(),
+                        "lr": (
+                            self.config.w2v_learning_rate
+                            if self.config.w2v_learning_rate is not None
+                            else self.config.learning_rate
+                        ),
+                    },
+                ]
+            if self.config.unfreeze_strategy == "brain_encoder":
+                assert (
+                    self.config.w2v_learning_rate is None
+                ), "w2v_learning_rate can only be set if unfreeze strategy is brain_encoder+w2v"
+                return cast(W2VBrainEncoderModel, self.model).brain_encoder.parameters()
+            raise Exception(
+                f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
+            )
+
         optim_cls: Any = self._get_optimizer_cls()
-        assert self.config.unfreeze_strategy == "brain_encoder"
+
         return optim_cls(
-            cast(W2VBrainEncoderModel, self.model).brain_encoder.parameters(),
+            get_trainable_params(),
             lr=self.base_config.learning_rate,
             weight_decay=self.base_config.weight_decay,
             eps=self.base_config.optimizer_epsilon,
