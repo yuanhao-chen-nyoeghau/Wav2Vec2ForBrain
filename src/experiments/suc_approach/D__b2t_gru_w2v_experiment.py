@@ -1,6 +1,7 @@
 from typing import Any, Literal, cast
 
 from git import Optional
+import torch
 from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
 from src.datasets.discriminator_dataset import (
     B2P2TBrainFeatureExtractorArgsModel,
@@ -20,6 +21,7 @@ class B2TGruAndW2VArgsModel(
     brain_encoder_path: Optional[str] = None
     unfreeze_strategy: Literal["brain_encoder", "brain_encoder+w2v"] = "brain_encoder"
     w2v_learning_rate: Optional[float] = None
+    w2v_warmup_steps: Optional[int] = None
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -78,3 +80,34 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             weight_decay=self.base_config.weight_decay,
             eps=self.base_config.optimizer_epsilon,
         )
+
+    def get_scheduler(
+        self, optimizer: Optimizer
+    ) -> torch.optim.lr_scheduler.LRScheduler:
+        if self.config.unfreeze_strategy == "brain_encoder":
+            # return scheduler from super
+            assert (
+                self.config.w2v_warmup_steps is None
+            ), "w2v_warmup_steps can only be set if unfreeze strategy is brain_encoder+w2v"
+            return super().get_scheduler(optimizer)
+
+        warmup_steps = (
+            self.config.w2v_warmup_steps if self.config.w2v_warmup_steps else 0
+        )
+        from torch.optim.lr_scheduler import LambdaLR
+
+        def custom_lr_lambda(step):
+            # Return 0 for the first 500 steps, then 1 afterwards
+            if step < warmup_steps:
+                return 0.0
+            return 1.0
+
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=[
+                lambda step: 1.0,  # For brain_encoder parameters, keep lr constant
+                custom_lr_lambda,  # For w2v_encoder parameters, apply the custom warmup logic
+            ],
+        )
+
+        return scheduler
