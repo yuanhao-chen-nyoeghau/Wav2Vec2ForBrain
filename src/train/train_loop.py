@@ -10,8 +10,6 @@ import uuid
 import numpy as np
 from src.train.evaluator import Evaluator
 
-Schedulers = {"step": torch.optim.lr_scheduler.StepLR}
-
 
 class Trainer:
     def __init__(self, experiment: Experiment):
@@ -26,17 +24,7 @@ class Trainer:
         self.model = experiment.model
 
         self.optimizer = experiment.create_optimizer()
-        if self.config.scheduler not in Schedulers:
-            raise ValueError(
-                f"Scheduler {self.config.scheduler} not implemented. "
-                f"Choose from {Schedulers.keys()} or implement your own."
-            )
-        self.scheduler = Schedulers[self.config.scheduler](
-            self.optimizer,
-            step_size=self.config.scheduler_step_size,
-            gamma=self.config.scheduler_gamma,
-            verbose=True,
-        )
+        self.scheduler = experiment.get_scheduler(self.optimizer)
 
     def _log_intermediate(self, batch: int, n_batches: int, evaluator: Evaluator):
         loss = evaluator.get_latest_loss()
