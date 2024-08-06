@@ -1,6 +1,7 @@
 from typing import Any, Literal, cast
 
 from git import Optional
+from pydantic import Field
 import torch
 from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
 from src.datasets.discriminator_dataset import (
@@ -21,7 +22,14 @@ class B2TGruAndW2VArgsModel(
     brain_encoder_path: Optional[str] = None
     unfreeze_strategy: Literal["brain_encoder", "brain_encoder+w2v"] = "brain_encoder"
     w2v_learning_rate: Optional[float] = None
-    w2v_warmup_steps: Optional[int] = None
+    w2v_warmup_start_step: Optional[int] = Field(
+        default=None,
+        description="Epoch at which warm up phase of w2v lr starts. Before LR will be 0. 0 if not provided",
+    )
+    w2v_warmup_steps: Optional[int] = Field(
+        default=None,
+        description="Num epochs from w2v_warmup_start_step to reach full w2v_learning_rate. 0 if not provided",
+    )
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -93,16 +101,25 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             ), "w2v_warmup_steps can only be set if unfreeze strategy is brain_encoder+w2v"
             return super().get_scheduler(optimizer)
 
+        warmup_start_step = (
+            self.config.w2v_warmup_start_step
+            if self.config.w2v_warmup_start_step
+            else 0
+        )
         warmup_steps = (
             self.config.w2v_warmup_steps if self.config.w2v_warmup_steps else 0
         )
+
         from torch.optim.lr_scheduler import LambdaLR
 
         def custom_lr_lambda(step):
-            # Return 0 for the first 500 steps, then 1 afterwards
-            if step < warmup_steps:
+            if step < warmup_start_step:
                 return 0.0
-            return 1.0
+
+            return min(
+                1.0,
+                (step - warmup_start_step) / warmup_steps if warmup_steps > 0 else 1.0,
+            )
 
         scheduler = LambdaLR(
             optimizer,
