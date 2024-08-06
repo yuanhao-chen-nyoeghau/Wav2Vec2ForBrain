@@ -110,6 +110,7 @@ class B2TGruAndW2VExperiment(B2TExperiment):
                 lambda step: 1.0,  # For brain_encoder parameters, keep lr constant
                 custom_lr_lambda,  # For w2v_encoder parameters, apply the custom warmup logic
             ],
+            verbose=True,
         )
 
         return scheduler
