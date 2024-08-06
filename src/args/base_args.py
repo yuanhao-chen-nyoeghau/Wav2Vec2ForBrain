@@ -115,5 +115,5 @@ class BaseExperimentArgsModel(BaseModel):
     )
     log_results_as_artifact: bool = False
     wav2vec_checkpoint: str = (
-        "jonatasgrosman/wav2vec2-large-xlsr-53-english"  # "facebook/wav2vec2-base-960h"
+        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english"
     )
