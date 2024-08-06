@@ -1,0 +1,44 @@
+program: run.py
+method: grid
+name: b2p2t_gru+w2v__finetuning_large
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 100
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --experiment_type=b2p2t_gru+w2v
+  - --loss_function=ctc
+  - --early_stopping_patience=10
+  - --epochs=100
+  - --batch_size=64
+  - --learning_rate=0.0001
+  - --return_best_model=true
+  - --encoder_learnable_inital_state=false
+  - --unfreeze_strategy=brain_encoder+w2v 
+  - --weight_decay=8.324385138271928e-05
+  - --encoder_dropout=0.4570249990196249
+  - --gaussian_smooth_width=1.5290517142639226
+  - --w2v_learning_rate=9.506050391898906e-06
+  - --w2v_warmup_steps=3
+  - --w2v_warmup_start_step=7
+  - --whiteNoiseSD=0.01978441712172472
+  - --constantOffsetSD=0.2443028255597108
+metric:
+  name: test_ctc_loss
+  goal: minimize
+parameters:
+  encoder_gru_hidden_size:
+    values: [256, 512,1024]
+  encoder_num_gru_layers:
+    values: [1,2, 3]
+  w2v_do_stable_layer_norm:
+    values: ["true", "false"]
+  encoder_fc_hidden_sizes:
+    values: [[], [256], [512], [1024]]
+  
+
+# example command: python run.py --use_wandb=false --experiment_type=b2p2t_gru+w2v --loss_function=ctc --early_stopping_patience=4 --epochs=100 --batch_size=32 --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --learning_rate=0.0001 --return_best_model=true --encoder_learnable_inital_state=false --unfreeze_strategy=brain_encoder+w2v --encoder_dropout=0.2 --constantOffsetSD=0.1 --whiteNoiseSD=0.05 --weight_decay=0.00001 --gaussian_smooth_width=1.0 --w2v_learning_rate=0.00001 --w2v_warmup_steps=2000
