@@ -2,7 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 import torch
 from torch import nn
-from args.base_args import PRETRAINED_LATENT_SIZES
+from src.args.base_args import PRETRAINED_LATENT_SIZES
 from src.datasets.batch_types import SampleBatch
 from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput

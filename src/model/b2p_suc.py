@@ -2,7 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 import torch
 
-from args.base_args import PRETRAINED_LATENT_SIZES
+from src.args.base_args import PRETRAINED_LATENT_SIZES
 from src.model.discriminator_model import (
     DiscriminatorModel,
     DiscriminatorModelArgsModel,

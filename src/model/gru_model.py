@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from args.base_args import PRETRAINED_LATENT_SIZES
+from src.args.base_args import PRETRAINED_LATENT_SIZES
 from src.datasets.batch_types import B2tSampleBatch
 from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
