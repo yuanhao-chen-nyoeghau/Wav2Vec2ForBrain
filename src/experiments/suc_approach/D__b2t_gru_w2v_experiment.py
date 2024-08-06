@@ -38,9 +38,11 @@ class B2TGruAndW2VExperiment(B2TExperiment):
 
     def _create_model(self):
         brain_encoder = DiscriminatorDataset.brain_feature_extractor_from_config(
-            self.config, self.config.brain_encoder_path
+            self.config, self.config.brain_encoder_path, self.config.wav2vec_checkpoint
         )
-        model = W2VBrainEncoderModel(self.config, brain_encoder)
+        model = W2VBrainEncoderModel(
+            self.config, brain_encoder, self.config.wav2vec_checkpoint
+        )
         return model
 
     def create_optimizer(self) -> Optimizer:

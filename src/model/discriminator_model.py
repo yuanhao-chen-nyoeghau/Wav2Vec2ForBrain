@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 import torch
 from torch import nn
+from args.base_args import PRETRAINED_LATENT_SIZES
 from src.datasets.batch_types import SampleBatch
 from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -19,13 +20,14 @@ class DiscriminatorModel(B2TModel):
         self,
         config: DiscriminatorModelArgsModel,
         w2v_to_brain_samples_ratio: Optional[float],
+        wav2vec_checkpoint: str,
     ):
         super().__init__()
         self.config = config
 
         self.dropout = nn.Dropout(config.discriminator_dropout)
         self.discriminator = create_fully_connected(
-            768,
+            PRETRAINED_LATENT_SIZES[wav2vec_checkpoint],
             1,
             config.discriminator_hidden_sizes,
             config.discriminator_hidden_activation,

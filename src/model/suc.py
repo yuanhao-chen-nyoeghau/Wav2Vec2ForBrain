@@ -7,11 +7,14 @@ from src.util.nn_helper import create_fully_connected
 
 class SUCModel(torch.nn.Module):
     def __init__(
-        self, hidden_sizes: list[int], activation: ACTIVATION_FUNCTION = "gelu"
+        self,
+        hidden_sizes: list[int],
+        in_size: int,
+        activation: ACTIVATION_FUNCTION = "gelu",
     ):
         super().__init__()
         self.model = create_fully_connected(
-            768, len(PHONE_DEF_SIL), hidden_sizes, activation=activation
+            in_size, len(PHONE_DEF_SIL), hidden_sizes, activation=activation
         )
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:

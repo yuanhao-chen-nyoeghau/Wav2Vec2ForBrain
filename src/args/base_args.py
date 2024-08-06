@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
+PRETRAINED_LATENT_SIZES = {
+    "jonatasgrosman/wav2vec2-large-xlsr-53-english": 1024,
+    "facebook/wav2vec2-base-960h": 768,
+}
+
 
 class B2TDatasetArgsModel(BaseModel):
     preprocessing: Literal[
@@ -109,3 +114,6 @@ class BaseExperimentArgsModel(BaseModel):
         False, description="Train once on val after normal training"
     )
     log_results_as_artifact: bool = False
+    wav2vec_checkpoint: str = (
+        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+    )
