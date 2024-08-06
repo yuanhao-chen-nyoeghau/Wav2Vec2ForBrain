@@ -24,12 +24,13 @@ from torch.utils.data import DataLoader
 
 
 class BrainEncoderWrapper(B2TModel):
-    def __init__(self, config: BrainEncoderArgsModel):
+    def __init__(self, config: BrainEncoderArgsModel, wav2vec_checkpoint: str):
         super().__init__()
 
         self.encoder = BrainEncoder(
             config,
             B2P2TModel.get_in_size_after_preprocessing(DEFAULT_UNFOLDER_KERNEL_LEN),
+            wav2vec_checkpoint,
         )
 
     def forward(self, batch: SampleBatch) -> ModelOutput:
@@ -60,6 +61,7 @@ class DiscriminatorDataset(BaseDataset):
         config: DiscriminatorDatasetArgsModel,
         yaml_config: YamlConfigModel,
         split: Literal["train", "val", "test"],
+        wav2vec_checkpoint: str,
         w2v_feature_extractor: Optional[Wav2Vec2WithoutTransformerModel] = None,
         brain_feat_extractor: Optional[B2P2TModel] = None,
     ):
@@ -78,7 +80,7 @@ class DiscriminatorDataset(BaseDataset):
         )
         brain_feat_extractor = (
             DiscriminatorDataset.brain_feature_extractor_from_config(
-                config, config.brain_encoder_path
+                config, config.brain_encoder_path, wav2vec_checkpoint
             )
             if brain_feat_extractor is None
             else brain_feat_extractor
@@ -150,8 +152,11 @@ class DiscriminatorDataset(BaseDataset):
         cls,
         config: B2P2TBrainFeatureExtractorArgsModel,
         brain_encoder_path: Optional[str],
+        wav2vec_checkpoint: str,
     ):
-        brain_feat_extractor = B2P2TModel(config, BrainEncoderWrapper(config)).cuda()
+        brain_feat_extractor = B2P2TModel(
+            config, BrainEncoderWrapper(config, wav2vec_checkpoint)
+        ).cuda()
         if brain_encoder_path != None:
             state = torch.load(brain_encoder_path, map_location="cuda")
             unneeded_keys = [

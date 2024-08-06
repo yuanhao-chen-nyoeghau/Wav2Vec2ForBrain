@@ -87,18 +87,33 @@ class DiscriminatorExperiment(Experiment):
         self.config = DiscriminatorExperimentArgsModel(**config)
 
         brain_feat_extr = DiscriminatorDataset.brain_feature_extractor_from_config(
-            self.config, self.config.brain_encoder_path
+            self.config, self.config.brain_encoder_path, self.config.wav2vec_checkpoint
         )
         w2v_feat_extr = DiscriminatorDataset.w2v_feature_extractor()
         self.datasets: dict[str, DiscriminatorDataset] = {
             "train": DiscriminatorDataset(
-                self.config, yamlConfig, "train", w2v_feat_extr, brain_feat_extr
+                self.config,
+                yamlConfig,
+                "train",
+                self.config.wav2vec_checkpoint,
+                w2v_feat_extr,
+                brain_feat_extr,
             ),
             "val": DiscriminatorDataset(
-                self.config, yamlConfig, "val", w2v_feat_extr, brain_feat_extr
+                self.config,
+                yamlConfig,
+                "val",
+                self.config.wav2vec_checkpoint,
+                w2v_feat_extr,
+                brain_feat_extr,
             ),
             "test": DiscriminatorDataset(
-                self.config, yamlConfig, "test", w2v_feat_extr, brain_feat_extr
+                self.config,
+                yamlConfig,
+                "test",
+                self.config.wav2vec_checkpoint,
+                w2v_feat_extr,
+                brain_feat_extr,
             ),
         }
         del w2v_feat_extr
@@ -126,6 +141,7 @@ class DiscriminatorExperiment(Experiment):
             self.config,
             self.datasets["train"].n_w2v_samples
             / self.datasets["train"].n_brain_samples,
+            self.config.wav2vec_checkpoint,
         )
         return model
 

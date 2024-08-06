@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from args.base_args import PRETRAINED_LATENT_SIZES
 from src.datasets.batch_types import B2tSampleBatch
 from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -29,13 +30,16 @@ class GRUModelWithLinearProject(B2TModel):
         self,
         config: GRUModelWithLinearProjectArgs,
         gru_vocab_size: int,
+        wav2vec_checkpoint: str,
         gru_in_size: int,
         gru_pad_token_id=0,
     ):
         super().__init__()
 
         self.gru = GRUModel(config, gru_vocab_size, gru_in_size, gru_pad_token_id)
-        self.linear_project = create_fully_connected(gru_vocab_size, 768)
+        self.linear_project = create_fully_connected(
+            gru_vocab_size, PRETRAINED_LATENT_SIZES[wav2vec_checkpoint]
+        )
 
     def forward(self, batch: B2tSampleBatch) -> ModelOutput:
         gru_out = self.gru.forward(batch)

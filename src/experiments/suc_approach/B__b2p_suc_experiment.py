@@ -4,6 +4,13 @@ from edit_distance import SequenceMatcher
 from typing import Any, Literal, Optional, cast
 
 from torch.optim.optimizer import Optimizer
+from src.args.base_args import BaseExperimentArgsModel
+from src.model.discriminator_model import DiscriminatorModel
+from src.datasets.discriminator_dataset import DiscriminatorDataset
+from src.experiments.suc_approach.C__discriminator_experiment import (
+    DiscriminatorExperiment,
+    DiscriminatorExperimentArgsModel,
+)
 from src.model.b2p2t_model import B2P2TModel
 from src.datasets.batch_types import PhonemeSampleBatch
 import numpy as np
@@ -120,7 +127,11 @@ class B2PSUCExperiment(B2P2TExperiment):
             assert (
                 self.config.loss_function == "ctc+discriminator"
             ), "If discriminator_checkpoint is set, we need to use ctc+discriminator loss"
-        return B2PSUC(self.config, self._get_in_size_after_preprocessing())
+        return B2PSUC(
+            self.config,
+            self._get_in_size_after_preprocessing(),
+            self.config.wav2vec_checkpoint,
+        )
 
     def create_evaluator(
         self,

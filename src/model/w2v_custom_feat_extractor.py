@@ -21,17 +21,22 @@ class W2VBrainEncoderModelArgs(BaseModel):
 
 
 class W2VBrainEncoderModel(B2TModel):
-    def __init__(self, config: W2VBrainEncoderModelArgs, brain_encoder: B2TModel):
+    def __init__(
+        self,
+        config: W2VBrainEncoderModelArgs,
+        brain_encoder: B2TModel,
+        wav2vec_checkpoint: str,
+    ):
         super().__init__()
         self.brain_encoder = brain_encoder
         w2v_config = cast(
             Wav2Vec2Config,
-            Wav2Vec2Config.from_pretrained("facebook/wav2vec2-base-960h"),
+            Wav2Vec2Config.from_pretrained(wav2vec_checkpoint),
         )
         self.w2v_encoder = cast(
             Wav2Vec2WithoutFeatExtrForCTC,
             Wav2Vec2WithoutFeatExtrForCTC.from_pretrained(
-                "facebook/wav2vec2-base-960h", config=w2v_config
+                wav2vec_checkpoint, config=w2v_config
             ),
         )
         self.loss = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)

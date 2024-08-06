@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 import torch
 
+from args.base_args import PRETRAINED_LATENT_SIZES
 from src.model.discriminator_model import (
     DiscriminatorModel,
     DiscriminatorModelArgsModel,
@@ -33,7 +34,7 @@ class B2PSUCArgsModel(
 
 
 class BrainEncoder(torch.nn.Module):
-    def __init__(self, config: BrainEncoderArgsModel, in_size):
+    def __init__(self, config: BrainEncoderArgsModel, in_size, wav2vec_checkpoint: str):
         super().__init__()
         self.config = config
         self.num_directions = 2 if config.encoder_bidirectional else 1
@@ -57,7 +58,7 @@ class BrainEncoder(torch.nn.Module):
 
         self.fc = create_fully_connected(
             config.encoder_gru_hidden_size * self.num_directions,
-            768,
+            PRETRAINED_LATENT_SIZES[wav2vec_checkpoint],
             config.encoder_fc_hidden_sizes,
             config.encoder_fc_activation_function,
         )
@@ -78,16 +79,16 @@ class BrainEncoder(torch.nn.Module):
 
 
 class B2PSUC(B2TModel):
-    def __init__(self, config: B2PSUCArgsModel, in_size: int):
+    def __init__(self, config: B2PSUCArgsModel, in_size: int, wav2vec_checkpoint: str):
         super().__init__()
         self.config = config
         self.suc_for_ctc = SUCForCTC(config)
-        self.encoder = BrainEncoder(config, in_size)
+        self.encoder = BrainEncoder(config, in_size, wav2vec_checkpoint)
         self.ctc_loss: torch.nn.CTCLoss = torch.nn.CTCLoss(
             blank=0, reduction="mean", zero_infinity=True
         )
         if config.discriminator_checkpoint is not None:
-            self.discriminator = DiscriminatorModel(config, None)
+            self.discriminator = DiscriminatorModel(config, None, wav2vec_checkpoint)
 
     def forward(self, batch: PhonemeSampleBatch) -> ModelOutput:
         encoder_out = self.encoder.forward(batch)
