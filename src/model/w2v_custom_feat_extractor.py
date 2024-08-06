@@ -17,7 +17,7 @@ from src.model.b2p2t_model import B2P2TModel
 
 
 class W2VBrainEncoderModelArgs(BaseModel):
-    pass
+    w2v_do_stable_layer_norm: bool = False
 
 
 class W2VBrainEncoderModel(B2TModel):
@@ -31,7 +31,9 @@ class W2VBrainEncoderModel(B2TModel):
         self.brain_encoder = brain_encoder
         w2v_config = cast(
             Wav2Vec2Config,
-            Wav2Vec2Config.from_pretrained(wav2vec_checkpoint),
+            Wav2Vec2Config.from_pretrained(
+                wav2vec_checkpoint, do_stable_layer_norm=config.w2v_do_stable_layer_norm
+            ),
         )
         self.w2v_encoder = cast(
             Wav2Vec2WithoutFeatExtrForCTC,
