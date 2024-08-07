@@ -133,18 +133,6 @@ class CNNExperiment(B2TExperiment):
     def get_args_model():
         return B2TCNNArgsModel
 
-    def _create_tokenizer(self):
-        if self.config.tokenizer == "wav2vec_pretrained":
-            assert (
-                not self.config.tokenizer_checkpoint is None
-            ), "Tokenizer checkpoint (--tokenizer_checkpoint) must be set when using --tokenizer=wav2vec_pretrained"
-
-            return AutoTokenizer.from_pretrained(
-                self.config.tokenizer_checkpoint,
-                cache_dir=self.yaml_config.cache_dir,
-            )
-        raise Exception(f"Tokenizer {self.config.tokenizer} not supported yet")
-
     def _create_model(self):
         assert (
             self.config.tokenizer == "wav2vec_pretrained"
