@@ -15,6 +15,11 @@ from src.model.w2v_custom_feat_extractor import (
 from src.args.yaml_config import YamlConfigModel
 from torch.optim.optimizer import Optimizer
 
+# Baseline Experiment: b2p2t_gru:
+# 5gram + rescoring: 0.28 WER (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-27_17#31#07),
+# 3gram: 0.3153 WER
+# (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-28_08#18#39)
+
 
 class B2TGruAndW2VArgsModel(
     B2TArgsModel, B2P2TBrainFeatureExtractorArgsModel, W2VBrainEncoderModelArgs
