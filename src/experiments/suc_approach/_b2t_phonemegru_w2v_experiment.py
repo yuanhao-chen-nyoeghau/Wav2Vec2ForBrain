@@ -25,6 +25,9 @@ class B2TPhonemeGruAndW2VArgsModel(
 ):
     b2p2t_gru_checkpoint: str
     unfreeze_strategy: Literal["gru_project"] = "gru_project"
+    wav2vec_checkpoint: str = (
+        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+    )
 
 
 class B2TPhonemeGruAndW2VExperiment(B2TExperiment):
@@ -45,6 +48,7 @@ class B2TPhonemeGruAndW2VExperiment(B2TExperiment):
             GRUModelWithLinearProject(
                 self.config,
                 Brain2TextWPhonemesDataset.vocab_size,
+                self.config.wav2vec_checkpoint,
                 B2P2TModel.get_in_size_after_preprocessing(DEFAULT_UNFOLDER_KERNEL_LEN),
             ),
         )
@@ -61,7 +65,9 @@ class B2TPhonemeGruAndW2VExperiment(B2TExperiment):
             )
             adapted_state[adapted_key] = state[key]
         brain_encoder.load_state_dict(adapted_state, strict=False)
-        model = W2VBrainEncoderModel(self.config, brain_encoder)
+        model = W2VBrainEncoderModel(
+            self.config, brain_encoder, self.config.wav2vec_checkpoint
+        )
         return model
 
     def create_optimizer(self) -> Optimizer:
