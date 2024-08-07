@@ -136,7 +136,10 @@ class Trainer:
             "inf" if self.config.minimize_best_model_metric else "-inf"
         )
         best_model_path = os.path.join(
-            self.yaml_config.cache_dir, str(uuid.uuid4()), "best_model.pt"
+            self.yaml_config.cache_dir,
+            "model_checkpoints",
+            str(uuid.uuid4()),
+            "best_model.pt",
         )
         os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
 
