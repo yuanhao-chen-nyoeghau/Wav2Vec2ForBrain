@@ -221,7 +221,7 @@ class Experiment(metaclass=ABCMeta):
                 if handle_prediction_batch is not None:
                     handle_prediction_batch(i, data, outputs)
             print(
-                f"Running predictions on {mode}. Batch {i + 1}/{len(dataloader)}\r",
+                f"Running predictions on {mode}. Batch {i + 1}/{len(dataloader)} done\r",
                 end="",
             )
 
