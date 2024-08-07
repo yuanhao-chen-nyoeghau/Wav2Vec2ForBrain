@@ -16,9 +16,7 @@ from src.util.batch_sampler import Brain2TextBatchSampler
 
 class B2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel):
     tokenizer: Literal["wav2vec_pretrained", "ours"] = "wav2vec_pretrained"
-    tokenizer_checkpoint: Literal["facebook/wav2vec2-base-100h", None] = (
-        "facebook/wav2vec2-base-100h"
-    )
+    tokenizer_checkpoint: str = "facebook/wav2vec2-base-100h"
     day_batches: bool = False
 
 
