@@ -114,6 +114,3 @@ class BaseExperimentArgsModel(BaseModel):
         False, description="Train once on val after normal training"
     )
     log_results_as_artifact: bool = False
-    wav2vec_checkpoint: str = (
-        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english"
-    )
