@@ -4,16 +4,14 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Config,
     Wav2Vec2EncoderStableLayerNorm,
     Wav2Vec2ForCTC,
-    CausalLMOutput,
     Wav2Vec2BaseModelOutput,
     Wav2Vec2Adapter,
     Wav2Vec2Encoder,
 )
 import torch
 from typing import Optional, cast
-from src.datasets.batch_types import B2tSampleBatch, PhonemeSampleBatch
+from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.model.b2p2t_model import B2P2TModel
 
 
 class W2VBrainEncoderModelArgs(BaseModel):
