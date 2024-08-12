@@ -4,6 +4,7 @@ from typing import Literal, Optional
 PRETRAINED_LATENT_SIZES = {
     "jonatasgrosman/wav2vec2-large-xlsr-53-english": 1024,
     "facebook/wav2vec2-base-960h": 768,
+    "facebook/wav2vec2-large-960h": 1024,
 }
 
 

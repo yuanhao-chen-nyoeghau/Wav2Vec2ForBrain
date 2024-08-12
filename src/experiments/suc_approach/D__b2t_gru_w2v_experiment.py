@@ -37,6 +37,7 @@ W2V_CHECKPOINT_TO_PROCESSOR = {
     "facebook/wav2vec2-base-960h": "patrickvonplaten/wav2vec2-base-100h-with-lm",
     "facebook/wav2vec2-base-100h": "patrickvonplaten/wav2vec2-base-100h-with-lm",
     "jonatasgrosman/wav2vec2-large-xlsr-53-english": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+    "facebook/wav2vec2-large-960h": "patrickvonplaten/wav2vec2-base-100h-with-lm",  # we can (probably) use the same processor as for the 100h model, as the outputs of W2V are the same
 }
 
 
@@ -63,7 +64,7 @@ class B2TGruAndW2VExperimentEvaluator(DefaultEvaluator):
             Wav2Vec2ProcessorWithLM.from_pretrained(
                 processor_checkpoint, cache_dir=cache_dir
             )
-            if lm_decode_test_predictions
+            if lm_decode_test_predictions and mode == "test"
             else None
         )
 
@@ -136,7 +137,7 @@ class B2TGruAndW2VArgsModel(
         description="Num epochs from w2v_warmup_start_step to reach full w2v_learning_rate. 0 if not provided",
     )
     wav2vec_checkpoint: str = (
-        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english" OR "facebook/wav2vec2-large-960h"
     )
     lm_decode_test_predictions: bool = False
 
