@@ -41,6 +41,7 @@ class B2P2TEvaluator(Evaluator):
         decoding_script: str,
         mode: Literal["train", "val", "test"],
         track_non_test_predictions: bool = False,
+        execute_rescoring: bool = False,
     ):
         super().__init__(mode, track_non_test_predictions)
         self.temp_dir = f"temp/{uuid.uuid4()}"
@@ -49,6 +50,7 @@ class B2P2TEvaluator(Evaluator):
         self.losses: list[float] = []
         self.metrics: list[dict[str, float]] = []
         self.decoding_script = decoding_script
+        self.execute_rescoring = execute_rescoring
 
     def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
         if self.mode == "test":
@@ -72,17 +74,22 @@ class B2P2TEvaluator(Evaluator):
                 "[B2P2T Evaluator] Running external script for decoding (this might take a while)"
             )
             process = subprocess.Popen(
-                ["stdbuf", "-oL"]
-                + [
-                    "conda",
-                    "run",
-                    "-n",
-                    "lm_decoder",
-                    "python",
-                    self.decoding_script,
-                    "--data_dir",
-                    self.temp_dir,
-                ],
+                (
+                    ["stdbuf", "-oL"]
+                    + [
+                        "conda",
+                        "run",
+                        "-n",
+                        "lm_decoder",
+                        "python",
+                        self.decoding_script,
+                        "--data_dir",
+                        self.temp_dir,
+                    ]
+                    + (["--rescoring"]
+                    if self.execute_rescoring
+                    else [])
+                ),
                 env=new_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -184,6 +191,7 @@ class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArg
     day_batches: bool = Field(
         False, description="Build batches only from measurements of the same day"
     )
+    llm_rescoring: bool = Field(default=False, description="Execute LLM rescoring within the decoding script. Only available with src/decoding/postprocess.py as decoding_script")
 
 
 class B2P2TExperiment(Experiment):
@@ -248,7 +256,8 @@ class B2P2TExperiment(Experiment):
         track_non_test_predictions: bool = False,
     ) -> Evaluator:
         return B2P2TEvaluator(
-            self.config.decoding_script, mode, track_non_test_predictions
+            self.config.decoding_script, mode, track_non_test_predictions,
+            execute_rescoring=self.config.llm_rescoring
         )
 
     def process_test_results(self, test_results: SingleEpochHistory):
