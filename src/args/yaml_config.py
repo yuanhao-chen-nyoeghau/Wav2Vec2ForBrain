@@ -10,7 +10,8 @@ class YamlConfigModel(BaseModel):
         description="Directory to store larger temporary files like model checkpoints in"
     )
     fig_dir: str = Field(description="Directory to store figures in")
-    ngram_lm_model_path: str = Field(description="Path to the ngram language model")
+    n3gram_lm_model_path: str = Field(description="Path to the 3-gram language model")
+    n5gram_lm_model_path: str = Field(description="Path to the 5-gram language model")
     dataset_splits_dir: str = Field(
         description="Directory containing the original train and test split folder"
     )

@@ -48,17 +48,17 @@ if __name__ == "__main__":
 
     MODEL_CACHE_DIR = yaml_config.config.cache_dir
     # Load OPT 6B model
-    print("Loading LLM model")
+    print("Loading LLM model", flush=True)
     llm, llm_tokenizer = lmDecoderUtils.build_opt(
         cacheDir=MODEL_CACHE_DIR, device="auto", load_in_8bit=True
     )
 
-    lmDir = yaml_config.config.ngram_lm_model_path
-    print("Loading n-gram LM")
+    lmDir = yaml_config.config.n5gram_lm_model_path
+    print("Loading n-gram LM", flush=True)
     ngramDecoder = lmDecoderUtils.build_lm_decoder(
         lmDir, acoustic_scale=0.5, nbest=100, beam=18
     )
-    print("n-gram loaded")
+    print("n-gram loaded", flush=True)
 
     # LM decoding hyperparameters
     acoustic_scale = 0.5
@@ -92,7 +92,13 @@ if __name__ == "__main__":
                 logits[None, :, :], has_sil=True
             )
 
-            print("Decoding sample", i, "with rescoring enabled: ", args.rescoring)
+            print(
+                "Decoding sample",
+                i,
+                "with rescoring enabled: ",
+                args.rescoring,
+                flush=True,
+            )
 
             nbest = lmDecoderUtils.lm_decode(
                 ngramDecoder,
@@ -105,7 +111,7 @@ if __name__ == "__main__":
 
         # Rescore nbest outputs with LLM
         start_t = time.time()
-        print("LLM rescoring")
+        print("LLM rescoring", flush=True)
         llm_out = lmDecoderUtils.cer_with_gpt2_decoder(
             llm,
             llm_tokenizer,
@@ -120,7 +126,7 @@ if __name__ == "__main__":
         cer, cerIstart, cerIend = llm_out["cer"]
         wer, werIstart, werIend = llm_out["wer"]
         time_per_batch = (time.time() - start_t) / len(logits)
-        print(f"LLM decoding took {time_per_batch} seconds per sample")
+        print(f"LLM decoding took {time_per_batch} seconds per sample", flush=True)
         llm_output = LLMOutput(
             cer=cer,
             wer=wer,
@@ -137,4 +143,4 @@ if __name__ == "__main__":
         with open(os.path.join(out_dir, file), "wb") as handle:
             pickle.dump(llm_output, handle)
     time_per_batch = (time.time() - start_t) / len(batches)
-    print(f"3gram decoding took {time_per_batch} seconds per batch")
+    print(f"5gram decoding took {time_per_batch} seconds per batch")

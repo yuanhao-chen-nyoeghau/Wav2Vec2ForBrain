@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     MODEL_CACHE_DIR = yaml_config.config.cache_dir
 
-    lmDir = yaml_config.config.ngram_lm_model_path
+    lmDir = yaml_config.config.n3gram_lm_model_path
     print("Loading n-gram LM", flush=True)
     ngramDecoder = lmDecoderUtils.build_lm_decoder(
         lmDir, acoustic_scale=0.8, nbest=1, beam=18  # 1.2
