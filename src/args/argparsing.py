@@ -1,4 +1,7 @@
 import argparse
+from src.experiments.b2t_gru_w2v_conformer_experiment import (
+    B2TGruAndW2VConformerExperiment,
+)
 from src.experiments.suc_approach._b2t_phonemegru_w2v_experiment import (
     B2TPhonemeGruAndW2VExperiment,
 )
@@ -46,6 +49,7 @@ experiments: dict[str, Type[Experiment]] = {
     "discriminator": DiscriminatorExperiment,
     "b2p2t_gru+w2v": B2TGruAndW2VExperiment,
     "b2p2t_phonemegru+w2v": B2TPhonemeGruAndW2VExperiment,
+    "b2p2t_gru+w2v_conformer": B2TGruAndW2VConformerExperiment,
 }
 
 
