@@ -38,10 +38,15 @@ class W2VBrainEncoderModel(B2TModel):
         )
         self.w2v_encoder = cast(
             Wav2Vec2WithoutFeatExtrForCTC,
-            Wav2Vec2WithoutFeatExtrForCTC.from_pretrained(
-                wav2vec_checkpoint,
-                config=w2v_config,
-                skip_loading_weights=skip_loading_weights,
+            (
+                (
+                    Wav2Vec2WithoutFeatExtrForCTC.from_pretrained(
+                        wav2vec_checkpoint,
+                        config=w2v_config,
+                    )
+                )
+                if not skip_loading_weights
+                else Wav2Vec2WithoutFeatExtrForCTC(w2v_config)
             ),
         )
         self.head = head
