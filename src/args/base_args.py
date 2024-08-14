@@ -6,6 +6,7 @@ PRETRAINED_LATENT_SIZES = {
     "facebook/wav2vec2-base-960h": 768,
     "facebook/wav2vec2-large-960h": 1024,
     "facebook/wav2vec2-conformer-rope-large-960h-ft": 1024,
+    "facebook/wav2vec2-lv-60-espeak-cv-ft": 1024,
 }
 
 
@@ -73,6 +74,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_gru+w2v",
         "b2p2t_phonemegru+w2v",
         "b2p2t_gru+w2v_conformer",
+        "b2p2t_gru_w2vphoneme",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"

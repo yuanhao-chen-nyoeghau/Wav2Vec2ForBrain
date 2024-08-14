@@ -12,6 +12,7 @@ import torch
 from typing import Optional, cast
 from src.datasets.batch_types import B2tSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
+from torch import nn
 
 
 class W2VBrainEncoderModelArgs(BaseModel):
@@ -24,6 +25,8 @@ class W2VBrainEncoderModel(B2TModel):
         config: W2VBrainEncoderModelArgs,
         brain_encoder: B2TModel,
         wav2vec_checkpoint: str,
+        head: Optional[nn.Module] = None,
+        skip_loading_weights: bool = False,
     ):
         super().__init__()
         self.brain_encoder = brain_encoder
@@ -36,9 +39,12 @@ class W2VBrainEncoderModel(B2TModel):
         self.w2v_encoder = cast(
             Wav2Vec2WithoutFeatExtrForCTC,
             Wav2Vec2WithoutFeatExtrForCTC.from_pretrained(
-                wav2vec_checkpoint, config=w2v_config
+                wav2vec_checkpoint,
+                config=w2v_config,
+                skip_loading_weights=skip_loading_weights,
             ),
         )
+        self.head = head
         self.loss = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
     def forward(self, batch: B2tSampleBatch):
@@ -48,6 +54,8 @@ class W2VBrainEncoderModel(B2TModel):
 
         targets = torch.where(targets < 1, torch.tensor(-100), targets)
         w2v_output = self.w2v_encoder.forward(encoded_brain.logits)
+        if self.head is not None:
+            w2v_output = self.head.forward(w2v_output)
 
         ctc_loss = (
             self.loss.forward(
@@ -64,6 +72,7 @@ class W2VBrainEncoderModel(B2TModel):
             w2v_output,
             {"ctc_loss": ctc_loss.item()} if ctc_loss is not None else {},
             loss=ctc_loss,
+            logit_lens=encoded_brain.logit_lens,
         )
 
 

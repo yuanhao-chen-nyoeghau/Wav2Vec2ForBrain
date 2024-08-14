@@ -28,7 +28,11 @@ def get_2module_warmup_scheduler(
         )
 
     def module1_lr(step: int):
-        if not adjust_module1_lr_to_module2_postwarmup_lr or module2_target_lr is None:
+        if (
+            not adjust_module1_lr_to_module2_postwarmup_lr
+            or module2_target_lr is None
+            or module2_target_lr == 0.0
+        ):
             return 1.0
         if step < module2_warmup_start_step:
             return 1.0

@@ -484,6 +484,25 @@
                 "--wav2vec_checkpoint=facebook/wav2vec2-large-960h",
                 "--tokenizer_checkpoint=facebook/wav2vec2-large-960h",
             ]
-        }
+        },
+        {
+            "name": "GRU+W2VPhoneme e2e",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            //python run.py --experiment_type=b2p2t_gru+w2v --encoder_gru_hidden_size=256 --encoder_fc_hidden_sizes=[] --encoder_num_gru_layers=2 --epochs=10 --batch_size=32 --learning_rate=0.0001 --encoder_dropout=0.2 --from_checkpoint=/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru+w2v/2024-08-01_15#38#46/model.pt
+            "args": [
+                "--experiment_type=b2p2t_gru_w2vphoneme",
+                "--encoder_gru_hidden_size=256",
+                "--encoder_fc_hidden_sizes=[]",
+                "--encoder_num_gru_layers=2",
+                "--epochs=10",
+                "--batch_size=4",
+                "--learning_rate=0.0001",
+                "--encoder_dropout=0.2",
+            ]
+        },
     ],
 }

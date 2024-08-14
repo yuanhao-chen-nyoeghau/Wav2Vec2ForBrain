@@ -16,7 +16,7 @@ from src.args.yaml_config import YamlConfigModel
 from torch.optim.optimizer import Optimizer
 
 from src.train.evaluator import EvaluatorWithW2vLMDecoder
-from util.warmup_scheduler import get_2module_warmup_scheduler
+from src.util.warmup_scheduler import get_2module_warmup_scheduler
 
 # Baseline Experiment: b2p2t_gru:
 # 5gram + rescoring: 0.28 WER (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-27_17#31#07),
@@ -53,6 +53,10 @@ class B2TGruAndW2VArgsModel(
     adjust_global_lr_to_w2v_postwarmup_lr: Optional[bool] = Field(
         description="Adjust the global learning rate to that of w2v over w2v warmup interval, then keep at w2v_learning_rate. Only valid when brain_encoder+w2v unfreeze strategy is set."
     )
+    w2v_skip_loading_weights: bool = Field(
+        default=False,
+        description="Skip loading weights from wav2vec checkpoint, only load architecture",
+    )
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -77,8 +81,13 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             self.config, self.config.brain_encoder_path, self.config.wav2vec_checkpoint
         )
         model = W2VBrainEncoderModel(
-            self.config, brain_encoder, self.config.wav2vec_checkpoint
+            self.config,
+            brain_encoder,
+            self.config.wav2vec_checkpoint,
+            None,
+            self.config.w2v_skip_loading_weights,
         )
+
         return model
 
     def create_optimizer(self) -> Optimizer:

@@ -24,12 +24,13 @@ from torch.utils.data import DataLoader
 
 
 class BrainEncoderWrapper(B2TModel):
-    def __init__(self, config: BrainEncoderArgsModel, wav2vec_checkpoint: str):
+    def __init__(
+        self, config: BrainEncoderArgsModel, wav2vec_checkpoint: str, in_size: int
+    ):
         super().__init__()
-
         self.encoder = BrainEncoder(
             config,
-            B2P2TModel.get_in_size_after_preprocessing(DEFAULT_UNFOLDER_KERNEL_LEN),
+            in_size,
             wav2vec_checkpoint,
         )
 
@@ -155,7 +156,12 @@ class DiscriminatorDataset(BaseDataset):
         wav2vec_checkpoint: str,
     ):
         brain_feat_extractor = B2P2TModel(
-            config, BrainEncoderWrapper(config, wav2vec_checkpoint)
+            config,
+            BrainEncoderWrapper(
+                config,
+                wav2vec_checkpoint,
+                B2P2TModel.get_in_size_after_preprocessing(config.unfolder_kernel_len),
+            ),
         ).cuda()
         if brain_encoder_path != None:
             state = torch.load(brain_encoder_path, map_location="cuda")
