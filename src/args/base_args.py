@@ -49,7 +49,12 @@ class BaseExperimentArgsModel(BaseModel):
     learning_rate: float = 0.001
     optimizer: Literal["adam", "sgd"] = "adam"
     loss_function: Literal[
-        "ctc", "contrastive_loss", "cross_entropy", "bce", "ctc+discriminator"
+        "ctc",
+        "contrastive_loss",
+        "cross_entropy",
+        "bce",
+        "ctc+discriminator",
+        "combined_ctc",
     ] = "ctc"
     ctc_loss_reduction: Literal["sum", "mean"] = "mean"
     experiment_name: str = "experiment_1"
