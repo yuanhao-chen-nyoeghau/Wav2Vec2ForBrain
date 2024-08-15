@@ -43,12 +43,23 @@ class Experiment(metaclass=ABCMeta):
 
         self.checkpoint_history = None
 
-        self.results_dir = os.path.join(
-            yamlConfig.cache_dir,
-            "experiment_results",
-            self.get_name(),
-            f"{datetime.now():%Y-%m-%d_%H#%M#%S}",
+        self.results_dir = (
+            os.path.join(
+                yamlConfig.cache_dir,
+                "experiment_results",
+                self.get_name(),
+                f"{datetime.now():%Y-%m-%d_%H#%M#%S}",
+            )
+            if self.base_config.results_subdir_name is None
+            else os.path.join(
+                yamlConfig.cache_dir,
+                "experiment_results",
+                self.get_name(),
+                self.base_config.results_subdir_name,
+                f"{datetime.now():%Y-%m-%d_%H#%M#%S}",
+            )
         )
+
         os.makedirs(self.results_dir, exist_ok=True)
         with open(os.path.join(self.results_dir, "config.json"), "w") as f:
             config_copy = dict(config)

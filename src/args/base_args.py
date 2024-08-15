@@ -119,3 +119,4 @@ class BaseExperimentArgsModel(BaseModel):
         False, description="Train once on val after normal training"
     )
     log_results_as_artifact: bool = False
+    results_subdir_name: Optional[str] = None
