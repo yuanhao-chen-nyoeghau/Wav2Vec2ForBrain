@@ -42,6 +42,7 @@ class B2P2TEvaluator(Evaluator):
         mode: Literal["train", "val", "test"],
         track_non_test_predictions: bool = False,
         execute_rescoring: bool = False,
+        skip_decoding: bool = False,
     ):
         super().__init__(mode, track_non_test_predictions)
         self.temp_dir = f"temp/{uuid.uuid4()}"
@@ -51,6 +52,7 @@ class B2P2TEvaluator(Evaluator):
         self.metrics: list[dict[str, float]] = []
         self.decoding_script = decoding_script
         self.execute_rescoring = execute_rescoring
+        self.skip_decoding = skip_decoding
 
     def _track_batch(self, predictions: ModelOutput, sample: PhonemeSampleBatch):
         if self.mode == "test":
@@ -66,7 +68,7 @@ class B2P2TEvaluator(Evaluator):
         self.metrics.append(predictions.metrics)
 
     def evaluate(self) -> SingleEpochHistory:
-        if self.mode == "test":
+        if self.mode == "test" and not self.skip_decoding:
             new_env = os.environ.copy()
             new_env["PYTHONPATH"] = os.getcwd()
             new_env["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -86,9 +88,7 @@ class B2P2TEvaluator(Evaluator):
                         "--data_dir",
                         self.temp_dir,
                     ]
-                    + (["--rescoring"]
-                    if self.execute_rescoring
-                    else [])
+                    + (["--rescoring"] if self.execute_rescoring else [])
                 ),
                 env=new_env,
                 stdout=subprocess.PIPE,
@@ -126,7 +126,7 @@ class B2P2TEvaluator(Evaluator):
             loss = self.losses[i]
 
             decoded = None
-            if self.mode == "test":
+            if self.mode == "test" and not self.skip_decoding:
                 filename = self.file_order[i]
                 with open(os.path.join(out_dir, filename), "rb") as handle:
                     batch: LLMOutput = pickle.load(handle)
@@ -191,7 +191,13 @@ class B2P2TArgsModel(BaseExperimentArgsModel, B2TDatasetArgsModel, B2P2TModelArg
     day_batches: bool = Field(
         False, description="Build batches only from measurements of the same day"
     )
-    llm_rescoring: bool = Field(default=False, description="Execute LLM rescoring within the decoding script. Only available with src/decoding/postprocess.py as decoding_script")
+    llm_rescoring: bool = Field(
+        default=False,
+        description="Execute LLM rescoring within the decoding script. Only available with src/decoding/postprocess.py as decoding_script",
+    )
+    skip_decoding: bool = Field(
+        default=False, description="Skip decoding step in test mode"
+    )
 
 
 class B2P2TExperiment(Experiment):
@@ -256,11 +262,16 @@ class B2P2TExperiment(Experiment):
         track_non_test_predictions: bool = False,
     ) -> Evaluator:
         return B2P2TEvaluator(
-            self.config.decoding_script, mode, track_non_test_predictions,
-            execute_rescoring=self.config.llm_rescoring
+            self.config.decoding_script,
+            mode,
+            track_non_test_predictions,
+            execute_rescoring=self.config.llm_rescoring,
+            skip_decoding=self.config.skip_decoding,
         )
 
     def process_test_results(self, test_results: SingleEpochHistory):
+        if self.config.skip_decoding:
+            return
         worst_wer = 0
         best_wer = 10
         best_i = -1
