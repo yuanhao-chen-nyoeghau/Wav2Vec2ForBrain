@@ -37,7 +37,7 @@ def get_2module_warmup_scheduler(
         if step < module2_warmup_start_step:
             return 1.0
         target_factor = module2_target_lr / module1_baselr
-        if step > module2_warmup_start_step + module2_warmup_steps:
+        if step >= module2_warmup_start_step + module2_warmup_steps:
             return target_factor
         return (
             1.0
