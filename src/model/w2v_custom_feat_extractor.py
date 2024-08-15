@@ -10,7 +10,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 )
 import torch
 from typing import Optional, cast
-from src.datasets.batch_types import B2tSampleBatch
+from src.datasets.batch_types import B2tSampleBatch, PhonemeSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
 from torch import nn
 
@@ -27,6 +27,9 @@ class W2VBrainEncoderModel(B2TModel):
         wav2vec_checkpoint: str,
         head: Optional[nn.Module] = None,
         skip_loading_weights: bool = False,
+        pre_w2v_head_for_additional_loss: Optional[B2TModel] = None,
+        additonal_loss_weight: Optional[float] = None,
+        additional_loss_squared: Optional[bool] = False,
     ):
         super().__init__()
         self.brain_encoder = brain_encoder
@@ -49,8 +52,15 @@ class W2VBrainEncoderModel(B2TModel):
                 else Wav2Vec2WithoutFeatExtrForCTC(w2v_config)
             ),
         )
+        if skip_loading_weights:
+            print("Skipping loading weights for Wav2Vec2WithoutFeatExtrForCTC\n")
         self.head = head
+        self.pre_w2v_head_for_additional_loss = pre_w2v_head_for_additional_loss
         self.loss = torch.nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
+        self.additonal_loss_weight = (
+            additonal_loss_weight if additonal_loss_weight is not None else 1.0
+        )
+        self.additional_loss_squared = additional_loss_squared == True
 
     def forward(self, batch: B2tSampleBatch):
         encoded_brain = self.brain_encoder.forward(batch)
@@ -58,6 +68,9 @@ class W2VBrainEncoderModel(B2TModel):
         assert targets is not None
 
         targets = torch.where(targets < 1, torch.tensor(-100), targets)
+
+        intermediate_out = self._get_intermediate_out(batch, encoded_brain)
+
         w2v_output = self.w2v_encoder.forward(encoded_brain.logits)
         if self.head is not None:
             w2v_output = self.head.forward(w2v_output)
@@ -73,12 +86,50 @@ class W2VBrainEncoderModel(B2TModel):
             else None
         )
 
+        metrics = {}
+        if ctc_loss is not None:
+            metrics["ctc_loss"] = ctc_loss.item()
+
+        intermediate_loss = None
+        if intermediate_out is not None:
+            intermediate_loss = intermediate_out.loss
+            if intermediate_loss is not None:
+                metrics["intermediate_loss"] = intermediate_loss.item()
+        loss = (
+            ctc_loss
+            if intermediate_loss is None
+            else ctc_loss
+            + (
+                (intermediate_loss**2)
+                if self.additional_loss_squared
+                else intermediate_loss
+            )
+            * self.additonal_loss_weight
+        )
+        if intermediate_loss is not None and loss is not None:
+            metrics["combined_loss"] = loss.item()
+            if self.additional_loss_squared:
+                metrics["intermediate_loss_squared"] = (intermediate_loss**2).item()
         return ModelOutput(
             w2v_output,
-            {"ctc_loss": ctc_loss.item()} if ctc_loss is not None else {},
-            loss=ctc_loss,
+            metrics,
+            loss=loss,
             logit_lens=encoded_brain.logit_lens,
         )
+
+    def _get_intermediate_out(self, batch: B2tSampleBatch, encoded_brain: ModelOutput):
+        if self.pre_w2v_head_for_additional_loss is None:
+            return None
+        intermediate_batch = PhonemeSampleBatch(encoded_brain.logits, batch.target)
+        assert (
+            encoded_brain.logit_lens is not None
+        ), "logit_lens must be defined if pre_w2v_head_for_additional_loss is not None"
+        intermediate_batch.input_lens = encoded_brain.logit_lens
+        intermediate_batch.target_lens = batch.target_lens
+        intermediate_out = self.pre_w2v_head_for_additional_loss.forward(
+            intermediate_batch
+        )
+        return intermediate_out
 
 
 class Wav2Vec2WithoutFeatExtrForCTC(Wav2Vec2ForCTC):
