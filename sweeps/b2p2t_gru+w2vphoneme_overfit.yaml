@@ -1,0 +1,68 @@
+program: run.py
+method: bayes
+name: b2p2t_gru+w2vphoneme__overfit1sample
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 200
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --experiment_type=b2p2t_gru_w2vphoneme 
+  - --loss_function=ctc
+  - --epochs=100 
+  - --batch_size=1
+  - --w2v_do_stable_layer_norm=false 
+  - --return_best_model=false 
+  - --encoder_learnable_inital_state=false  
+  - --encoder_dropout=0 
+  - --gaussian_smooth_width=1.5290517142639226 
+  - --limit_samples=1 
+  - --w2v_warmup_start_step=0 
+  - --adjust_global_lr_to_w2v_postwarmup_lr=true 
+  - --skip_decoding=true 
+  - --optimizer_epsilon=0.1 
+  - --results_subdir_name=overfit1sample
+metric:
+  name: train_ctc_loss
+  goal: minimize
+parameters:
+  encoder_fc_hidden_sizes:
+    values:
+      - '[]'
+      - '[128]'
+      - '[256]'
+      - '[512]'
+      - '[1024]'
+      - '[256, 256]'
+      - '[128, 128]'
+      - '[512, 125]'
+      - '[1024]'
+  encoder_gru_hidden_size:
+    values:
+      - 256
+      - 512
+      - 756
+      - 1024
+      - 2048
+  encoder_num_gru_layers:
+    values:
+      - 1
+      - 2
+      - 3
+  learning_rate:
+    min: 0.00000001
+    max: 0.02
+  head_fc_hidden_sizes:
+    values:
+      - '[]'
+      - '[128]'
+      - '[256]'
+      - '[512]'
+      - '[1024]'
+      - '[256, 256]'
+      - '[128, 128]'
+      - '[512, 125]'
+      - '[1024]'
