@@ -81,6 +81,7 @@ class BaseExperimentArgsModel(BaseModel):
         "b2p2t_gru+w2v_conformer",
         "b2p2t_gru_w2vphoneme",
         "a2p_w2vphoneme_head",
+        "a2t_w2vphoneme_head",
     ] = Field("b2t_wav2vec_sharedaggregation")
     log_every_n_batches: int = 10
     scheduler: Literal["step"] = "step"
