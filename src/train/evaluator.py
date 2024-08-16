@@ -12,7 +12,7 @@ from src.train.history import MetricEntry, SingleEpochHistory
 from torcheval.metrics import WordErrorRate
 from transformers import PreTrainedTokenizer
 from transformers import Wav2Vec2ProcessorWithLM
-from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqDataset, TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import TimitSeqSampleBatch
 import torch
 import numpy as np
 from src.util.phoneme_helper import PHONE_DEF_SIL
