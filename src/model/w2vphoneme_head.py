@@ -102,7 +102,8 @@ class W2VPhonemeWithCustomHead(B2TModel):
             and batch.input_lens is not None
             and batch.target_lens is not None
         )
-        out = cast(CausalLMOutput, self.w2v.forward(x, return_dict=True))
+        with torch.no_grad():
+            out = cast(CausalLMOutput, self.w2v.forward(x, return_dict=True))
         out = self.head.forward(out.logits)
 
         feature_extract_output_lens = cast(
