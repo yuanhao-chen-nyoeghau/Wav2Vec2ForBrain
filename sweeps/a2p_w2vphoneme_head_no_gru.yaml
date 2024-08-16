@@ -1,0 +1,34 @@
+program: run.py
+method: bayes
+name: a2p_w2vphoneme_head_no_gru
+entity: machine-learning-hpi
+project: brain2text
+run_cap: 25
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --use_wandb=true
+  - --experiment_type=a2p_w2vphoneme_head
+  - --loss_function=ctc
+  - --epochs=100 
+  - --batch_size=32
+  - --return_best_model=true 
+  - --results_subdir_name=no_gru
+  - --early_stopping_patience=3
+metric:
+  name: test_ctc_loss
+  goal: minimize
+parameters:
+  head_fc_hidden_sizes:
+    values:
+      - '[]'
+      - '[128]'
+      - '[256]'
+      - '[512]'
+      - '[1024]'
+  learning_rate:
+    min: 0.00001
+    max: 0.1
+ 
