@@ -52,6 +52,7 @@ class B2P2TGruW2vPhonemeArgsModel(
     intermediate_loss_weight: float = 0.0
     loss_function: Literal["ctc", "combined_ctc"] = "ctc"
     intermediate_loss_squared: Optional[bool] = None
+    head_checkpoint: Optional[str] = None
 
 
 class IntermediateHead(B2TModel):
@@ -131,6 +132,8 @@ class B2P2TGruW2vPhonemeExperiment(B2P2TExperiment):
         )
         n_arpabet_phonemes = len(PHONE_DEF_SIL) + 1
         head = W2VPhonemeHead(self.config, n_arpabet_phonemes)
+        if self.config.head_checkpoint is not None:
+            head.load_state_dict(torch.load(self.config.head_checkpoint))
         model = W2VBrainEncoderModel(
             self.config,
             brain_encoder,
@@ -150,11 +153,10 @@ class B2P2TGruW2vPhonemeExperiment(B2P2TExperiment):
         import itertools
 
         non_w2v_params = (
-            itertools.chain(model.brain_encoder.parameters(), model.head.parameters())
+            model.brain_encoder.parameters()
             if model.pre_w2v_head_for_additional_loss is None
             else itertools.chain(
                 model.brain_encoder.parameters(),
-                model.head.parameters(),
                 model.pre_w2v_head_for_additional_loss.parameters(),
             )
         )
@@ -162,7 +164,9 @@ class B2P2TGruW2vPhonemeExperiment(B2P2TExperiment):
         trainable_params = [
             {"params": non_w2v_params},
             {
-                "params": model.w2v_encoder.parameters(),
+                "params": itertools.chain(
+                    model.w2v_encoder.parameters(), model.head.parameters()
+                ),
                 "lr": (
                     self.config.w2v_learning_rate
                     if self.config.w2v_learning_rate is not None
