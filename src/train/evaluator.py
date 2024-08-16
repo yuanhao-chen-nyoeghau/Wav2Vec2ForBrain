@@ -12,7 +12,7 @@ from src.train.history import MetricEntry, SingleEpochHistory
 from torcheval.metrics import WordErrorRate
 from transformers import PreTrainedTokenizer
 from transformers import Wav2Vec2ProcessorWithLM
-from src.datasets.timit_a2p_seq_dataset import TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqSampleBatch
 import torch
 import numpy as np
 from src.util.phoneme_helper import PHONE_DEF_SIL
@@ -215,7 +215,7 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         super().__init__(mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
 
-    def _track_batch(self, predictions: ModelOutput, sample: TimitSeqSampleBatch):
+    def _track_batch(self, predictions: ModelOutput, sample: TimitA2PSeqSampleBatch):
         phoneme_error_rate, prediction_batch = self._calc_phoneme_error_rate(
             sample, predictions
         )
@@ -238,7 +238,7 @@ class TimitSeqW2VSUCEvaluator(Evaluator):
         return self.history
 
     def _calc_phoneme_error_rate(
-        self, batch: TimitSeqSampleBatch, predictions: ModelOutput
+        self, batch: TimitA2PSeqSampleBatch, predictions: ModelOutput
     ):
         pred = predictions.logits
         total_edit_distance = 0

@@ -13,14 +13,14 @@ from src.args.yaml_config import YamlConfigModel
 from g2p_en import G2p
 
 
-class TimitSeqSample(NamedTuple):
+class TimitA2PSeqSample(NamedTuple):
     phoneme_ids: list[int]  # List of phoneme ids
     transcript: str
     input: torch.Tensor
     phonemes: str  # TODO: remove after debugging
 
 
-class TimitSeqSampleBatch(SampleBatch):
+class TimitA2PSeqSampleBatch(SampleBatch):
     transcripts: list[str]
     input_lens: torch.Tensor
     target_lens: torch.Tensor
@@ -38,7 +38,7 @@ class TimitA2PSeqDataset(BaseDataset):
         splits_dir = yaml_config.timit_dataset_splits_dir
         partition = "TRAIN" if split == "train" else "TEST"
         data_folder = splits_dir + "/data/" + partition
-        self.data: list[TimitSeqSample] = []
+        self.data: list[TimitA2PSeqSample] = []
         sample_folders = []
         self.g2p = G2p()
         for folder in os.listdir(data_folder):
@@ -51,11 +51,11 @@ class TimitA2PSeqDataset(BaseDataset):
             for sample in self._extractSampleDataFromFolder(folder):
                 self.data.append(sample)
 
-    def __getitem__(self, index) -> TimitSeqSample:
+    def __getitem__(self, index) -> TimitA2PSeqSample:
         return self.data[index]
 
     def get_collate_fn(self):
-        def _collate(samples: list[TimitSeqSample]):
+        def _collate(samples: list[TimitA2PSeqSample]):
             max_audio_len = max([audio.size(0) for _, _, audio, _ in samples])
 
             padded_audio = [
@@ -85,7 +85,7 @@ class TimitA2PSeqDataset(BaseDataset):
                 for target_tensor in target_tensors
             ]
 
-            batch = TimitSeqSampleBatch(
+            batch = TimitA2PSeqSampleBatch(
                 input=torch.stack(padded_audio), target=torch.stack(padded_targets)
             )
             batch.transcripts = [transcript for _, transcript, _, _ in samples]
@@ -101,13 +101,13 @@ class TimitA2PSeqDataset(BaseDataset):
     def __len__(self):
         return len(self.data)
 
-    def _extractSampleDataFromFolder(self, folder: str) -> list[TimitSeqSample]:
+    def _extractSampleDataFromFolder(self, folder: str) -> list[TimitA2PSeqSample]:
         sampleNames = [
             fileName.split(".")[0]
             for fileName in os.listdir(folder)
             if fileName.split(".")[-1] == "TXT"
         ]
-        samples: list[TimitSeqSample] = []
+        samples: list[TimitA2PSeqSample] = []
         for sampleName in sampleNames:
             transcriptFile = folder + "/" + sampleName + ".TXT"
             audioFile = folder + "/" + sampleName + ".WAV"
@@ -116,7 +116,7 @@ class TimitA2PSeqDataset(BaseDataset):
             audio = self._readAudio(audioFile)
             phonemes = get_phoneme_seq(self.g2p, transcript, zero_is_blank=True)
 
-            sample = TimitSeqSample(
+            sample = TimitA2PSeqSample(
                 phonemes.phoneme_ids,
                 transcript,
                 torch.tensor(audio, dtype=torch.float32),

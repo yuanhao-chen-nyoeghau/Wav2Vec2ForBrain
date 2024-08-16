@@ -5,7 +5,7 @@ import torch
 from torch import log_softmax, nn
 from typing import Literal, cast
 
-from src.datasets.timit_ctc_dataset import TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqSampleBatch
 from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from src.model.suc import SUCModel
 from src.model.w2v_suc_model import W2VSUCArgsModel
@@ -76,7 +76,7 @@ class W2VSUCForCtcModel(B2TModel):
 
         self.loss = nn.CTCLoss(blank=0, reduction="mean", zero_infinity=True)
 
-    def forward(self, batch: TimitSeqSampleBatch) -> ModelOutput:
+    def forward(self, batch: TimitA2PSeqSampleBatch) -> ModelOutput:
         if batch.target is None:
             raise ValueError("Target is required for training")
 

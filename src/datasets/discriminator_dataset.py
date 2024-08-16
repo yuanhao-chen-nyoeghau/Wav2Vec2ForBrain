@@ -16,7 +16,10 @@ from src.model.w2v_suc_ctc_model import (
 )
 from src.datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
 from src.datasets.brain2text_w_phonemes import Brain2TextWPhonemesDataset
-from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqDataset, TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import (
+    TimitA2PSeqDataset,
+    TimitA2PSeqSampleBatch,
+)
 from src.args.yaml_config import YamlConfigModel
 from src.datasets.base_dataset import BaseDataset
 import torch
@@ -89,7 +92,7 @@ class DiscriminatorDataset(BaseDataset):
 
         self.samples: list[DiscriminatorSample] = []
 
-        audio_loader: DataLoader[TimitSeqSampleBatch] = DataLoader(
+        audio_loader: DataLoader[TimitA2PSeqSampleBatch] = DataLoader(
             audio, batch_size=32, collate_fn=audio.get_collate_fn()
         )
         brain_loader = DataLoader(
@@ -101,7 +104,7 @@ class DiscriminatorDataset(BaseDataset):
             print("[DiscriminatorDataset] --> W2V feature extractor samples")
             n_w2v_batches = len(audio_loader)
             for i, audio_batch in enumerate(audio_loader):
-                audio_batch: TimitSeqSampleBatch = audio_batch
+                audio_batch: TimitA2PSeqSampleBatch = audio_batch
                 hidden_state_batch = w2v_feat_extractor.forward(
                     audio_batch.input.cuda()
                 )
