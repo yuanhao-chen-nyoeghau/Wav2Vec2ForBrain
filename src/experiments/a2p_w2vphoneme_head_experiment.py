@@ -1,66 +1,63 @@
 import os
 import torch
 from torch.optim.optimizer import Optimizer
+from src.experiments.suc_approach.A__timit_w2v_suc_ctc_experiment import (
+    TimitSeqW2VSUCEvaluator,
+)
+from src.model.w2vphoneme_head import (
+    W2VPhonemeHead,
+    W2VPhonemeHeadArgs,
+    W2VPhonemeWithCustomHead,
+)
 from src.experiments.experiment import Experiment
 from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset
 from src.datasets.audio_with_phonemes_seq import (
     AudioWPhonemesDatasetArgsModel,
 )
 from src.util.phoneme_helper import PHONE_DEF_SIL
-from src.model.w2v_suc_ctc_model import W2VSUC_CTCArgsModel, W2VSUCForCtcModel
 from src.args.base_args import BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, cast
 from torch.utils.data import DataLoader
-from src.train.evaluator import TimitSeqW2VSUCEvaluator
 
 
-class W2VSUCCtcExperimentArgsModel(
-    BaseExperimentArgsModel, W2VSUC_CTCArgsModel, AudioWPhonemesDatasetArgsModel
+class A2P_W2VPhonemeHeadExperimentArgs(
+    BaseExperimentArgsModel, AudioWPhonemesDatasetArgsModel, W2VPhonemeHeadArgs
 ):
     # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
-    wav2vec_checkpoint: Literal[
-        "facebook/wav2vec2-base-100h", "facebook/wav2vec2-base-960h"
-    ] = "facebook/wav2vec2-base-960h"
-    unfreeze_strategy: Literal["suc", "suc+gru"] = "suc"
-    suc_checkpoint: Optional[str] = None
+    wav2vec_checkpoint: Literal["facebook/wav2vec2-lv-60-espeak-cv-ft"] = (
+        "facebook/wav2vec2-lv-60-espeak-cv-ft"
+    )
+    unfreeze_strategy: Literal["head"] = "head"
 
 
-class TimitW2VSUC_CTCExperiment(Experiment):
+class A2P_W2VPhonemeHeadExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
 
     def get_name(self) -> str:
-        return "timit_w2v_suc_ctc"
+        return "a2p_w2vphoneme_head"
 
     @staticmethod
     def get_args_model():
-        return W2VSUCCtcExperimentArgsModel
+        return A2P_W2VPhonemeHeadExperimentArgs
 
     def _create_model(self):
         assert (
             self.config.loss_function == "ctc",  # type: ignore
             "Only ctc loss is supported",
         )
-        model = W2VSUCForCtcModel(self.config)
-        if self.config.suc_checkpoint is not None:
-            model.suc_for_ctc.suc.load_state_dict(
-                torch.load(self.config.suc_checkpoint, map_location="cuda"),
-                strict=True,
-            )
+        head = W2VPhonemeHead(self.config, out_size=len(self.get_vocab()))
+        model = W2VPhonemeWithCustomHead(self.config.wav2vec_checkpoint, head)
         return model
 
     def create_optimizer(self) -> Optimizer:
         def get_trainable_params():
-            if self.config.unfreeze_strategy == "suc":
-                return cast(
-                    W2VSUCForCtcModel, self.model
-                ).suc_for_ctc.ctc_head.parameters()
-            elif self.config.unfreeze_strategy == "suc+gru":
-                return cast(W2VSUCForCtcModel, self.model).suc_for_ctc.parameters()
+            if self.config.unfreeze_strategy == "head":
+                return cast(W2VPhonemeWithCustomHead, self.model).head.parameters()
             raise Exception(
-                f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for wav2vec experiment"
+                f"Unfreeze strategy {self.config.unfreeze_strategy} is not implemented for {self.get_name()} experiment"
             )
 
         optim: Any = self._get_optimizer_cls()
@@ -88,8 +85,8 @@ class TimitW2VSUC_CTCExperiment(Experiment):
     ):
         return TimitSeqW2VSUCEvaluator(mode, track_non_test_predictions)
 
-    def store_trained_model(self, trained_model: W2VSUCForCtcModel):
+    def store_trained_model(self, trained_model: W2VPhonemeWithCustomHead):
         torch.save(
-            trained_model.suc_for_ctc.state_dict(),
-            os.path.join(self.results_dir, "suc_for_ctc.pt"),
+            trained_model.head.state_dict(),
+            os.path.join(self.results_dir, "head.pt"),
         )

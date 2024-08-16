@@ -1,6 +1,7 @@
 from typing import Any, Literal, cast
 from git import Optional
 from pydantic import Field
+from src.model.w2vphoneme_head import W2VPhonemeHead, W2VPhonemeHeadArgs
 from src.args.base_args import PRETRAINED_LATENT_SIZES
 from src.datasets.batch_types import PhonemeSampleBatch
 from src.model.b2tmodel import B2TModel, ModelOutput
@@ -22,7 +23,10 @@ from src.util.phoneme_helper import PHONE_DEF_SIL
 
 
 class B2P2TGruW2vPhonemeArgsModel(
-    B2P2TArgsModel, B2P2TBrainFeatureExtractorArgsModel, W2VBrainEncoderModelArgs
+    B2P2TArgsModel,
+    B2P2TBrainFeatureExtractorArgsModel,
+    W2VBrainEncoderModelArgs,
+    W2VPhonemeHeadArgs,
 ):
     brain_encoder_path: Optional[str] = None
     w2v_learning_rate: Optional[float] = None
@@ -38,12 +42,7 @@ class B2P2TGruW2vPhonemeArgsModel(
     adjust_global_lr_to_w2v_postwarmup_lr: Optional[bool] = Field(
         description="Adjust the global learning rate to that of w2v over w2v warmup interval, then keep at w2v_learning_rate. Only valid when brain_encoder+w2v unfreeze strategy is set."
     )
-    prepend_gru_to_head: bool = False
-    head_gru_hidden_size: Optional[int] = None
-    head_gru_num_layers: Optional[int] = None
-    head_gru_dropout: Optional[float] = None
-    head_fc_hidden_sizes: list[int] = []
-    head_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
+
     w2v_skip_loading_weights: bool = Field(
         default=False,
         description="Skip loading weights from wav2vec checkpoint, only load architecture",
@@ -94,61 +93,6 @@ class IntermediateHead(B2TModel):
         return ModelOutput(logits=out, metrics=metrics, loss=ctc_loss)
 
 
-class Head(torch.nn.Module):
-    def __init__(self, config: B2P2TGruW2vPhonemeArgsModel):
-        super().__init__()
-        n_ipa_phonemes = 392
-        n_arpabet_phonemes = len(PHONE_DEF_SIL) + 1
-
-        if config.prepend_gru_to_head != True:
-            assert (
-                config.head_gru_num_layers is None
-                and config.head_gru_hidden_size is None
-                and config.head_gru_dropout is None
-            ), "If prepend_gru_to_head is not set to True, head_gru_num_layers, head_gru_hidden_size and head_gru_dropout must be None"
-            self.fc = create_fully_connected(
-                n_ipa_phonemes,
-                n_arpabet_phonemes,
-                activation=config.head_fc_activation_function,
-                hidden_sizes=config.head_fc_hidden_sizes,
-            )
-            self.gru = None
-        else:
-            assert (
-                config.head_gru_num_layers is not None
-                and config.head_gru_hidden_size is not None
-            ), "If prepend_gru_to_head is set to True, head_gru_num_layers, head_gru_hidden_size and head_gru_dropout must be set"
-
-            self.gru = torch.nn.GRU(
-                n_ipa_phonemes,
-                config.head_gru_hidden_size,
-                config.head_gru_num_layers,
-                dropout=(
-                    config.head_gru_dropout
-                    if config.head_gru_dropout is not None
-                    else 0.0
-                ),
-                bias=True,
-                bidirectional=True,
-                batch_first=True,
-            )
-            self.fc = create_fully_connected(
-                config.head_gru_hidden_size * 2,
-                n_arpabet_phonemes,
-                activation=config.head_fc_activation_function,
-                hidden_sizes=config.head_fc_hidden_sizes,
-            )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out: torch.Tensor
-        if self.gru is not None:
-            out, _ = self.gru.forward(x)
-        else:
-            out = x
-        out = self.fc(out)
-        return out
-
-
 class B2P2TGruW2vPhonemeExperiment(B2P2TExperiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
@@ -185,12 +129,13 @@ class B2P2TGruW2vPhonemeExperiment(B2P2TExperiment):
             if self.config.intermediate_loss_weight > 0.0
             else None
         )
-
+        n_arpabet_phonemes = len(PHONE_DEF_SIL) + 1
+        head = W2VPhonemeHead(self.config, n_arpabet_phonemes)
         model = W2VBrainEncoderModel(
             self.config,
             brain_encoder,
             self.config.wav2vec_checkpoint,
-            head=Head(self.config),
+            head=head,
             skip_loading_weights=self.config.w2v_skip_loading_weights,
             pre_w2v_head_for_additional_loss=intermediate_head,
             additonal_loss_weight=self.config.intermediate_loss_weight,
