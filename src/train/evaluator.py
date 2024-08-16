@@ -12,7 +12,7 @@ from src.train.history import MetricEntry, SingleEpochHistory
 from torcheval.metrics import WordErrorRate
 from transformers import PreTrainedTokenizer
 from transformers import Wav2Vec2ProcessorWithLM
-from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqDataset, TimitSeqSampleBatch
 import torch
 import numpy as np
 from src.util.phoneme_helper import PHONE_DEF_SIL
@@ -201,8 +201,11 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
             ),
         )
 
+
 class TimitDecodedBatch(DecodedPredictionBatch):
     original_targets: list[str]
+
+
 class TimitSeqW2VSUCEvaluator(Evaluator):
     def __init__(
         self,

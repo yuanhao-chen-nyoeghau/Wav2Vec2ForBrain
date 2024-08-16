@@ -27,7 +27,7 @@ class TimitSeqSampleBatch(SampleBatch):
     phonemes: list[str]  # TODO: remove after debugging
 
 
-class TimitAudioSeqDataset(BaseDataset):
+class TimitA2PSeqDataset(BaseDataset):
     def __init__(
         self,
         config: AudioWPhonemesDatasetArgsModel,

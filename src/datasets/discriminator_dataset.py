@@ -16,7 +16,7 @@ from src.model.w2v_suc_ctc_model import (
 )
 from src.datasets.audio_with_phonemes_seq import AudioWPhonemesDatasetArgsModel
 from src.datasets.brain2text_w_phonemes import Brain2TextWPhonemesDataset
-from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset, TimitSeqSampleBatch
+from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqDataset, TimitSeqSampleBatch
 from src.args.yaml_config import YamlConfigModel
 from src.datasets.base_dataset import BaseDataset
 import torch
@@ -67,7 +67,7 @@ class DiscriminatorDataset(BaseDataset):
         brain_feat_extractor: Optional[B2P2TModel] = None,
     ):
         super().__init__()
-        audio = TimitAudioSeqDataset(
+        audio = TimitA2PSeqDataset(
             AudioWPhonemesDatasetArgsModel(), yaml_config, split=split
         )
         brain = Brain2TextWPhonemesDataset(

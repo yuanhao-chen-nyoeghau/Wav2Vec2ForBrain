@@ -2,7 +2,7 @@ import os
 import torch
 from torch.optim.optimizer import Optimizer
 from src.experiments.experiment import Experiment
-from src.datasets.timit_ctc_dataset import TimitAudioSeqDataset
+from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqDataset
 from src.datasets.audio_with_phonemes_seq import (
     AudioWPhonemesDatasetArgsModel,
 )
@@ -67,7 +67,7 @@ class TimitW2VSUC_CTCExperiment(Experiment):
         return optim(get_trainable_params(), lr=self.config.learning_rate)
 
     def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
-        return TimitAudioSeqDataset(self.config, self.yaml_config, split=split)
+        return TimitA2PSeqDataset(self.config, self.yaml_config, split=split)
 
     def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
         ds = self._create_dataset(split)
