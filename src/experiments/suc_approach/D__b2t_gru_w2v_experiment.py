@@ -1,6 +1,11 @@
 from typing import Any, Literal, cast
 
 from git import Optional
+from pyctcdecode.constants import (
+    DEFAULT_BEAM_WIDTH,
+    DEFAULT_MIN_TOKEN_LOGP,
+    DEFAULT_PRUNE_LOGP,
+)
 from pydantic import Field
 import torch
 from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
@@ -57,6 +62,12 @@ class B2TGruAndW2VArgsModel(
         default=False,
         description="Skip loading weights from wav2vec checkpoint, only load architecture",
     )
+    lm_decode_beam_width: int = DEFAULT_BEAM_WIDTH
+    lm_decode_beam_prune_logp: float = DEFAULT_PRUNE_LOGP
+    lm_decode_token_min_logp: float = DEFAULT_MIN_TOKEN_LOGP
+    lm_decode_alpha: float = 0.5
+    lm_decode_beta: float = 0.5
+    lm_score_boundary: bool = False
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -175,4 +186,10 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             W2V_CHECKPOINT_TO_PROCESSOR[self.config.wav2vec_checkpoint],
             track_non_test_predictions,
             self.config.lm_decode_test_predictions,
+            self.config.lm_decode_beam_width,
+            self.config.lm_decode_beam_prune_logp,
+            self.config.lm_decode_token_min_logp,
+            self.config.lm_decode_alpha,
+            self.config.lm_decode_beta,
+            self.config.lm_score_boundary,
         )

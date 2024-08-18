@@ -1,6 +1,6 @@
 from edit_distance import SequenceMatcher
 from math import nan
-from typing import Literal, cast
+from typing import Literal, Optional, cast
 from src.datasets.batch_types import SampleBatch
 from src.model.b2tmodel import ModelOutput
 from src.train.history import DecodedPredictionBatch, SingleEpochHistory
@@ -134,6 +134,12 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
         processor_checkpoint: str,
         track_non_test_predictions: bool = False,
         lm_decode_test_predictions: bool = False,
+        lm_decode_beam_width: Optional[int] = None,
+        lm_decode_beam_prune_logp: Optional[float] = None,
+        lm_decode_token_min_logp: Optional[float] = None,
+        lm_decode_alpha: Optional[float] = None,
+        lm_decode_beta: Optional[float] = None,
+        lm_decode_score_boundary: Optional[bool] = None,
     ):
         super().__init__(tokenizer, mode, track_non_test_predictions)
         self.history = SingleEpochHistory()
@@ -147,6 +153,13 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
             if lm_decode_test_predictions and mode == "test"
             else None
         )
+
+        self.lm_decode_beam_width = lm_decode_beam_width
+        self.lm_decode_beam_prune_logp = lm_decode_beam_prune_logp
+        self.lm_decode_token_min_logp = lm_decode_token_min_logp
+        self.lm_decode_alpha = lm_decode_alpha
+        self.lm_decode_beta = lm_decode_beta
+        self.lm_decode_score_boundary = lm_decode_score_boundary
 
     def _track_batch(self, predictions: ModelOutput, sample: SampleBatch):
         predicted_strings, label_strings = self.decode_predictions(predictions, sample)
@@ -176,7 +189,13 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
             }
             if self.processor is not None and self.mode == "test":
                 processed = self.processor.batch_decode(
-                    predictions.logits.detach().cpu().numpy()
+                    predictions.logits.detach().cpu().numpy(),
+                    beam_width=self.lm_decode_beam_width,
+                    beam_prune_logp=self.lm_decode_beam_prune_logp,
+                    token_min_logp=self.lm_decode_token_min_logp,
+                    alpha=self.lm_decode_alpha,
+                    beta=self.lm_decode_beta,
+                    lm_score_boundary=self.lm_decode_score_boundary,
                 )
                 additional_metrics["word_error_rate_lm_decode"] = (
                     WordErrorRate()
