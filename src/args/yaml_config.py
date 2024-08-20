@@ -1,3 +1,4 @@
+from typing import Optional
 import yaml
 import os
 from pydantic import BaseModel, Field
@@ -26,6 +27,9 @@ class YamlConfigModel(BaseModel):
     )
     timit_dataset_splits_dir: str = Field(
         description="Directory containing the original train and test split folder of TIMIT dataset"
+    )
+    elevenlabs_api_key: Optional[str] = Field(
+        description="Your Elevenlabs API key. You can find it in your Elevenlabs account settings. Needed if you like to run latent_analysis.ipynb"
     )
 
 

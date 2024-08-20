@@ -1,3 +1,4 @@
+import os
 from typing import Any, Literal, cast
 
 from git import Optional
@@ -56,6 +57,10 @@ class B2TGruAndW2VArgsModel(
     w2v_skip_loading_weights: bool = Field(
         default=False,
         description="Skip loading weights from wav2vec checkpoint, only load architecture",
+    )
+    store_brain_encoder: bool = Field(
+        default=False,
+        description="Store brain encoder model seperate from whole model in results directory",
     )
 
 
@@ -175,4 +180,11 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             W2V_CHECKPOINT_TO_PROCESSOR[self.config.wav2vec_checkpoint],
             track_non_test_predictions,
             self.config.lm_decode_test_predictions,
+        )
+
+    def store_trained_model(self, trained_model: W2VBrainEncoderModel):
+        super().store_trained_model(trained_model)
+        torch.save(
+            trained_model.brain_encoder.state_dict(),
+            os.path.join(self.results_dir, "brain_encoder.pt"),
         )
