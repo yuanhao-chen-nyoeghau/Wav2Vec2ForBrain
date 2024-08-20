@@ -22,7 +22,9 @@ class B2TDatasetArgsModel(BaseModel):
         "seperate_zscoring_4channels",
     ] = "seperate_zscoring"
     competition_mode: bool = False
-    limit_samples: Optional[int] = Field(None, description="Limit number of samples")
+    limit_samples: Optional[int] = Field(
+        default=None, description="Limit number of samples"
+    )
     sample_rate: int = 50
     remove_punctuation: bool = True
 
