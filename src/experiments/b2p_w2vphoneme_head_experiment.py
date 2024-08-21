@@ -103,11 +103,16 @@ class B2P_W2VPhonemeHeadExperiment(Experiment):
                                     W2VBrainEncoderModel, self.model
                                 ).w2v_encoder.parameters()
                             )
-                            + list(
-                                cast(W2VBrainEncoderModel, self.model).head.parameters()
+                            + (
+                                list(
+                                    cast(
+                                        W2VBrainEncoderModel, self.model
+                                    ).head.parameters()
+                                )
+                                if cast(W2VBrainEncoderModel, self.model).head
+                                is not None
+                                else []
                             )
-                            if cast(W2VBrainEncoderModel, self.model).head is not None
-                            else []
                         ),
                         "lr": (
                             self.config.w2v_learning_rate
