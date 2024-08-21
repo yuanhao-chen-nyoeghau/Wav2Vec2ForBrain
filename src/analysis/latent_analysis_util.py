@@ -19,7 +19,7 @@ from src.datasets.discriminator_dataset import (
 
 
 yaml_config = YamlConfig().config
-working_dir = os.path.join(yaml_config.cache_dir, "latent_analysis")
+working_dir = yaml_config.latent_analysis_working_dir
 wav_out = os.path.join(working_dir, "wav")
 
 os.makedirs(working_dir, exist_ok=True)

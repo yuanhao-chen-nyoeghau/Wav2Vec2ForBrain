@@ -31,6 +31,9 @@ class YamlConfigModel(BaseModel):
     elevenlabs_api_key: Optional[str] = Field(
         description="Your Elevenlabs API key. You can find it in your Elevenlabs account settings. Needed if you like to run latent_analysis.ipynb"
     )
+    latent_analysis_working_dir: str = Field(
+        default="/hpi/fs00/scratch/tobias.fiedler/brain2text/latent_analysis"
+    )
 
 
 class YamlConfig:
