@@ -5,6 +5,11 @@ from pydub import AudioSegment
 from elevenlabs import save
 from elevenlabs.client import ElevenLabs
 from typing import NamedTuple, cast
+from src.model.w2v_custom_feat_extractor import (
+    W2VBrainEncoderModel,
+    W2VBrainEncoderModelArgs,
+    Wav2Vec2WithoutFeatExtrForCTC,
+)
 from src.model.w2v_no_encoder import Wav2Vec2WithoutTransformerModel
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Config,
@@ -78,7 +83,8 @@ def generate_speech_multiple(transcriptions: list[str]):
 
 class LatentRepresentation(NamedTuple):
     idx: int  # Index of the corresponding transcription in the b2t test dataset
-    latent: torch.Tensor
+    pre_w2vencoder: torch.Tensor
+    post_w2vencoder: torch.Tensor
 
 
 class Representations(NamedTuple):
@@ -104,7 +110,19 @@ def generate_audio_representations(ds: Brain2TextWPhonemesDataset) -> Representa
             cache_dir=yaml_config.cache_dir,
         ),
     )
+
+    w2v_encoder = cast(
+        Wav2Vec2WithoutFeatExtrForCTC,
+        Wav2Vec2WithoutFeatExtrForCTC.from_pretrained(
+            "facebook/wav2vec2-base-960h",
+            config=w2v_config,
+            cache_dir=yaml_config.cache_dir,
+        ),
+    )
+
     w2v_feature_extractor.eval()
+    w2v_encoder.eval()
+
     non_aggregated = []
     aggregated = []
     with torch.no_grad():
@@ -116,11 +134,24 @@ def generate_audio_representations(ds: Brain2TextWPhonemesDataset) -> Representa
             wav_path = os.path.join(wav_out, filename)
             wav_tensor = load_wav_as_tensor(wav_path)
             features = w2v_feature_extractor.forward(wav_tensor.unsqueeze(0)).squeeze()
+            _, hidden_states = w2v_encoder.forward(features.unsqueeze(0))
 
-            for timestamp in features:
-                non_aggregated.append(LatentRepresentation(idx, timestamp))
+            for pre_w2vencoder_timestamp, post_w2vencoder_timestamp in zip(
+                features, hidden_states.squeeze()
+            ):
+                non_aggregated.append(
+                    LatentRepresentation(
+                        idx,
+                        pre_w2vencoder_timestamp.squeeze().detach().cpu(),
+                        post_w2vencoder_timestamp.squeeze().detach().cpu(),
+                    )
+                )
             aggregated.append(
-                LatentRepresentation(idx, torch.mean(features.squeeze(), dim=0))
+                LatentRepresentation(
+                    idx,
+                    torch.mean(features.squeeze().detach().cpu(), dim=0),
+                    torch.mean(hidden_states.squeeze().detach().cpu(), dim=0),
+                )
             )
             num_generated += 1
             print(
@@ -143,19 +174,46 @@ def generate_brain_representations(ds: Brain2TextWPhonemesDataset) -> Representa
         "/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru+w2v/2024-08-20_11#57#39/brain_encoder.pt",
         "facebook/wav2vec2-base-960h",
     )
+
+    model_config = W2VBrainEncoderModelArgs(w2v_do_stable_layer_norm=False)
+
+    model = W2VBrainEncoderModel(
+        config=model_config,
+        brain_encoder=brain_encoder,
+        wav2vec_checkpoint="facebook/wav2vec2-base-960h",
+    ).cuda()
+
     brain_encoder.eval()
+    model.eval()
+
     non_aggregated = []
     aggregated = []
+
     with torch.no_grad():
         for idx in range(len(ds)):
             batch = B2tSampleBatch(ds[idx].input.unsqueeze(0), None)
             batch.day_idxs = torch.tensor(ds[idx].day_idx).unsqueeze(0)
-            features = (
-                brain_encoder.forward(batch.cuda()).logits.squeeze().detach().cpu()
+            features = brain_encoder.forward(batch.cuda()).logits
+            _, hidden_states = model.w2v_encoder.forward(features)
+
+            for pre_w2vencoder_timestamp, post_w2vencoder_timestamp in zip(
+                features, hidden_states.squeeze()
+            ):
+                non_aggregated.append(
+                    LatentRepresentation(
+                        idx,
+                        pre_w2vencoder_timestamp.squeeze().detach().cpu(),
+                        post_w2vencoder_timestamp.squeeze().detach().cpu(),
+                    )
+                )
+            aggregated.append(
+                LatentRepresentation(
+                    idx,
+                    torch.mean(features, dim=0).squeeze().detach().cpu(),
+                    torch.mean(hidden_states, dim=0).squeeze().detach().cpu(),
+                )
             )
-            for timestamp in features:
-                non_aggregated.append(LatentRepresentation(idx, timestamp))
-            aggregated.append(LatentRepresentation(idx, torch.mean(features, dim=0)))
+
             print(f"\r{idx+1}/{len(ds)} brain representations generated ", end="")
 
     print("\n")
@@ -182,7 +240,7 @@ def per_seq_avg_of_dimreduced_repr(
 
 
 def flatten_square_matrix_rm_diag(matrix: np.ndarray):
-    # Source: https://discuss.pytorch.org/t/keep-off-diagonal-elements-only-from-square-matrix/54379 
+    # Source: https://discuss.pytorch.org/t/keep-off-diagonal-elements-only-from-square-matrix/54379
     assert matrix.shape[0] == matrix.shape[1], "Matrix should be square"
     n = matrix.shape[0]
     return (
