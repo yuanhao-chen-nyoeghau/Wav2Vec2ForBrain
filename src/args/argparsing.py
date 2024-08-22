@@ -1,4 +1,5 @@
 import argparse
+from src.experiments.b2p_w2vphoneme_head_experiment import B2P_W2VPhonemeHeadExperiment
 from src.experiments.a2t_w2vphoneme_head_experiment import (
     A2T_W2VPhonemeHeadExperiment,
 )
@@ -58,6 +59,7 @@ experiments: dict[str, Type[Experiment]] = {
     "b2p2t_gru_w2vphoneme": B2P2TGruW2vPhonemeExperiment,
     "a2p_w2vphoneme_head": A2P_W2VPhonemeHeadExperiment,
     "a2t_w2vphoneme_head": A2T_W2VPhonemeHeadExperiment,
+    "b2p_w2vphoneme_head": B2P_W2VPhonemeHeadExperiment,
 }
 
 

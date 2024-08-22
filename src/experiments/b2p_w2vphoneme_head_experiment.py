@@ -1,47 +1,42 @@
 import os
-from typing import Any, Literal, cast
-
-from git import Optional
-from pyctcdecode.constants import (
-    DEFAULT_BEAM_WIDTH,
-    DEFAULT_MIN_TOKEN_LOGP,
-    DEFAULT_PRUNE_LOGP,
-)
 from pydantic import Field
 import torch
-from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
-from src.datasets.discriminator_dataset import (
-    B2P2TBrainFeatureExtractorArgsModel,
-    DiscriminatorDataset,
-)
+from torch.optim.optimizer import Optimizer
 from src.model.w2v_custom_feat_extractor import (
     W2VBrainEncoderModel,
     W2VBrainEncoderModelArgs,
 )
+from src.datasets.discriminator_dataset import (
+    B2P2TBrainFeatureExtractorArgsModel,
+    DiscriminatorDataset,
+)
+from src.experiments.suc_approach.B__b2p_suc_experiment import B2PSUCEvaluator
+from src.datasets.brain2text_w_phonemes import Brain2TextWPhonemesDataset
+from src.model.w2vphoneme_head import (
+    W2VPhonemeHead,
+    W2VPhonemeHeadArgs,
+)
+from src.experiments.experiment import Experiment
+from src.util.phoneme_helper import PHONE_DEF_SIL
+from src.args.base_args import B2TDatasetArgsModel, BaseExperimentArgsModel
 from src.args.yaml_config import YamlConfigModel
-from torch.optim.optimizer import Optimizer
+from typing import Any, Literal, Optional, cast
+from torch.utils.data import DataLoader
 
-from src.train.evaluator import EvaluatorWithW2vLMDecoder
 from src.util.warmup_scheduler import get_2module_warmup_scheduler
 
-# Baseline Experiment: b2p2t_gru:
-# 5gram + rescoring: 0.28 WER (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-27_17#31#07),
-# 3gram: 0.3153 WER
-# (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-28_08#18#39)
 
-
-W2V_CHECKPOINT_TO_PROCESSOR = {
-    "facebook/wav2vec2-base-960h": "patrickvonplaten/wav2vec2-base-100h-with-lm",
-    "facebook/wav2vec2-base-100h": "patrickvonplaten/wav2vec2-base-100h-with-lm",
-    "jonatasgrosman/wav2vec2-large-xlsr-53-english": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
-    "facebook/wav2vec2-large-960h": "patrickvonplaten/wav2vec2-base-100h-with-lm",  # we can (probably) use the same processor as for the 100h model, as the outputs of W2V are the same
-}
-
-
-class B2TGruAndW2VArgsModel(
-    B2TArgsModel, B2P2TBrainFeatureExtractorArgsModel, W2VBrainEncoderModelArgs
+class B2P_W2VPhonemeHeadExperimentArgs(
+    BaseExperimentArgsModel,
+    B2TDatasetArgsModel,
+    W2VPhonemeHeadArgs,
+    B2P2TBrainFeatureExtractorArgsModel,
+    W2VBrainEncoderModelArgs,
 ):
-    brain_encoder_path: Optional[str] = None
+    # See https://huggingface.co/models?other=wav2vec2 for available checkpoints
+    wav2vec_checkpoint: Literal["facebook/wav2vec2-lv-60-espeak-cv-ft"] = (
+        "facebook/wav2vec2-lv-60-espeak-cv-ft"
+    )
     unfreeze_strategy: Literal["brain_encoder", "brain_encoder+w2v"] = "brain_encoder"
     w2v_learning_rate: Optional[float] = None
     w2v_warmup_start_step: Optional[int] = Field(
@@ -52,58 +47,44 @@ class B2TGruAndW2VArgsModel(
         default=None,
         description="Num epochs from w2v_warmup_start_step to reach full w2v_learning_rate. 0 if not provided",
     )
-    wav2vec_checkpoint: str = (
-        "facebook/wav2vec2-base-960h"  # "jonatasgrosman/wav2vec2-large-xlsr-53-english" OR "facebook/wav2vec2-large-960h"
-    )
-    lm_decode_test_predictions: bool = False
     adjust_global_lr_to_w2v_postwarmup_lr: Optional[bool] = Field(
         description="Adjust the global learning rate to that of w2v over w2v warmup interval, then keep at w2v_learning_rate. Only valid when brain_encoder+w2v unfreeze strategy is set."
     )
-    w2v_skip_loading_weights: bool = Field(
-        default=False,
-        description="Skip loading weights from wav2vec checkpoint, only load architecture",
-    )
-    lm_decode_beam_width: int = DEFAULT_BEAM_WIDTH
-    lm_decode_beam_prune_logp: float = DEFAULT_PRUNE_LOGP
-    lm_decode_token_min_logp: float = DEFAULT_MIN_TOKEN_LOGP
-    lm_decode_alpha: float = 0.5
-    lm_decode_beta: float = 0.5
-    lm_score_boundary: bool = False
-    store_brain_encoder: bool = Field(
-        default=False,
-        description="Store brain encoder model seperate from whole model in results directory",
-    )
+    head_checkpoint: Optional[str] = None
+    brain_encoder_checkpoint: Optional[str] = None
 
 
-class B2TGruAndW2VExperiment(B2TExperiment):
+class B2P_W2VPhonemeHeadExperiment(Experiment):
     def __init__(self, config: dict, yamlConfig: YamlConfigModel):
         self.config = self.get_args_model()(**config)
         super().__init__(config, yamlConfig)
 
-        if self.config.tokenizer_checkpoint != self.config.wav2vec_checkpoint:
-            print(
-                f"Tokenizer checkpoint ({self.config.tokenizer_checkpoint}) is different to wav2vec_checkpoint ({self.config.wav2vec_checkpoint}). This may lead to unexpected behaviour"
-            )
-
     def get_name(self) -> str:
-        return "b2p2t_gru+w2v"
+        return "b2p_w2vphoneme_head"
 
     @staticmethod
     def get_args_model():
-        return B2TGruAndW2VArgsModel
+        return B2P_W2VPhonemeHeadExperimentArgs
 
     def _create_model(self):
-        brain_encoder = DiscriminatorDataset.brain_feature_extractor_from_config(
-            self.config, self.config.brain_encoder_path, self.config.wav2vec_checkpoint
+        assert (
+            self.config.loss_function == "ctc",  # type: ignore
+            "Only ctc loss is supported",
+        )
+        head = W2VPhonemeHead(self.config, out_size=len(self.get_vocab()))
+        if self.config.head_checkpoint is not None:
+            head.load_state_dict(torch.load(self.config.head_checkpoint))
+        neural_decoder = DiscriminatorDataset.brain_feature_extractor_from_config(
+            self.config,
+            self.config.brain_encoder_checkpoint,
+            self.config.wav2vec_checkpoint,
         )
         model = W2VBrainEncoderModel(
-            self.config,
-            brain_encoder,
-            self.config.wav2vec_checkpoint,
-            None,
-            self.config.w2v_skip_loading_weights,
+            config=self.config,
+            brain_encoder=neural_decoder,
+            wav2vec_checkpoint=self.config.wav2vec_checkpoint,
+            head=head,
         )
-
         return model
 
     def create_optimizer(self) -> Optimizer:
@@ -116,9 +97,23 @@ class B2TGruAndW2VExperiment(B2TExperiment):
                         ).brain_encoder.parameters()
                     },
                     {
-                        "params": cast(
-                            W2VBrainEncoderModel, self.model
-                        ).w2v_encoder.parameters(),
+                        "params": (
+                            list(
+                                cast(
+                                    W2VBrainEncoderModel, self.model
+                                ).w2v_encoder.parameters()
+                            )
+                            + (
+                                list(
+                                    cast(
+                                        W2VBrainEncoderModel, self.model
+                                    ).head.parameters()
+                                )
+                                if cast(W2VBrainEncoderModel, self.model).head
+                                is not None
+                                else []
+                            )
+                        ),
                         "lr": (
                             self.config.w2v_learning_rate
                             if self.config.w2v_learning_rate is not None
@@ -179,29 +174,30 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             self.config.adjust_global_lr_to_w2v_postwarmup_lr == True,
         )
 
+    def _create_dataset(self, split: Literal["train", "val", "test"] = "train"):
+        return Brain2TextWPhonemesDataset(self.config, self.yaml_config, split=split)
+
+    def _create_dataloader(self, split: Literal["train", "val", "test"]) -> DataLoader:
+        ds = self._create_dataset(split)
+        return DataLoader(
+            self._create_dataset(split),
+            batch_size=self.base_config.batch_size,
+            shuffle=True,
+            collate_fn=ds.get_collate_fn(),
+        )
+
+    def get_vocab(self) -> list[str]:
+        return ["BLANK"] + PHONE_DEF_SIL
+
     def create_evaluator(
         self,
         mode: Literal["train", "val", "test"],
         track_non_test_predictions: bool = False,
     ):
-        return EvaluatorWithW2vLMDecoder(
-            self.tokenizer,
-            mode,
-            self.yaml_config.cache_dir,
-            W2V_CHECKPOINT_TO_PROCESSOR[self.config.wav2vec_checkpoint],
-            track_non_test_predictions,
-            self.config.lm_decode_test_predictions,
-            self.config.lm_decode_beam_width,
-            self.config.lm_decode_beam_prune_logp,
-            self.config.lm_decode_token_min_logp,
-            self.config.lm_decode_alpha,
-            self.config.lm_decode_beta,
-            self.config.lm_score_boundary,
-        )
+        return B2PSUCEvaluator(mode, track_non_test_predictions)
 
     def store_trained_model(self, trained_model: W2VBrainEncoderModel):
-        super().store_trained_model(trained_model)
         torch.save(
-            trained_model.brain_encoder.state_dict(),
-            os.path.join(self.results_dir, "brain_encoder.pt"),
+            trained_model.state_dict(),
+            os.path.join(self.results_dir, "model.pt"),
         )

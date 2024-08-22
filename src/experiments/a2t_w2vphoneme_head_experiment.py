@@ -26,6 +26,10 @@ from src.train.history import DecodedPredictionBatch
 # 3gram: 0.3153 WER
 # (/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru/2024-03-28_08#18#39)
 
+W2V_CHECKPOINT_TO_PROCESSOR = {
+    "facebook/wav2vec2-lv-60-espeak-cv-ft": "patrickvonplaten/wav2vec2-base-100h-with-lm",
+}
+
 
 class A2T_W2VPhonemeHeadExperimentArgs(
     BaseExperimentArgsModel, AudioWPhonemesDatasetArgsModel, W2VPhonemeHeadArgs
@@ -113,7 +117,7 @@ class A2T_W2VPhonemeHeadExperiment(Experiment):
             self.tokenizer,
             mode,
             self.yaml_config.cache_dir,
-            self.config.tokenizer_checkpoint,
+            W2V_CHECKPOINT_TO_PROCESSOR[self.config.wav2vec_checkpoint],
             track_non_test_predictions,
             self.config.lm_decode_test_predictions,
         )
