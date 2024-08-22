@@ -16,7 +16,7 @@ from src.datasets.discriminator_dataset import (
     B2P2TBrainFeatureExtractorArgsModel,
     DiscriminatorDataset,
 )
-
+import numpy as np
 
 yaml_config = YamlConfig().config
 working_dir = yaml_config.latent_analysis_working_dir
@@ -161,3 +161,35 @@ def generate_brain_representations(ds: Brain2TextWPhonemesDataset) -> Representa
     print("\n")
     assert None not in non_aggregated
     return Representations(non_aggregated, aggregated)
+
+
+def per_seq_avg_of_dimreduced_repr(
+    dimreduced_repr: np.ndarray, repr: list[LatentRepresentation]
+):
+    assert len(dimreduced_repr) == len(
+        repr
+    ), "Length of dimreduced_repr and repr should be equal (repr contains the original, non-aggregated representations)"
+    seq_dimreduced_avg = []
+    i = 0
+    while i < (len(dimreduced_repr)):
+        j = i + 1
+        idx = repr[i].idx
+        while j < len(dimreduced_repr) and repr[j].idx == idx:
+            j += 1
+        seq_dimreduced_avg.append(np.mean(dimreduced_repr[i:j], axis=0))
+        i = j
+    return np.array(seq_dimreduced_avg)
+
+
+def flatten_square_matrix_rm_diag(matrix: np.ndarray):
+    # Source: https://discuss.pytorch.org/t/keep-off-diagonal-elements-only-from-square-matrix/54379 
+    assert matrix.shape[0] == matrix.shape[1], "Matrix should be square"
+    n = matrix.shape[0]
+    return (
+        torch.tensor(matrix)
+        .flatten()[1:]
+        .view(n - 1, n + 1)[:, :-1]
+        .reshape(n, n - 1)
+        .flatten()
+        .numpy()
+    )
