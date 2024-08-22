@@ -1,6 +1,6 @@
 program: run.py
 method: grid
-name: b2p2t_gru+w2v__NOcheckpoint
+name: b2p2t_gru+w2v__NOcheckpoint_equalLR
 entity: machine-learning-hpi
 project: brain2text
 run_cap: 45
@@ -22,9 +22,9 @@ command:
   - --weight_decay=0.0001
   - --encoder_dropout=0.45
   - --gaussian_smooth_width=1.5
-  - --w2v_learning_rate=0.00001
-  - --w2v_warmup_steps=3
-  - --w2v_warmup_start_step=7
+  - --learning_rate=0.0001
+  - --w2v_warmup_steps=0
+  - --w2v_warmup_start_step=0
   - --whiteNoiseSD=0.02
   - --constantOffsetSD=0.25
   - --w2v_skip_loading_weights=true
