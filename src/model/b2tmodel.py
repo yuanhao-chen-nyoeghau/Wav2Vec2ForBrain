@@ -12,6 +12,7 @@ class ModelOutput:
     metrics: dict[str, float]
     loss: Optional[torch.Tensor] = None
     logit_lens: Optional[torch.Tensor] = None
+    hidden_states: Optional[torch.Tensor] = None
 
 
 class B2TModel(Module, ABC):
