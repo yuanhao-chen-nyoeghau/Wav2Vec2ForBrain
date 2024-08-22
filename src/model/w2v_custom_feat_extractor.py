@@ -71,7 +71,10 @@ class W2VBrainEncoderModel(B2TModel):
 
         intermediate_out = self._get_intermediate_out(batch, encoded_brain)
 
-        w2v_output = self.w2v_encoder.forward(encoded_brain.logits)
+        w2v_output, hidden_states = self.w2v_encoder.forward(
+            encoded_brain.logits,
+        )
+
         if self.head is not None:
             w2v_output = self.head.forward(w2v_output)
 
@@ -115,6 +118,7 @@ class W2VBrainEncoderModel(B2TModel):
             metrics,
             loss=loss,
             logit_lens=encoded_brain.logit_lens,
+            hidden_states=hidden_states,
         )
 
     def _get_intermediate_out(self, batch: B2tSampleBatch, encoded_brain: ModelOutput):
@@ -137,7 +141,7 @@ class Wav2Vec2WithoutFeatExtrForCTC(Wav2Vec2ForCTC):
         super().__init__(config, target_lang)
         self.wav2vec2 = Wav2Vec2WithoutFeatExtrModel(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         outputs = self.wav2vec2(
             x,
             return_dict=True,
@@ -146,7 +150,7 @@ class Wav2Vec2WithoutFeatExtrForCTC(Wav2Vec2ForCTC):
         hidden_states = self.dropout(hidden_states)
 
         logits = self.lm_head(hidden_states)
-        return logits
+        return logits, hidden_states
 
 
 class Wav2Vec2WithoutFeatExtrModel(Wav2Vec2PreTrainedModel):

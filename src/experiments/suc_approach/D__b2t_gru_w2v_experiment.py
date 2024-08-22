@@ -1,3 +1,4 @@
+import os
 from typing import Any, Literal, cast
 
 from git import Optional
@@ -68,6 +69,10 @@ class B2TGruAndW2VArgsModel(
     lm_decode_alpha: float = 0.5
     lm_decode_beta: float = 0.5
     lm_score_boundary: bool = False
+    store_brain_encoder: bool = Field(
+        default=False,
+        description="Store brain encoder model seperate from whole model in results directory",
+    )
 
 
 class B2TGruAndW2VExperiment(B2TExperiment):
@@ -192,4 +197,11 @@ class B2TGruAndW2VExperiment(B2TExperiment):
             self.config.lm_decode_alpha,
             self.config.lm_decode_beta,
             self.config.lm_score_boundary,
+        )
+
+    def store_trained_model(self, trained_model: W2VBrainEncoderModel):
+        super().store_trained_model(trained_model)
+        torch.save(
+            trained_model.brain_encoder.state_dict(),
+            os.path.join(self.results_dir, "brain_encoder.pt"),
         )
