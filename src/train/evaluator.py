@@ -186,6 +186,17 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
                 )
                 decoded_batch.predictions_lm_decoded = cast(list[str], processed.text)
 
+            total_seq_len = 0
+            total_dist = 0
+            for prediction, target in zip(predicted_strings, label_strings):
+                matcher = SequenceMatcher(a=target, b=prediction)
+                dist = matcher.distance()
+                if dist != None:
+                    total_dist += dist
+                    total_seq_len += len(target)
+            if total_seq_len > 0:
+                additional_metrics["char_error_rate"] = total_dist / total_seq_len
+
             predictions.metrics.update(additional_metrics)
 
         assert (
