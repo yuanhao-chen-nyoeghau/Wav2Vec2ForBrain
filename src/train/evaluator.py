@@ -184,18 +184,16 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
                     .compute()
                     .item()
                 )
+                additional_metrics["char_error_rate_lm_decode"] = (
+                    self.calculate_char_error_rate(
+                        cast(list[str], processed.text), label_strings
+                    )
+                )
                 decoded_batch.predictions_lm_decoded = cast(list[str], processed.text)
 
-            total_seq_len = 0
-            total_dist = 0
-            for prediction, target in zip(predicted_strings, label_strings):
-                matcher = SequenceMatcher(a=target, b=prediction)
-                dist = matcher.distance()
-                if dist != None:
-                    total_dist += dist
-                    total_seq_len += len(target)
-            if total_seq_len > 0:
-                additional_metrics["char_error_rate"] = total_dist / total_seq_len
+            cer = self.calculate_char_error_rate(predicted_strings, label_strings)
+            if cer != nan:
+                additional_metrics["char_error_rate"] = cer
 
             predictions.metrics.update(additional_metrics)
 
@@ -211,6 +209,19 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
                 else None
             ),
         )
+
+    def calculate_char_error_rate(self, predictions: list[str], targets: list[str]):
+        total_seq_len = 0
+        total_dist = 0
+        for prediction, target in zip(predictions, targets):
+            matcher = SequenceMatcher(a=target, b=prediction)
+            dist = matcher.distance()
+            if dist != None:
+                total_dist += dist
+                total_seq_len += len(target)
+        if total_seq_len > 0:
+            return total_dist / total_seq_len
+        return nan
 
 
 class TimitDecodedBatch(DecodedPredictionBatch):
