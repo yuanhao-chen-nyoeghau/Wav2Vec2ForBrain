@@ -171,7 +171,7 @@ def generate_brain_representations(ds: Brain2TextWPhonemesDataset) -> Representa
 
     brain_encoder = DiscriminatorDataset.brain_feature_extractor_from_config(
         config,
-        "/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru+w2v/2024-08-20_11#57#39/brain_encoder.pt",
+        "/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru+w2v/wcheckpoint_partialfinetuning/2024-08-24_17#58#15/brain_encoder.pt",
         "facebook/wav2vec2-base-960h",
     )
 
@@ -195,15 +195,16 @@ def generate_brain_representations(ds: Brain2TextWPhonemesDataset) -> Representa
             batch.day_idxs = torch.tensor(ds[idx].day_idx).unsqueeze(0)
             features = brain_encoder.forward(batch.cuda()).logits
             _, hidden_states = model.w2v_encoder.forward(features)
-
+            features = features.squeeze()
+            hidden_states = hidden_states.squeeze()
             for pre_w2vencoder_timestamp, post_w2vencoder_timestamp in zip(
-                features, hidden_states.squeeze()
+                features, hidden_states
             ):
                 non_aggregated.append(
                     LatentRepresentation(
                         idx,
                         pre_w2vencoder_timestamp.squeeze().detach().cpu(),
-                        post_w2vencoder_timestamp.squeeze().detach().cpu(),
+                        post_w2vencoder_timestamp.detach().cpu(),
                     )
                 )
             aggregated.append(
