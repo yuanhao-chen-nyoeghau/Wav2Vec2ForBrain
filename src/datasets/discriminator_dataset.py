@@ -8,7 +8,10 @@ from src.model.b2p2t_model import (
     B2P2TModel,
     B2P2TModelArgsModel,
 )
-from src.model.b2p_suc import BrainFeatureExtractor, BrainFeatureExtractorArgsModel
+from src.model.brain_feature_extractor import (
+    BrainFeatureExtractor,
+    BrainFeatureExtractorArgsModel,
+)
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.w2v_suc_ctc_model import (
     W2VSUC_CTCArgsModel,
