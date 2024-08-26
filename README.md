@@ -24,8 +24,9 @@ conda install -c conda-forge wandb
 
 ## Execute experiments
 To run the experiments for 45 Brain Feature Extractor Architectures each for our three experiment setups (we used a NVIDIA A100 GPU and 32GB of RAM):
-1. Start WandB sweep: `wandb sweep sweeps/[...experiment setup sweep file].yaml`
+1. Start WandB sweep for corresponding experiment setup: `wandb sweep sweeps/[...experiment setup sweep file].yaml`
 2. Connect one or more agents to execute the runs `wandb agent [SWEEP ID]`
+
 The results of our runs can be found in the [analysis dir](./src/analysis/data).
 If you set `--lm_decode_test_predictions=true` when executing `run.py`, you probably need 64GB of RAM (at least for batch size 64).
 
