@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 import torch
+from src.datasets.batch_types import SampleBatch
+from src.model.b2p2t_model import B2P2TModel, B2P2TModelArgsModel
+from src.model.b2tmodel import B2TModel, ModelOutput
 from src.args.base_args import PRETRAINED_LATENT_SIZES
 from src.util.nn_helper import ACTIVATION_FUNCTION
 from src.datasets.batch_types import PhonemeSampleBatch
@@ -62,3 +65,58 @@ class BrainFeatureExtractor(torch.nn.Module):
 
         out = self.fc(out)
         return out
+
+
+class B2TBrainFeatureExtractor(B2TModel):
+    def __init__(
+        self,
+        config: BrainFeatureExtractorArgsModel,
+        wav2vec_checkpoint: str,
+        in_size: int,
+    ):
+        super().__init__()
+        self.encoder = BrainFeatureExtractor(
+            config,
+            in_size,
+            wav2vec_checkpoint,
+        )
+
+    def forward(self, batch: SampleBatch) -> ModelOutput:
+        out = self.encoder(batch)
+        return ModelOutput(logits=out, metrics={})
+
+
+class B2P2TBrainFeatureExtractorArgsModel(
+    BrainFeatureExtractorArgsModel, B2P2TModelArgsModel
+):
+    pass
+
+
+def bfe_w_preprocessing_from_config(
+    config: B2P2TBrainFeatureExtractorArgsModel,
+    brain_encoder_path: Optional[str],
+    wav2vec_checkpoint: str,
+):
+    brain_feat_extractor = B2P2TModel(
+        config,
+        B2TBrainFeatureExtractor(
+            config,
+            wav2vec_checkpoint,
+            B2P2TModel.get_in_size_after_preprocessing(config.unfolder_kernel_len),
+        ),
+    ).cuda()
+    if brain_encoder_path != None:
+        state = torch.load(brain_encoder_path, map_location="cuda")
+        unneeded_keys = [
+            key
+            for key in state.keys()
+            if key.startswith("neural_decoder.discriminator")
+            or key.startswith("neural_decoder.suc_for_ctc")
+        ]
+        for key in unneeded_keys:
+            del state[key]
+        brain_feat_extractor.load_state_dict(
+            state,
+            strict=True,
+        )
+    return brain_feat_extractor

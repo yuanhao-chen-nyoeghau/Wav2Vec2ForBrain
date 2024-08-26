@@ -9,10 +9,10 @@ from pyctcdecode.constants import (
 )
 from pydantic import Field
 import torch
+from src.model.brain_feature_extractor import B2P2TBrainFeatureExtractorArgsModel
 from src.experiments.b2t_experiment import B2TArgsModel, B2TExperiment
-from src.datasets.discriminator_dataset import (
-    B2P2TBrainFeatureExtractorArgsModel,
-    DiscriminatorDataset,
+from src.model.brain_feature_extractor import (
+    bfe_w_preprocessing_from_config,
 )
 from src.model.w2v_custom_feat_extractor import (
     W2VBrainEncoderModel,
@@ -93,7 +93,7 @@ class B2TGruAndW2VExperiment(B2TExperiment):
         return B2TGruAndW2VArgsModel
 
     def _create_model(self):
-        brain_encoder = DiscriminatorDataset.brain_feature_extractor_from_config(
+        brain_encoder = bfe_w_preprocessing_from_config(
             self.config, self.config.brain_encoder_path, self.config.wav2vec_checkpoint
         )
         model = W2VBrainEncoderModel(

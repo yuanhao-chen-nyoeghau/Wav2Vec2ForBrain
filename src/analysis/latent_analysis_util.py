@@ -1,3 +1,4 @@
+from src.model.brain_feature_extractor import B2P2TBrainFeatureExtractorArgsModel
 from src.args.yaml_config import YamlConfig
 from src.datasets.brain2text_w_phonemes import Brain2TextWPhonemesDataset
 import os
@@ -17,9 +18,8 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 import soundfile
 import torch
 from src.datasets.batch_types import B2tSampleBatch
-from src.datasets.discriminator_dataset import (
-    B2P2TBrainFeatureExtractorArgsModel,
-    DiscriminatorDataset,
+from src.model.brain_feature_extractor import (
+    bfe_w_preprocessing_from_config,
 )
 import numpy as np
 
@@ -169,7 +169,7 @@ def generate_brain_representations(ds: Brain2TextWPhonemesDataset) -> Representa
         encoder_num_gru_layers=1,
     )
 
-    brain_encoder = DiscriminatorDataset.brain_feature_extractor_from_config(
+    brain_encoder = bfe_w_preprocessing_from_config(
         config,
         "/hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p2t_gru+w2v/wcheckpoint_partialfinetuning/2024-08-24_17#58#15/brain_encoder.pt",
         "facebook/wav2vec2-base-960h",
