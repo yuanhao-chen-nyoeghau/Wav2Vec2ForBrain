@@ -1,65 +1,19 @@
 import argparse
-from src.experiments.b2p_w2vphoneme_head_experiment import B2P_W2VPhonemeHeadExperiment
-from src.experiments.a2t_w2vphoneme_head_experiment import (
-    A2T_W2VPhonemeHeadExperiment,
-)
-from src.experiments.a2p_w2vphoneme_head_experiment import A2P_W2VPhonemeHeadExperiment
-from src.experiments.b2p2t_gru_w2vphoneme_experiment import B2P2TGruW2vPhonemeExperiment
 from src.experiments.b2t_gru_w2v_conformer_experiment import (
     B2TGruAndW2VConformerExperiment,
 )
-from src.experiments.suc_approach._b2t_phonemegru_w2v_experiment import (
-    B2TPhonemeGruAndW2VExperiment,
-)
-from src.experiments.suc_approach.C__discriminator_experiment import (
-    DiscriminatorExperiment,
-)
-from src.experiments.suc_approach.B__b2p_suc_experiment import B2PSUCExperiment
-from src.experiments.suc_approach.A__timit_w2v_suc_ctc_experiment import (
-    TimitW2VSUC_CTCExperiment,
-)
-from src.experiments.suc_approach.timit_w2v_suc_experiment import TimitW2VSUCExperiment
-from src.experiments.b2p2t_mvtst_experiment import B2P2TMvtstExperiment
-from src.experiments.b2p2t_gru_experiment import B2P2TGruExperiment
-from src.experiments.b2p2t_mamba_experiment import B2P2TMambaExperiment
-from src.experiments.mvts_transformer_experiment import MvtsTransformerExperiment
-from src.experiments.b2t_mamba_experiment import B2tMambaExperiment
-from src.experiments.b2t_gru_experiment import B2tGruExperiment
-from src.experiments.b2t_direct_cnn_experiment import CNNExperiment
-from src.experiments.audio_wav2vec_experiment import AudioWav2VecExperiment
-from src.experiments.b2t_audio_wav2vec_experiment import B2TAudioWav2VecExperiment
 from src.experiments.experiment import Experiment
 from pydantic import BaseModel
 from src.args.base_args import BaseExperimentArgsModel
 from typing import Any, Literal, Type, cast
 from src.args.yaml_config import YamlConfig
-from src.experiments.onehotindex_fc_experiment import OneHotIndexExperiment
-from src.experiments.suc_approach.D__b2t_gru_w2v_experiment import (
+from src.experiments.b2t_gru_w2v_experiment import (
     B2TGruAndW2VExperiment,
 )
 
 experiments: dict[str, Type[Experiment]] = {
-    "audio_wav2vec2": AudioWav2VecExperiment,
-    "b2t_audio_wav2vec": B2TAudioWav2VecExperiment,
-    "onehot_index": OneHotIndexExperiment,
-    "b2t_cnn": CNNExperiment,
-    "b2t_gru": B2tGruExperiment,
-    "mvts_transformer": MvtsTransformerExperiment,
-    "b2t_mamba": B2tMambaExperiment,
-    "b2p2t_mamba": B2P2TMambaExperiment,
-    "b2p2t_gru": B2P2TGruExperiment,
-    "b2p2t_mvtst": B2P2TMvtstExperiment,
-    "timit_w2v_suc_ctc": TimitW2VSUC_CTCExperiment,
-    "timit_w2v_suc": TimitW2VSUCExperiment,
-    "b2p_suc": B2PSUCExperiment,
-    "discriminator": DiscriminatorExperiment,
     "b2p2t_gru+w2v": B2TGruAndW2VExperiment,
-    "b2p2t_phonemegru+w2v": B2TPhonemeGruAndW2VExperiment,
     "b2p2t_gru+w2v_conformer": B2TGruAndW2VConformerExperiment,
-    "b2p2t_gru_w2vphoneme": B2P2TGruW2vPhonemeExperiment,
-    "a2p_w2vphoneme_head": A2P_W2VPhonemeHeadExperiment,
-    "a2t_w2vphoneme_head": A2T_W2VPhonemeHeadExperiment,
-    "b2p_w2vphoneme_head": B2P_W2VPhonemeHeadExperiment,
 }
 
 
