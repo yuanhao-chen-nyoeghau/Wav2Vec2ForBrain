@@ -12,7 +12,6 @@ from src.train.history import MetricEntry, SingleEpochHistory
 from torcheval.metrics import WordErrorRate
 from transformers import PreTrainedTokenizer
 from transformers import Wav2Vec2ProcessorWithLM
-from src.datasets.timit_a2p_seq_dataset import TimitA2PSeqSampleBatch
 import torch
 import numpy as np
 from src.util.phoneme_helper import PHONE_DEF_SIL
@@ -241,81 +240,6 @@ class EvaluatorWithW2vLMDecoder(DefaultEvaluator):
         if total_seq_len > 0:
             return total_dist / total_seq_len
         return nan
-
-
-class TimitDecodedBatch(DecodedPredictionBatch):
-    original_targets: list[str]
-
-
-class TimitSeqW2VSUCEvaluator(Evaluator):
-    def __init__(
-        self,
-        mode: Literal["train", "val", "test"],
-        track_non_test_predictions: bool = False,
-    ):
-        super().__init__(mode, track_non_test_predictions)
-        self.history = SingleEpochHistory()
-
-    def _track_batch(self, predictions: ModelOutput, sample: TimitA2PSeqSampleBatch):
-        phoneme_error_rate, prediction_batch = self._calc_phoneme_error_rate(
-            sample, predictions
-        )
-        additional_metrics = {"phoneme_error_rate": phoneme_error_rate}
-        predictions.metrics.update(additional_metrics)
-
-        assert (
-            predictions.loss != None
-        ), "Loss is None. Make sure to set loss in ModelOutput"
-        self.history.add_batch_metric(
-            MetricEntry(predictions.metrics, predictions.loss.cpu().item()),
-            (
-                prediction_batch
-                if self.mode == "test" or self.track_non_test_predictions
-                else None
-            ),  # prevent 1GB history files
-        )
-
-    def evaluate(self) -> SingleEpochHistory:
-        return self.history
-
-    def _calc_phoneme_error_rate(
-        self, batch: TimitA2PSeqSampleBatch, predictions: ModelOutput
-    ):
-        pred = predictions.logits
-        total_edit_distance = 0
-        total_seq_length = 0
-        labels = []
-        predicted = []
-        for iterIdx in range(pred.shape[0]):
-            if batch.target is None:
-                continue
-            decodedSeq = torch.argmax(
-                torch.tensor(pred[iterIdx, :, :]),
-                dim=-1,
-            )  # [num_seq,]
-            decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
-            decodedSeq = decodedSeq.cpu().detach().numpy()
-            decodedSeq = np.array([i for i in decodedSeq if i != 0])
-            trueSeq = np.array(
-                [idx.item() for idx in batch.target[iterIdx].cpu() if idx >= 0]
-            )
-            # TODO: is this correct?
-            labels.append([PHONE_DEF_SIL[i - 1] for i in trueSeq])
-            predicted.append([PHONE_DEF_SIL[i - 1] for i in decodedSeq])
-            matcher = SequenceMatcher(a=trueSeq.tolist(), b=decodedSeq.tolist())
-            dist = matcher.distance()
-            if dist == None:
-                print(
-                    "[evaluate batch]: distance from sequence matcher is None, skipping."
-                )
-                continue
-            total_edit_distance += dist
-            total_seq_length += len(trueSeq)
-
-        decoded = TimitDecodedBatch(predicted, labels)
-        decoded.original_targets = batch.transcripts
-
-        return total_edit_distance / total_seq_length, decoded
 
 
 class B2PEvaluator(Evaluator):

@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 import torch
 from src.datasets.batch_types import SampleBatch
