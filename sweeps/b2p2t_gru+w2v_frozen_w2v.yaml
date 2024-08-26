@@ -1,6 +1,6 @@
 program: run.py
 method: grid
-name: b2p2t_gru+w2v__wcheckpoint
+name: b2p2t_gru+w2v__frozenw2v
 entity: machine-learning-hpi
 project: brain2text
 run_cap: 45
@@ -18,16 +18,14 @@ command:
   - --learning_rate=0.0001
   - --return_best_model=true
   - --encoder_learnable_inital_state=false
-  - --unfreeze_strategy=brain_encoder+w2v
+  - --unfreeze_strategy=brain_encoder
   - --weight_decay=0.0001
   - --encoder_dropout=0.45
   - --gaussian_smooth_width=1.5
-  - --w2v_learning_rate=0.00001
-  - --w2v_warmup_steps=3
-  - --w2v_warmup_start_step=7
   - --whiteNoiseSD=0.02
   - --constantOffsetSD=0.25
   - --w2v_skip_loading_weights=false
+  - --results_subdir_name=wcheckpoint_partialfinetuning
 metric:
   name: test_ctc_loss
   goal: minimize
