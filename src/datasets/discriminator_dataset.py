@@ -8,7 +8,7 @@ from src.model.b2p2t_model import (
     B2P2TModel,
     B2P2TModelArgsModel,
 )
-from src.model.b2p_suc import BrainEncoder, BrainEncoderArgsModel
+from src.model.b2p_suc import BrainFeatureExtractor, BrainFeatureExtractorArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
 from src.model.w2v_suc_ctc_model import (
     W2VSUC_CTCArgsModel,
@@ -28,10 +28,13 @@ from torch.utils.data import DataLoader
 
 class BrainEncoderWrapper(B2TModel):
     def __init__(
-        self, config: BrainEncoderArgsModel, wav2vec_checkpoint: str, in_size: int
+        self,
+        config: BrainFeatureExtractorArgsModel,
+        wav2vec_checkpoint: str,
+        in_size: int,
     ):
         super().__init__()
-        self.encoder = BrainEncoder(
+        self.encoder = BrainFeatureExtractor(
             config,
             in_size,
             wav2vec_checkpoint,
@@ -51,7 +54,9 @@ class DiscriminatorSample(NamedTuple):
 # Local: /hpi/fs00/scratch/tobias.fiedler/brain2text/experiment_results/b2p_suc/2024-07-29_07#16#02/model.pt
 
 
-class B2P2TBrainFeatureExtractorArgsModel(BrainEncoderArgsModel, B2P2TModelArgsModel):
+class B2P2TBrainFeatureExtractorArgsModel(
+    BrainFeatureExtractorArgsModel, B2P2TModelArgsModel
+):
     pass
 
 
