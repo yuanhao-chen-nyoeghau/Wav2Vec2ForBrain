@@ -1,6 +1,7 @@
 # Brain2Text
 This project was started in the context of Competitive Programming with Deep Learning Seminar at HPI. 
 We investigate if knowledge transfer from Wav2Vec2 (speech recognition from audio) to the task of brain to text decoding is possible.
+[arXiv preprint](https://arxiv.org/html/2501.09459v1)
 
 ## Setup
 1. Create conda env `conda env create -f environment.yaml`
