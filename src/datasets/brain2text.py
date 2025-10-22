@@ -1,33 +1,37 @@
-from typing import Any, Literal, Callable, Optional
 import os
-from scipy.io import loadmat
+import re
 from pathlib import Path
-import torch
+from typing import Any, Callable, Literal, Optional
+
 import numpy as np
-from src.datasets.batch_types import B2tSampleBatch
-from src.datasets.base_dataset import BaseDataset, Sample
-from src.args.yaml_config import YamlConfigModel
+import torch
+from scipy.io import loadmat
+from torch.nn.functional import pad
+from transformers import PreTrainedTokenizer
+
 from src.args.base_args import B2TDatasetArgsModel
+from src.args.yaml_config import YamlConfigModel
+from src.datasets.base_dataset import BaseDataset, Sample
+from src.datasets.batch_types import B2tSampleBatch
 from src.datasets.preprocessing import (
+    Area,
     preprocess_competition_recommended,
-    preprocess_seperate_zscoring,
     preprocess_only_spikepow_unnormalized,
     preprocess_only_spikepow_zscored,
     preprocess_only_tx_unnormalized,
     preprocess_only_tx_zscored,
+    preprocess_seperate_zscoring,
+    preprocess_seperate_zscoring_2channels,
     preprocess_seperate_zscoring_4channels,
     resample_sample,
-    preprocess_seperate_zscoring_2channels,
 )
-from transformers import PreTrainedTokenizer
-from torch.nn.functional import pad
-import re
 from src.util.nn_helper import calc_seq_len
-
 
 PreprocessingFunctions: dict[
     str,
-    Callable[[dict, list[np.ndarray[Any, np.dtype[np.int32]]]], tuple[list, list[str]]],
+    Callable[
+        [dict, list[np.ndarray[Any, np.dtype[np.int32]]], Area], tuple[list, list[str]]
+    ],
 ] = {
     "competition_recommended": preprocess_competition_recommended,
     "seperate_zscoring": preprocess_seperate_zscoring,
@@ -121,7 +125,7 @@ class Brain2TextDataset(BaseDataset):
                 sentIdx = sentIdx[:, 0].astype(np.int32)
                 blocks.append(sentIdx)
 
-            input_features, transcriptions = preprocess(data_file, blocks)
+            input_features, transcriptions = preprocess(data_file, blocks, config.area)
 
             assert len(input_features) == len(
                 transcriptions

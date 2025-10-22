@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 
 PRETRAINED_LATENT_SIZES = {
     "jonatasgrosman/wav2vec2-large-xlsr-53-english": 1024,
@@ -27,6 +28,7 @@ class B2TDatasetArgsModel(BaseModel):
     )
     sample_rate: int = 50
     remove_punctuation: bool = True
+    area: Literal["6v", "44"] = "6v"
 
 
 class CTCTextDatasetArgsModel(BaseModel):

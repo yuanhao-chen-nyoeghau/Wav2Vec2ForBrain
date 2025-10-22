@@ -49,15 +49,15 @@ dependencies:
   - comm=0.1.2=py311h06a4308_0
   - contourpy=1.2.0=py311h9547e67_0
   - cryptography=41.0.3=py311hdda0065_0
-  - cuda-cudart=11.8.89=0
-  - cuda-cupti=11.8.87=0
-  - cuda-libraries=11.8.0=0
-  - cuda-nvcc=12.4.131=0
-  - cuda-nvrtc=11.8.89=0
-  - cuda-nvtx=11.8.86=0
-  - cuda-opencl=12.3.101=0
-  - cuda-runtime=11.8.0=0
-  - cudatoolkit=11.4.1=h8ab8bb3_9
+  # - cuda-cudart=11.8.89=0
+  # - cuda-cupti=11.8.87=0
+  # - cuda-libraries=11.8.0=0
+  # - cuda-nvcc=12.4.131=0
+  # - cuda-nvrtc=11.8.89=0
+  # - cuda-nvtx=11.8.86=0
+  # - cuda-opencl=12.3.101=0
+  # - cuda-runtime=11.8.0=0
+  # - cudatoolkit=11.4.1=h8ab8bb3_9
   - cycler=0.12.1=pyhd8ed1ab_0
   - dataclasses=0.8=pyhc8e2a94_3
   - datasets=2.15.0=py_0
@@ -337,7 +337,7 @@ dependencies:
       - incremental==22.10.0
       - inflect==7.0.0
       - isodate==0.6.1
-      - kenlm==0.2.0
+      # - kenlm==0.2.0
       - language-tags==1.2.0
       - lxml==5.1.0
       - mamba-ssm==1.1.1

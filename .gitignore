@@ -1,4 +1,4 @@
-**/__pycache__
+__pycache__
 config.yaml
 test.ipynb
 brain2text.code-workspace
@@ -11,3 +11,4 @@ wandb/*
 speechBCI/**
 neural_seq_decoder/*
 temp/*
+.mypy_cache
