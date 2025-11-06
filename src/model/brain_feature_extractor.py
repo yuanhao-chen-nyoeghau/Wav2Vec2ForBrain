@@ -1,24 +1,25 @@
 from typing import Optional
-from pydantic import BaseModel
+
 import torch
-from src.datasets.batch_types import SampleBatch
+from pydantic import BaseModel, Field
+
+from src.args.base_args import PRETRAINED_LATENT_SIZES
+from src.datasets.batch_types import PhonemeSampleBatch, SampleBatch
 from src.model.b2p2t_model import B2P2TModel, B2P2TModelArgsModel
 from src.model.b2tmodel import B2TModel, ModelOutput
-from src.args.base_args import PRETRAINED_LATENT_SIZES
-from src.util.nn_helper import ACTIVATION_FUNCTION
-from src.datasets.batch_types import PhonemeSampleBatch
-from src.util.nn_helper import create_fully_connected
+from src.util.nn_helper import ACTIVATION_FUNCTION, create_fully_connected
 
 
 class BrainFeatureExtractorArgsModel(BaseModel):
-    encoder_gru_hidden_size: int = 256
+    encoder_rnn_hidden_size: int = Field(default=256, alias="encoder_gru_hidden_size")
     encoder_bidirectional: bool = True
-    encoder_num_gru_layers: int = 2
+    encoder_num_rnn_layers: int = Field(default=2, alias="encoder_num_gru_layers")
     encoder_bias: bool = True
     encoder_dropout: float = 0.0
     encoder_learnable_inital_state: bool = False
     encoder_fc_hidden_sizes: list[int] = []
     encoder_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
+    encoder_rnn_type: str = "gru"  # gru or lstm
 
 
 class BrainFeatureExtractor(torch.nn.Module):
@@ -28,26 +29,57 @@ class BrainFeatureExtractor(torch.nn.Module):
         super().__init__()
         self.config = config
         self.num_directions = 2 if config.encoder_bidirectional else 1
-        self.hidden_start = torch.nn.Parameter(
-            torch.randn(
-                self.num_directions * config.encoder_num_gru_layers,
-                config.encoder_gru_hidden_size,
-                requires_grad=True,
+        # Adjust hidden_start for LSTM (tuple of h and c) or GRU (single h)
+        if config.encoder_rnn_type == "lstm":
+            self.hidden_start = (
+                torch.nn.Parameter(
+                    torch.randn(
+                        self.num_directions * config.encoder_num_rnn_layers,
+                        config.encoder_rnn_hidden_size,
+                        requires_grad=True,
+                    )
+                ),
+                torch.nn.Parameter(
+                    torch.randn(
+                        self.num_directions * config.encoder_num_rnn_layers,
+                        config.encoder_rnn_hidden_size,
+                        requires_grad=True,
+                    )
+                ),
             )
-        )
+        else:
+            self.hidden_start = torch.nn.Parameter(
+                torch.randn(
+                    self.num_directions * config.encoder_num_rnn_layers,
+                    config.encoder_rnn_hidden_size,
+                    requires_grad=True,
+                )
+            )
 
-        self.gru = torch.nn.GRU(
-            in_size,
-            config.encoder_gru_hidden_size,
-            config.encoder_num_gru_layers,
-            dropout=config.encoder_dropout,
-            bias=config.encoder_bias,
-            bidirectional=config.encoder_bidirectional,
-            batch_first=True,
-        )
+        # Rename to self.rnn and conditionally create GRU or LSTM
+        if config.encoder_rnn_type == "lstm":
+            self.rnn = torch.nn.LSTM(
+                in_size,
+                config.encoder_rnn_hidden_size,
+                config.encoder_num_rnn_layers,
+                dropout=config.encoder_dropout,
+                bias=config.encoder_bias,
+                bidirectional=config.encoder_bidirectional,
+                batch_first=True,
+            )
+        else:
+            self.rnn = torch.nn.GRU(
+                in_size,
+                config.encoder_rnn_hidden_size,
+                config.encoder_num_rnn_layers,
+                dropout=config.encoder_dropout,
+                bias=config.encoder_bias,
+                bidirectional=config.encoder_bidirectional,
+                batch_first=True,
+            )
 
         self.fc = create_fully_connected(
-            config.encoder_gru_hidden_size * self.num_directions,
+            config.encoder_rnn_hidden_size * self.num_directions,
             PRETRAINED_LATENT_SIZES[wav2vec_checkpoint],
             config.encoder_fc_hidden_sizes,
             config.encoder_fc_activation_function,
@@ -58,11 +90,23 @@ class BrainFeatureExtractor(torch.nn.Module):
 
         batch_size = x.shape[0]
 
-        out, _ = (
-            self.gru(x, self.hidden_start.unsqueeze(1).repeat(1, batch_size, 1))
-            if self.config.encoder_learnable_inital_state
-            else self.gru(x)
-        )
+        # Adjust initial state based on RNN type
+        if self.config.encoder_rnn_type == "lstm":
+            initial_state = (
+                (
+                    self.hidden_start[0].unsqueeze(1).repeat(1, batch_size, 1),
+                    self.hidden_start[1].unsqueeze(1).repeat(1, batch_size, 1),
+                )
+                if self.config.encoder_learnable_inital_state
+                else None
+            )
+        else:
+            initial_state = (
+                self.hidden_start.unsqueeze(1).repeat(1, batch_size, 1)
+                if self.config.encoder_learnable_inital_state
+                else None
+            )
+        out, _ = self.rnn(x, initial_state)
 
         out = self.fc(out)
         return out
