@@ -16,7 +16,15 @@ class BrainFeatureExtractorArgsModel(BaseModel):
     encoder_num_rnn_layers: int = Field(default=2, alias="encoder_num_gru_layers")
     encoder_bias: bool = True
     encoder_dropout: float = 0.0
-    encoder_learnable_inital_state: bool = False
+    # encoder_learnable_inital_state: bool = False
+    encoder_learnable_initial_hidden_state: bool = Field(
+        default=False, alias="encoder_learnable_inital_state"
+    )
+    encoder_learnable_initial_cell_state: bool = False  # Only for LSTM
+    encoder_random_initial_hidden_state: bool = Field(
+        default=False, alias="encoder_random_inital_state"
+    )
+    encoder_random_initial_cell_state: bool = False  # Only for LSTM
     encoder_fc_hidden_sizes: list[int] = []
     encoder_fc_activation_function: ACTIVATION_FUNCTION = "gelu"
     encoder_rnn_type: str = "gru"  # gru or lstm
@@ -29,33 +37,46 @@ class BrainFeatureExtractor(torch.nn.Module):
         super().__init__()
         self.config = config
         self.num_directions = 2 if config.encoder_bidirectional else 1
-        # Adjust hidden_start for LSTM (tuple of h and c) or GRU (single h)
+
+        if config.encoder_rnn_type not in ["gru", "lstm"]:
+            raise ValueError(
+                f"Invalid encoder_rnn_type: {config.encoder_rnn_type}. Must be 'gru' or 'lstm'."
+            )
         if config.encoder_rnn_type == "lstm":
+            if config.encoder_random_initial_cell_state:
+                self.c_start = torch.nn.Parameter(
+                    torch.randn(
+                        self.num_directions * config.encoder_num_rnn_layers,
+                        config.encoder_rnn_hidden_size,
+                    ),
+                    requires_grad=config.encoder_learnable_initial_cell_state,
+                )
+            else:
+                self.c_start = torch.nn.Parameter(
+                    torch.zeros(
+                        self.num_directions * config.encoder_num_rnn_layers,
+                        config.encoder_rnn_hidden_size,
+                    ),
+                    requires_grad=config.encoder_learnable_initial_cell_state,
+                )
+        if config.encoder_random_initial_hidden_state:
             self.h_start = torch.nn.Parameter(
                 torch.randn(
                     self.num_directions * config.encoder_num_rnn_layers,
                     config.encoder_rnn_hidden_size,
-                    requires_grad=True,
-                )
-            )
-            self.c_start = torch.nn.Parameter(
-                torch.randn(
-                    self.num_directions * config.encoder_num_rnn_layers,
-                    config.encoder_rnn_hidden_size,
-                    requires_grad=True,
-                )
+                ),
+                requires_grad=config.encoder_learnable_initial_hidden_state,
             )
         else:
             self.h_start = torch.nn.Parameter(
-                torch.randn(
+                torch.zeros(
                     self.num_directions * config.encoder_num_rnn_layers,
                     config.encoder_rnn_hidden_size,
-                    requires_grad=True,
-                )
+                ),
+                requires_grad=config.encoder_learnable_initial_hidden_state,
             )
 
-        self.rnn: torch.nn.Module
-        # Rename to self.rnn and conditionally create GRU or LSTM
+        self.rnn: torch.nn.LSTM | torch.nn.GRU
         if config.encoder_rnn_type == "lstm":
             self.rnn = torch.nn.LSTM(
                 in_size,
@@ -89,23 +110,19 @@ class BrainFeatureExtractor(torch.nn.Module):
 
         batch_size = x.shape[0]
 
-        # Adjust initial state based on RNN type
         if self.config.encoder_rnn_type == "lstm":
-            initial_state = (
+            out, _ = self.rnn(
+                x,
                 (
                     self.h_start.unsqueeze(1).repeat(1, batch_size, 1),
                     self.c_start.unsqueeze(1).repeat(1, batch_size, 1),
-                )
-                if self.config.encoder_learnable_inital_state
-                else None
+                ),
             )
         else:
-            initial_state = (
-                self.h_start.unsqueeze(1).repeat(1, batch_size, 1)
-                if self.config.encoder_learnable_inital_state
-                else None
+            out, _ = self.rnn(
+                x,
+                self.h_start.unsqueeze(1).repeat(1, batch_size, 1),
             )
-        out, _ = self.rnn(x, initial_state)
 
         out = self.fc(out)
         return out
