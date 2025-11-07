@@ -31,24 +31,22 @@ class BrainFeatureExtractor(torch.nn.Module):
         self.num_directions = 2 if config.encoder_bidirectional else 1
         # Adjust hidden_start for LSTM (tuple of h and c) or GRU (single h)
         if config.encoder_rnn_type == "lstm":
-            self.hidden_start = (
-                torch.nn.Parameter(
-                    torch.randn(
-                        self.num_directions * config.encoder_num_rnn_layers,
-                        config.encoder_rnn_hidden_size,
-                        requires_grad=True,
-                    )
-                ),
-                torch.nn.Parameter(
-                    torch.randn(
-                        self.num_directions * config.encoder_num_rnn_layers,
-                        config.encoder_rnn_hidden_size,
-                        requires_grad=True,
-                    )
-                ),
+            self.h_start = torch.nn.Parameter(
+                torch.randn(
+                    self.num_directions * config.encoder_num_rnn_layers,
+                    config.encoder_rnn_hidden_size,
+                    requires_grad=True,
+                )
+            )
+            self.c_start = torch.nn.Parameter(
+                torch.randn(
+                    self.num_directions * config.encoder_num_rnn_layers,
+                    config.encoder_rnn_hidden_size,
+                    requires_grad=True,
+                )
             )
         else:
-            self.hidden_start = torch.nn.Parameter(
+            self.h_start = torch.nn.Parameter(
                 torch.randn(
                     self.num_directions * config.encoder_num_rnn_layers,
                     config.encoder_rnn_hidden_size,
@@ -56,6 +54,7 @@ class BrainFeatureExtractor(torch.nn.Module):
                 )
             )
 
+        self.rnn: torch.nn.Module
         # Rename to self.rnn and conditionally create GRU or LSTM
         if config.encoder_rnn_type == "lstm":
             self.rnn = torch.nn.LSTM(
@@ -94,15 +93,15 @@ class BrainFeatureExtractor(torch.nn.Module):
         if self.config.encoder_rnn_type == "lstm":
             initial_state = (
                 (
-                    self.hidden_start[0].unsqueeze(1).repeat(1, batch_size, 1),
-                    self.hidden_start[1].unsqueeze(1).repeat(1, batch_size, 1),
+                    self.h_start.unsqueeze(1).repeat(1, batch_size, 1),
+                    self.c_start.unsqueeze(1).repeat(1, batch_size, 1),
                 )
                 if self.config.encoder_learnable_inital_state
                 else None
             )
         else:
             initial_state = (
-                self.hidden_start.unsqueeze(1).repeat(1, batch_size, 1)
+                self.h_start.unsqueeze(1).repeat(1, batch_size, 1)
                 if self.config.encoder_learnable_inital_state
                 else None
             )

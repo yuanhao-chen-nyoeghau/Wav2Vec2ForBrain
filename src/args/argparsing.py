@@ -56,9 +56,14 @@ def _parser_from_model(parser: argparse.ArgumentParser, model: Type[BaseModel]):
                 return {"type": str_to_list}
             return {"type": field.type_}
 
+        # Collect argument names: field name and alias (if present)
+        arg_names = [f"--{name}"]
+        if hasattr(field, "alias") and field.alias:
+            arg_names.append(f"--{field.alias}")
+
         parser.add_argument(
-            f"--{name}",
-            dest=name,
+            *arg_names,  # Unpack the list of names
+            dest=name,  # Use field name as dest for consistency
             default=field.default,
             help=field.field_info.description,
             **get_type_args(),
